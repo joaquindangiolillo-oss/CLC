@@ -778,6 +778,14 @@ document.getElementById('btn-guardar-auditoria').addEventListener('click', () =>
   alert(msg);
 });
 
+// ── Botones ✕ para cerrar modales ────────────────────────────────────────────
+document.getElementById('btn-cerrar-venta').addEventListener('click', () => {
+  modalVenta.classList.add('hidden');
+});
+document.getElementById('btn-cerrar-editar').addEventListener('click', () => {
+  modalEditar.classList.add('hidden');
+});
+
 // ── Cerrar modales al click afuera ────────────────────────────────────────────
 [modalVenta, document.getElementById('modal-historial'), modalEditar].forEach(modal => {
   modal.addEventListener('click', e => {
