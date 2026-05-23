@@ -346,6 +346,24 @@ form select:focus, form input:focus { outline: 2px solid var(--acento); border-c
 .btn-hist-edit:hover { background: rgba(52,152,219,0.15); }
 .btn-hist-del:hover  { background: rgba(231,76,60,0.15); }
 
+/* LOG DE MODIFICACIONES */
+.ediciones-log {
+  padding: 0.3rem 0.5rem 0.6rem 1.5rem;
+  border-bottom: 1px solid var(--borde);
+}
+.edicion-entrada {
+  font-size: 0.75rem;
+  color: var(--texto-tenue);
+  padding: 0.2rem 0;
+  line-height: 1.4;
+  border-left: 2px solid #444;
+  padding-left: 0.6rem;
+  margin-top: 0.2rem;
+}
+.historial-item.tiene-ediciones {
+  border-bottom: none;
+}
+
 .editar-desc {
   font-size: 0.85rem; color: var(--texto-tenue);
   margin-bottom: 1rem; padding: 0.5rem 0.75rem;
