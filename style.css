@@ -370,6 +370,88 @@ form select:focus, form input:focus { outline: 2px solid var(--acento); border-c
   background: #111; border-radius: 8px; line-height: 1.4;
 }
 
+/* CARD RECAUDADO CLICKEABLE */
+.total-item--clickable {
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.1s;
+}
+.total-item--clickable:hover  { border-color: var(--verde); }
+.total-item--clickable:active { transform: scale(0.97); }
+
+/* TAB VENTAS */
+.ventas-resumen-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.vcard {
+  background: var(--fondo-card);
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+  text-align: center;
+}
+.vcard-label { display: block; font-size: 0.75rem; color: var(--texto-tenue); margin-bottom: 0.3rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.vcard-valor { font-size: 1.25rem; font-weight: 700; }
+.vcard--total    { grid-column: 1 / -1; border-color: rgba(39,174,96,0.3); }
+.vcard--total .vcard-valor    { color: var(--verde); font-size: 1.6rem; }
+.vcard--efectivo .vcard-valor { color: #2ecc71; }
+.vcard--transf .vcard-valor   { color: #5dade2; }
+.vcard--regalo .vcard-valor   { color: #c39bd3; }
+
+/* FILTROS */
+.ventas-filtros {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+.filtro-btn {
+  background: var(--fondo-card);
+  border: 1px solid var(--borde);
+  border-radius: 20px;
+  color: var(--texto-tenue);
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 0.4rem 1rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  min-height: 36px;
+}
+.filtro-btn:hover  { color: var(--texto); }
+.filtro-btn.active { background: var(--acento); border-color: var(--acento); color: #fff; }
+
+/* LISTA VENTAS */
+#ventas-lista { font-size: 0.9rem; }
+
+.venta-item {
+  border-bottom: 1px solid var(--borde);
+  padding: 0.6rem 0.25rem;
+}
+.venta-item:last-child { border-bottom: none; }
+.venta-item.tiene-ediciones { border-bottom: none; }
+
+.venta-item-main {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto auto;
+  align-items: center;
+  gap: 0.4rem 0.6rem;
+}
+.venta-desc    { font-size: 0.88rem; }
+.venta-cant    { color: var(--acento); font-weight: 700; white-space: nowrap; }
+.venta-ingreso { color: var(--verde);  font-weight: 700; white-space: nowrap; }
+
+.venta-item-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 0.2rem;
+  padding-left: 0.05rem;
+}
+.venta-precio-unit { color: var(--texto-tenue); font-size: 0.75rem; }
+
 /* AUDITORÍA */
 .auditoria-header {
   display: flex; align-items: center; justify-content: space-between;

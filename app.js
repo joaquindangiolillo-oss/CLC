@@ -86,16 +86,22 @@ let estado   = cargarEstado();
 let historial = cargarHistorial();
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
-document.querySelectorAll('.tab-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const tab = btn.dataset.tab;
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
-    document.getElementById('tab-' + tab).classList.remove('hidden');
-    if (tab === 'auditoria') renderAuditoria();
+function irATab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.tab === tab);
   });
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+  document.getElementById('tab-' + tab).classList.remove('hidden');
+  if (tab === 'auditoria') renderAuditoria();
+  if (tab === 'ventas')    renderVentas();
+}
+
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => irATab(btn.dataset.tab));
 });
+
+// Card "Recaudado" lleva directo a Ventas
+document.getElementById('card-recaudado').addEventListener('click', () => irATab('ventas'));
 
 // ── Render Stock ──────────────────────────────────────────────────────────────
 function claseStock(n) {
@@ -168,7 +174,72 @@ function renderTodo() {
   renderTotes();
   renderNinos();
   renderRecaudado();
+  // Refrescar ventas si la pestaña está activa
+  if (!document.getElementById('tab-ventas').classList.contains('hidden')) renderVentas();
 }
+
+// ── Tab Ventas ────────────────────────────────────────────────────────────────
+let filtroVentas = 'todos';
+
+function renderVentas() {
+  const totalRec  = historial.reduce((s, h) => s + (h.ingreso ?? 0), 0);
+  const totalEfec = historial.reduce((s, h) => s + (h.pago === 'efectivo'      ? (h.ingreso ?? 0) : 0), 0);
+  const totalTrans = historial.reduce((s, h) => s + (h.pago === 'transferencia' ? (h.ingreso ?? 0) : 0), 0);
+  const totalRegU  = historial.reduce((s, h) => h.pago === 'regalo' ? s + h.cantidad : s, 0);
+
+  document.getElementById('v-total').textContent    = formatPeso(totalRec);
+  document.getElementById('v-efectivo').textContent = formatPeso(totalEfec);
+  document.getElementById('v-transf').textContent   = formatPeso(totalTrans);
+  document.getElementById('v-regalos').textContent  = `${totalRegU} u.`;
+
+  const filtrados = filtroVentas === 'todos'
+    ? historial
+    : historial.filter(h => h.pago === filtroVentas);
+
+  const lista = document.getElementById('ventas-lista');
+
+  if (filtrados.length === 0) {
+    lista.innerHTML = '<p class="historial-vacio">Sin ventas registradas.</p>';
+    return;
+  }
+
+  lista.innerHTML = filtrados.map(h => {
+    const pagoLabel = h.pago === 'transferencia' ? 'Transf.' : h.pago === 'regalo' ? '🎁 Regalo' : 'Efect.';
+    const edicionesHtml = h._ediciones?.length
+      ? `<div class="ediciones-log">${h._ediciones.map(e =>
+          `<div class="edicion-entrada">📝 ${e.fecha}: ${e.detalle}</div>`
+        ).join('')}</div>`
+      : '';
+    return `
+    <div class="venta-item${h._ediciones?.length ? ' tiene-ediciones' : ''}">
+      <div class="venta-item-main">
+        <span class="venta-desc">${h.descripcion}</span>
+        <span class="venta-cant">-${h.cantidad}</span>
+        <span class="venta-ingreso">${h.ingreso ? formatPeso(h.ingreso) : '—'}</span>
+        <span class="hist-pago hist-pago--${h.pago ?? 'efectivo'}">${pagoLabel}</span>
+        <span class="hist-acciones">
+          <button class="btn-hist-edit" onclick="abrirEditar(${h.id})" title="Editar">✏️</button>
+          <button class="btn-hist-del"  onclick="eliminarRegistro(${h.id})" title="Eliminar">🗑️</button>
+        </span>
+      </div>
+      <div class="venta-item-meta">
+        <span class="venta-precio-unit">${h.precioUnit ? formatPeso(h.precioUnit) + ' c/u' : ''}</span>
+        <span class="hist-fecha">${h.fecha}</span>
+      </div>
+      ${edicionesHtml}
+    </div>`;
+  }).join('');
+}
+
+// Filtros de la pestaña Ventas
+document.querySelectorAll('.filtro-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.filtro-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    filtroVentas = btn.dataset.filtro;
+    renderVentas();
+  });
+});
 
 // ── Modal Venta ───────────────────────────────────────────────────────────────
 const modalVenta       = document.getElementById('modal-venta');
