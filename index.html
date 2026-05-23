@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Stock - Cayo la Cabra</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <h1>🐐 Cayo la Cabra — Control de Stock</h1>
+    <div class="header-actions">
+      <button id="btn-venta" class="btn-primary">Registrar Venta</button>
+      <button id="btn-historial" class="btn-secondary">Ver Historial</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- Totales generales -->
+    <section class="totales-card">
+      <div class="total-item">
+        <span class="total-label">Total remeras</span>
+        <span class="total-valor" id="total-remeras">0</span>
+      </div>
+      <div class="total-item">
+        <span class="total-label">Tote bags</span>
+        <span class="total-valor" id="total-totes">0</span>
+      </div>
+      <div class="total-item">
+        <span class="total-label">Remeras niñx</span>
+        <span class="total-valor" id="total-ninos">0</span>
+      </div>
+    </section>
+
+    <!-- Remeras adulto -->
+    <section class="seccion">
+      <h2>Remeras Adulto</h2>
+      <div class="tabla-container">
+        <table id="tabla-adultos">
+          <thead>
+            <tr>
+              <th>Talle</th>
+              <th>Vereda Roja</th>
+              <th>Vereda Negra</th>
+              <th>Reposera Roja</th>
+              <th>Reposera Negra</th>
+              <th>Blanca</th>
+              <th>Subtotal</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-adultos"></tbody>
+          <tfoot id="tfoot-adultos"></tfoot>
+        </table>
+      </div>
+    </section>
+
+    <!-- Tote Bags -->
+    <section class="seccion">
+      <h2>Tote Bags</h2>
+      <div class="tabla-container">
+        <table id="tabla-totes">
+          <thead>
+            <tr>
+              <th>Producto</th>
+              <th>Cantidad</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-totes"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Remeras Niñx -->
+    <section class="seccion">
+      <h2>Remeras Niñx — Silla Roja</h2>
+      <div class="tabla-container">
+        <table id="tabla-ninos">
+          <thead>
+            <tr>
+              <th>Talle</th>
+              <th>Cantidad</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-ninos"></tbody>
+          <tfoot id="tfoot-ninos"></tfoot>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <!-- Modal Venta -->
+  <div id="modal-venta" class="modal hidden">
+    <div class="modal-content">
+      <h2>Registrar Venta</h2>
+      <form id="form-venta">
+        <label>Categoría
+          <select id="venta-categoria" required>
+            <option value="">— Elegir —</option>
+            <option value="adulto">Remera Adulto</option>
+            <option value="nino">Remera Niñx</option>
+            <option value="tote">Tote Bag</option>
+          </select>
+        </label>
+
+        <div id="campos-adulto" class="campos hidden">
+          <label>Talle
+            <select id="venta-talle-adulto">
+              <option value="S">S</option>
+              <option value="M">M</option>
+              <option value="L">L</option>
+              <option value="XL">XL</option>
+              <option value="XXL">XXL</option>
+            </select>
+          </label>
+          <label>Diseño / Color
+            <select id="venta-variante-adulto">
+              <option value="veredaRoja">Vereda Roja</option>
+              <option value="veredaNegra">Vereda Negra</option>
+              <option value="reposeraRoja">Reposera Roja</option>
+              <option value="reposeraNegra">Reposera Negra</option>
+              <option value="blanca">Blanca</option>
+            </select>
+          </label>
+        </div>
+
+        <div id="campos-nino" class="campos hidden">
+          <label>Talle
+            <select id="venta-talle-nino">
+              <option value="2">2</option>
+              <option value="4">4</option>
+              <option value="6">6</option>
+              <option value="8">8</option>
+              <option value="10">10</option>
+              <option value="12">12</option>
+              <option value="16">16</option>
+            </select>
+          </label>
+        </div>
+
+        <div id="campos-tote" class="campos hidden">
+          <label>Modelo
+            <select id="venta-tote">
+              <option value="silla">Silla</option>
+              <option value="vereda">Vereda</option>
+            </select>
+          </label>
+        </div>
+
+        <label>Cantidad
+          <input type="number" id="venta-cantidad" min="1" value="1" required />
+        </label>
+
+        <p id="venta-disponible" class="disponible"></p>
+        <p id="venta-error" class="error hidden"></p>
+
+        <div class="modal-actions">
+          <button type="submit" class="btn-primary">Confirmar</button>
+          <button type="button" id="btn-cancelar-venta" class="btn-secondary">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Historial -->
+  <div id="modal-historial" class="modal hidden">
+    <div class="modal-content modal-wide">
+      <h2>Historial de Ventas</h2>
+      <div id="lista-historial"></div>
+      <div class="modal-actions">
+        <button id="btn-cerrar-historial" class="btn-secondary">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
