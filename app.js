@@ -268,12 +268,13 @@ document.getElementById('form-venta').addEventListener('submit', e => {
   }
 
   const pago = document.querySelector('input[name="pago"]:checked').value;
+  const ingreso = pago === 'regalo' ? 0 : precio * cant;
 
   historial.unshift({
     fecha: new Date().toLocaleString('es-AR'),
     descripcion,
     cantidad: cant,
-    ingreso: precio * cant,
+    ingreso,
     pago,
   });
 
@@ -316,14 +317,16 @@ document.getElementById('btn-historial').addEventListener('click', () => {
     return;
   }
 
-  const totalEfectivo     = historial.reduce((s, h) => s + (h.pago === 'efectivo'     ? (h.ingreso ?? 0) : 0), 0);
+  const totalEfectivo      = historial.reduce((s, h) => s + (h.pago === 'efectivo'     ? (h.ingreso ?? 0) : 0), 0);
   const totalTransferencia = historial.reduce((s, h) => s + (h.pago === 'transferencia' ? (h.ingreso ?? 0) : 0), 0);
+  const totalRegalosUnid   = historial.reduce((s, h) => s + (h.pago === 'regalo' ? h.cantidad : 0), 0);
 
   lblTotal.innerHTML = `
-    <span>Total vendido: <strong>${totalUnidades} u.</strong></span>
+    <span>Vendido: <strong>${totalUnidades} u.</strong></span>
     <span>Efectivo: <strong>${formatPeso(totalEfectivo)}</strong></span>
     <span>Transf.: <strong>${formatPeso(totalTransferencia)}</strong></span>
     <span>Total: <strong>${formatPeso(totalRecaudado)}</strong></span>
+    ${totalRegalosUnid > 0 ? `<span class="hist-regalo-resumen">🎁 Regalos: <strong>${totalRegalosUnid} u.</strong></span>` : ''}
   `;
 
   const resumen = buildResumen();
@@ -349,7 +352,7 @@ document.getElementById('btn-historial').addEventListener('click', () => {
       <span class="hist-desc">${h.descripcion}</span>
       <span class="hist-cant">-${h.cantidad}</span>
       <span class="hist-ingreso">${h.ingreso ? formatPeso(h.ingreso) : ''}</span>
-      <span class="hist-pago hist-pago--${h.pago ?? 'efectivo'}">${h.pago === 'transferencia' ? 'Transf.' : 'Efect.'}</span>
+      <span class="hist-pago hist-pago--${h.pago ?? 'efectivo'}">${h.pago === 'transferencia' ? 'Transf.' : h.pago === 'regalo' ? '🎁 Regalo' : 'Efect.'}</span>
       <span class="hist-fecha">${h.fecha}</span>
     </div>`).join('');
 

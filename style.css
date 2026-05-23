@@ -183,7 +183,7 @@ form select:focus, form input:focus { outline: 2px solid var(--acento); border-c
 .campos { margin-top: 0; }
 .campos.hidden { display: none; }
 
-.pago-opciones { display: flex; gap: 0.75rem; margin-top: 0.25rem; }
+.pago-opciones { display: flex; gap: 0.5rem; margin-top: 0.25rem; flex-wrap: wrap; }
 .pago-opcion { display: flex; flex-direction: row; align-items: center; gap: 0.4rem; cursor: pointer; font-size: 0.95rem; color: var(--texto); text-transform: none; letter-spacing: 0; padding: 0.45rem 0.9rem; border: 1px solid var(--borde); border-radius: 6px; flex: 1; justify-content: center; }
 .pago-opcion input[type="radio"] { accent-color: var(--acento); width: 1rem; height: 1rem; }
 .pago-opcion:has(input:checked) { border-color: var(--acento); background: rgba(231,76,60,0.08); }
@@ -220,6 +220,8 @@ form select:focus, form input:focus { outline: 2px solid var(--acento); border-c
 .hist-pago { font-size: 0.72rem; font-weight: 700; padding: 0.15rem 0.45rem; border-radius: 4px; white-space: nowrap; }
 .hist-pago--efectivo { background: rgba(39,174,96,0.15); color: #2ecc71; }
 .hist-pago--transferencia { background: rgba(52,152,219,0.15); color: #5dade2; }
+.hist-pago--regalo { background: rgba(155,89,182,0.15); color: #c39bd3; }
+.hist-regalo-resumen { color: #c39bd3; }
 .hist-fecha { color: var(--texto-tenue); font-size: 0.78rem; white-space: nowrap; }
 .hist-total-label { color: var(--verde); font-weight: 700; font-size: 0.88rem; margin-bottom: 1.25rem; padding: 0.6rem 1rem; background: rgba(39,174,96,0.08); border-radius: 8px; display: flex; justify-content: space-between; gap: 0.5rem 1rem; flex-wrap: wrap; }
 
