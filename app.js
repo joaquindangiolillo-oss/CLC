@@ -15,7 +15,7 @@ const STOCK_INICIAL = {
 const VARIANTES = ['veredaRoja', 'veredaNegra', 'reposeraRoja', 'reposeraNegra', 'blanca'];
 const TALLES_ADULTO = ['S', 'M', 'L', 'XL', 'XXL'];
 const TALLES_NINO = [2, 4, 6, 8, 10, 12, 16];
-const PRECIOS = { remera: 30000, tote: 20000 };
+const PRECIOS = { remera: 25000, tote: 16000 };
 
 const LABEL_VARIANTE = {
   veredaRoja: 'Vereda Roja', veredaNegra: 'Vereda Negra',
