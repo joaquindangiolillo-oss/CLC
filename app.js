@@ -108,7 +108,7 @@ let estado   = cargarEstado();
 let historial = cargarHistorial();
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
-function irATab(tab) {
+window.irATab = function(tab) {
   document.querySelectorAll('.tab-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.tab === tab);
   });
@@ -116,14 +116,11 @@ function irATab(tab) {
   document.getElementById('tab-' + tab).classList.remove('hidden');
   if (tab === 'auditoria') renderAuditoria();
   if (tab === 'ventas')    renderVentas();
-}
+};
 
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => irATab(btn.dataset.tab));
 });
-
-// Card "Recaudado" lleva directo a Ventas
-document.getElementById('card-recaudado').addEventListener('click', () => irATab('ventas'));
 
 // ── Render Stock ──────────────────────────────────────────────────────────────
 function claseStock(n) {
