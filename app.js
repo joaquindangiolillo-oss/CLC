@@ -47,9 +47,33 @@ function cargarEstado() {
 function cargarHistorial() {
   try {
     const raw = localStorage.getItem('cayo_historial');
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const arr = JSON.parse(raw);
+      // Asignar id a entradas viejas que no lo tienen
+      let changed = false;
+      arr.forEach(h => { if (!h.id) { h.id = Date.now() + Math.random(); changed = true; } });
+      if (changed) localStorage.setItem('cayo_historial', JSON.stringify(arr));
+      return arr;
+    }
   } catch (_) {}
   return [];
+}
+
+// Infiere qué stock restaurar a partir de la descripción (para entradas viejas sin _stock)
+function inferirStock(h) {
+  const d = h.descripcion;
+  const ninoM = d.match(/Remera Ni[ñn]x .+ talle (\d+)/);
+  if (ninoM) return { tipo: 'nino', talle: ninoM[1] };
+  if (d === 'Tote Bag Reposera') return { tipo: 'tote', modelo: 'silla' };
+  if (d === 'Tote Bag Vereda')   return { tipo: 'tote', modelo: 'vereda' };
+  const adM = d.match(/Remera (.+) talle ([A-Z]+)$/);
+  if (adM) {
+    const talle = adM[2];
+    const nombreVariante = adM[1].trim();
+    const variante = Object.entries(LABEL_VARIANTE).find(([, v]) => v === nombreVariante)?.[0];
+    if (variante && estado.adultos[talle]) return { tipo: 'adulto', talle, variante };
+  }
+  return null;
 }
 
 function guardar() {
@@ -361,10 +385,10 @@ document.getElementById('btn-historial').addEventListener('click', () => {
       <span class="hist-ingreso">${h.ingreso ? formatPeso(h.ingreso) : ''}</span>
       <span class="hist-pago hist-pago--${h.pago ?? 'efectivo'}">${h.pago === 'transferencia' ? 'Transf.' : h.pago === 'regalo' ? '🎁 Regalo' : 'Efect.'}</span>
       <span class="hist-fecha">${h.fecha}</span>
-      ${h.id ? `<span class="hist-acciones">
-        <button class="btn-hist-edit" onclick="abrirEditar(${h.id})" title="Editar">✏️</button>
-        <button class="btn-hist-del"  onclick="eliminarRegistro(${h.id})" title="Eliminar">🗑️</button>
-      </span>` : ''}
+      <span class="hist-acciones">
+        <button class="btn-hist-edit" onclick="abrirEditar(${h.id})" title="Editar método de pago">✏️</button>
+        <button class="btn-hist-del"  onclick="eliminarRegistro(${h.id})" title="Eliminar y devolver stock">🗑️</button>
+      </span>
     </div>`).join('');
 
   contenedor.innerHTML = `
@@ -423,9 +447,10 @@ window.eliminarRegistro = function(id) {
   const nombre = `${h.descripcion} (${h.cantidad} u.)`;
   if (!confirm(`¿Eliminar este registro y devolver el stock?\n\n${nombre}`)) return;
 
-  // Restaurar stock
-  if (h._stock) {
-    const { tipo, talle, variante, modelo } = h._stock;
+  // Restaurar stock (usa _stock guardado o infiere desde descripción)
+  const ref = h._stock || inferirStock(h);
+  if (ref) {
+    const { tipo, talle, variante, modelo } = ref;
     if (tipo === 'adulto') estado.adultos[talle][variante] += h.cantidad;
     else if (tipo === 'nino') estado.ninos[talle] = (estado.ninos[talle] ?? 0) + h.cantidad;
     else if (tipo === 'tote') estado.totes[modelo] += h.cantidad;
