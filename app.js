@@ -376,8 +376,14 @@ function abrirHistorial() {
         </div>`;
     }).join('');
 
-  const detalle = historial.map(h => `
-    <div class="historial-item">
+  const detalle = historial.map(h => {
+    const edicionesHtml = h._ediciones?.length
+      ? `<div class="ediciones-log">${h._ediciones.map(e =>
+          `<div class="edicion-entrada">📝 ${e.fecha}: ${e.detalle}</div>`
+        ).join('')}</div>`
+      : '';
+    return `
+    <div class="historial-item${h._ediciones?.length ? ' tiene-ediciones' : ''}">
       <span class="hist-desc">${h.descripcion}</span>
       <span class="hist-cant">-${h.cantidad}</span>
       <span class="hist-ingreso">${h.ingreso ? formatPeso(h.ingreso) : ''}</span>
@@ -387,7 +393,8 @@ function abrirHistorial() {
         <button class="btn-hist-edit" onclick="abrirEditar(${h.id})" title="Editar registro">✏️</button>
         <button class="btn-hist-del"  onclick="eliminarRegistro(${h.id})" title="Eliminar y devolver stock">🗑️</button>
       </span>
-    </div>`).join('');
+    </div>${edicionesHtml}`;
+  }).join('');
 
   contenedor.innerHTML = `
     <div class="resumen-section">
@@ -409,7 +416,6 @@ document.getElementById('btn-cerrar-historial').addEventListener('click', () => 
 
 // ── Editar registro (full edit) ───────────────────────────────────────────────
 let editandoId = null;
-let editandoPrecioUnit = 0;   // precio original del registro que se está editando
 const modalEditar = document.getElementById('modal-editar');
 
 const selEditCategoria   = document.getElementById('editar-categoria');
@@ -421,6 +427,7 @@ const selEditVariante    = document.getElementById('editar-variante-adulto');
 const selEditTalleNino   = document.getElementById('editar-talle-nino');
 const selEditTote        = document.getElementById('editar-tote');
 const inputEditCantidad  = document.getElementById('editar-cantidad');
+const inputEditPrecio    = document.getElementById('editar-precio');
 
 function ocultarCamposEditar() {
   [editCamposAdulto, editCamposNino, editCamposTote].forEach(c => c.classList.add('hidden'));
@@ -435,9 +442,9 @@ function mostrarCamposEditar(cat) {
 
 function actualizarResumenEditar() {
   const cant  = parseInt(inputEditCantidad.value, 10) || 1;
-  const precio = editandoPrecioUnit;   // siempre el precio original de la venta
+  const precio = parseInt(inputEditPrecio.value, 10) || 0;
   const pago  = document.querySelector('input[name="editar-pago"]:checked')?.value;
-  document.getElementById('editar-precio-unit').textContent  = precio ? `Precio original: ${formatPeso(precio)} c/u` : '';
+  document.getElementById('editar-precio-unit').textContent  = precio ? `Precio: ${formatPeso(precio)} c/u` : '';
   document.getElementById('editar-total-venta').textContent  = precio && pago !== 'regalo' ? `Total: ${formatPeso(precio * cant)}` : pago === 'regalo' ? '🎁 Regalo' : '';
 }
 
@@ -445,10 +452,11 @@ selEditCategoria.addEventListener('change', () => {
   mostrarCamposEditar(selEditCategoria.value);
   actualizarResumenEditar();
 });
-[selEditTalleAdulto, selEditVariante, selEditTalleNino, selEditTote, inputEditCantidad].forEach(el =>
+[selEditTalleAdulto, selEditVariante, selEditTalleNino, selEditTote, inputEditCantidad, inputEditPrecio].forEach(el =>
   el.addEventListener('change', actualizarResumenEditar)
 );
 inputEditCantidad.addEventListener('input', actualizarResumenEditar);
+inputEditPrecio.addEventListener('input', actualizarResumenEditar);
 document.querySelectorAll('input[name="editar-pago"]').forEach(r =>
   r.addEventListener('change', actualizarResumenEditar)
 );
@@ -457,7 +465,6 @@ window.abrirEditar = function(id) {
   const h = historial.find(x => x.id === id);
   if (!h) return;
   editandoId = id;
-  editandoPrecioUnit = h.precioUnit ?? 0;   // guardar precio original
 
   document.getElementById('editar-info').textContent =
     `${h.descripcion} — ${h.cantidad} u. — ${h.fecha}`;
@@ -482,6 +489,7 @@ window.abrirEditar = function(id) {
   selEditTalleNino.value   = talleNino;
   selEditTote.value        = modelo;
   inputEditCantidad.value  = h.cantidad;
+  inputEditPrecio.value    = h.precioUnit ?? '';
 
   document.querySelectorAll('input[name="editar-pago"]').forEach(r => {
     r.checked = r.value === (h.pago ?? 'efectivo');
@@ -498,11 +506,16 @@ document.getElementById('btn-confirmar-editar').addEventListener('click', () => 
   const errEl = document.getElementById('editar-error');
   errEl.classList.add('hidden');
 
-  const nuevaCat  = selEditCategoria.value;
-  const nuevaCant = parseInt(inputEditCantidad.value, 10);
+  const nuevaCat   = selEditCategoria.value;
+  const nuevaCant  = parseInt(inputEditCantidad.value, 10);
+  const nuevoPrecioInput = parseInt(inputEditPrecio.value, 10);
   if (!nuevaCat || isNaN(nuevaCant) || nuevaCant < 1) return;
 
   const nuevoPago = document.querySelector('input[name="editar-pago"]:checked').value;
+  // Precio: usa el del input si es válido, si no conserva el original
+  const nuevoPrecio = (!isNaN(nuevoPrecioInput) && nuevoPrecioInput >= 0)
+    ? nuevoPrecioInput
+    : (h.precioUnit ?? 0);
 
   // 1. Restaurar stock anterior
   const refViejo = h._stock || inferirStock(h);
@@ -515,15 +528,13 @@ document.getElementById('btn-confirmar-editar').addEventListener('click', () => 
 
   // 2. Calcular nuevo _stock y descripción
   let nuevaDesc = '';
-  let nuevoPrecio = 0;
   let nuevo_stock;
 
   if (nuevaCat === 'adulto') {
-    const talle   = selEditTalleAdulto.value;
+    const talle    = selEditTalleAdulto.value;
     const variante = selEditVariante.value;
-    const disp    = estado.adultos[talle]?.[variante] ?? 0;
+    const disp     = estado.adultos[talle]?.[variante] ?? 0;
     if (nuevaCant > disp) {
-      // revertir restauración
       if (refViejo) {
         const { tipo, talle: t, variante: v, modelo: m } = refViejo;
         if (tipo === 'adulto') estado.adultos[t][v] -= h.cantidad;
@@ -536,7 +547,6 @@ document.getElementById('btn-confirmar-editar').addEventListener('click', () => 
     }
     estado.adultos[talle][variante] -= nuevaCant;
     nuevaDesc   = `Remera ${LABEL_VARIANTE[variante]} talle ${talle}`;
-    nuevoPrecio = h.precioUnit ?? PRECIOS.remera;   // conservar precio original
     nuevo_stock = { tipo: 'adulto', talle, variante };
 
   } else if (nuevaCat === 'nino') {
@@ -555,7 +565,6 @@ document.getElementById('btn-confirmar-editar').addEventListener('click', () => 
     }
     estado.ninos[talle] -= nuevaCant;
     nuevaDesc   = `Remera Niñx Reposera Roja talle ${talle}`;
-    nuevoPrecio = h.precioUnit ?? PRECIOS.remera;   // conservar precio original
     nuevo_stock = { tipo: 'nino', talle };
 
   } else if (nuevaCat === 'tote') {
@@ -574,11 +583,25 @@ document.getElementById('btn-confirmar-editar').addEventListener('click', () => 
     }
     estado.totes[modelo] -= nuevaCant;
     nuevaDesc   = `Tote Bag ${modelo === 'silla' ? 'Reposera' : 'Vereda'}`;
-    nuevoPrecio = h.precioUnit ?? PRECIOS.tote;   // conservar precio original
     nuevo_stock = { tipo: 'tote', modelo };
   }
 
-  // 3. Actualizar entrada del historial
+  // 3. Registrar modificaciones
+  const cambios = [];
+  if (h.descripcion !== nuevaDesc)
+    cambios.push(`Producto: "${h.descripcion}" → "${nuevaDesc}"`);
+  if (h.cantidad !== nuevaCant)
+    cambios.push(`Cantidad: ${h.cantidad} → ${nuevaCant}`);
+  if ((h.precioUnit ?? 0) !== nuevoPrecio)
+    cambios.push(`Precio: ${formatPeso(h.precioUnit ?? 0)} → ${formatPeso(nuevoPrecio)}`);
+  if ((h.pago ?? 'efectivo') !== nuevoPago)
+    cambios.push(`Pago: ${h.pago ?? 'efectivo'} → ${nuevoPago}`);
+  if (cambios.length > 0) {
+    h._ediciones = h._ediciones || [];
+    h._ediciones.push({ fecha: new Date().toLocaleString('es-AR'), detalle: cambios.join(' | ') });
+  }
+
+  // 4. Actualizar entrada del historial
   h.descripcion = nuevaDesc;
   h.cantidad    = nuevaCant;
   h.pago        = nuevoPago;
