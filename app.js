@@ -17,6 +17,8 @@ const VARIANTES = ['veredaRoja', 'veredaNegra', 'reposeraRoja', 'reposeraNegra',
 const TALLES_ADULTO = ['S', 'M', 'L', 'XL', 'XXL'];
 const TALLES_NINO = [2, 4, 6, 8, 10, 12, 16];
 
+const PRECIOS = { remera: 30000, tote: 20000 };
+
 const LABEL_VARIANTE = {
   veredaRoja:    'Vereda Roja',
   veredaNegra:   'Vereda Negra',
@@ -123,10 +125,20 @@ function renderNinos() {
   document.getElementById('total-ninos').textContent = total;
 }
 
+function formatPeso(n) {
+  return '$' + n.toLocaleString('es-AR');
+}
+
+function renderRecaudado() {
+  const total = historial.reduce((s, h) => s + (h.ingreso ?? 0), 0);
+  document.getElementById('total-recaudado').textContent = formatPeso(total);
+}
+
 function renderTodo() {
   renderAdultos();
   renderTotes();
   renderNinos();
+  renderRecaudado();
 }
 
 // ── Modal Venta ───────────────────────────────────────────────────────────────
@@ -150,22 +162,34 @@ function ocultarCampos() {
 function actualizarDisponible() {
   const cat = selCategoria.value;
   let disp = null;
+  let precio = 0;
 
   if (cat === 'adulto') {
     const talle = selTalleAdulto.value;
     const variante = selVarianteAdulto.value;
     disp = estado.adultos[talle]?.[variante] ?? 0;
+    precio = PRECIOS.remera;
   } else if (cat === 'nino') {
     disp = estado.ninos[selTalleNino.value] ?? 0;
+    precio = PRECIOS.remera;
   } else if (cat === 'tote') {
     disp = estado.totes[selTote.value] ?? 0;
+    precio = PRECIOS.tote;
   }
+
+  const cant = parseInt(inputCantidad.value, 10) || 1;
+  const pUnit = document.getElementById('venta-precio-unit');
+  const pTotalVenta = document.getElementById('venta-total-venta');
 
   if (disp !== null) {
     pDisponible.textContent = `Disponible: ${disp}`;
     pDisponible.style.color = disp === 0 ? 'var(--acento)' : 'var(--verde)';
+    pUnit.textContent = `Precio: ${formatPeso(precio)} c/u`;
+    pTotalVenta.textContent = `Total: ${formatPeso(precio * cant)}`;
   } else {
     pDisponible.textContent = '';
+    pUnit.textContent = '';
+    pTotalVenta.textContent = '';
   }
 }
 
@@ -178,9 +202,10 @@ selCategoria.addEventListener('change', () => {
   actualizarDisponible();
 });
 
-[selTalleAdulto, selVarianteAdulto, selTalleNino, selTote].forEach(el =>
+[selTalleAdulto, selVarianteAdulto, selTalleNino, selTote, inputCantidad].forEach(el =>
   el.addEventListener('change', actualizarDisponible)
 );
+inputCantidad.addEventListener('input', actualizarDisponible);
 
 document.getElementById('btn-venta').addEventListener('click', () => {
   selCategoria.value = '';
@@ -205,6 +230,7 @@ document.getElementById('form-venta').addEventListener('submit', e => {
 
   let descripcion = '';
   let disponible = 0;
+  let precio = 0;
 
   if (cat === 'adulto') {
     const talle = selTalleAdulto.value;
@@ -216,6 +242,7 @@ document.getElementById('form-venta').addEventListener('submit', e => {
     }
     estado.adultos[talle][variante] -= cant;
     descripcion = `Remera ${LABEL_VARIANTE[variante]} talle ${talle}`;
+    precio = PRECIOS.remera;
 
   } else if (cat === 'nino') {
     const talle = selTalleNino.value;
@@ -225,7 +252,8 @@ document.getElementById('form-venta').addEventListener('submit', e => {
       return;
     }
     estado.ninos[talle] -= cant;
-    descripcion = `Remera Niñx Silla Roja talle ${talle}`;
+    descripcion = `Remera Niñx Reposera Roja talle ${talle}`;
+    precio = PRECIOS.remera;
 
   } else if (cat === 'tote') {
     const modelo = selTote.value;
@@ -236,12 +264,14 @@ document.getElementById('form-venta').addEventListener('submit', e => {
     }
     estado.totes[modelo] -= cant;
     descripcion = `Tote Bag ${modelo === 'silla' ? 'Silla' : 'Vereda'}`;
+    precio = PRECIOS.tote;
   }
 
   historial.unshift({
     fecha: new Date().toLocaleString('es-AR'),
     descripcion,
     cantidad: cant,
+    ingreso: precio * cant,
   });
 
   guardar();
@@ -257,6 +287,12 @@ function mostrarError(msg) {
 // ── Modal Historial ───────────────────────────────────────────────────────────
 document.getElementById('btn-historial').addEventListener('click', () => {
   const contenedor = document.getElementById('lista-historial');
+  const lblTotal = document.getElementById('historial-total-recaudado');
+  const totalRecaudado = historial.reduce((s, h) => s + (h.ingreso ?? 0), 0);
+  lblTotal.textContent = historial.length > 0
+    ? `Total recaudado: ${formatPeso(totalRecaudado)}`
+    : '';
+
   if (historial.length === 0) {
     contenedor.innerHTML = '<p class="historial-vacio">Sin ventas registradas.</p>';
   } else {
@@ -264,6 +300,7 @@ document.getElementById('btn-historial').addEventListener('click', () => {
       <div class="historial-item">
         <span class="hist-desc">${h.descripcion}</span>
         <span class="hist-cant">-${h.cantidad}</span>
+        <span class="hist-ingreso">${h.ingreso ? formatPeso(h.ingreso) : ''}</span>
         <span class="hist-fecha">${h.fecha}</span>
       </div>
     `).join('');

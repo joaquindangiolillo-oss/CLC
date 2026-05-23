@@ -76,6 +76,8 @@ main { padding: 1.5rem; max-width: 1100px; margin: 0 auto; }
 
 .total-label { display: block; font-size: 0.8rem; color: var(--texto-tenue); margin-bottom: 0.4rem; text-transform: uppercase; letter-spacing: 0.05em; }
 .total-valor { font-size: 2rem; font-weight: 700; color: var(--acento); }
+.total-item--green { border-color: rgba(39,174,96,0.3); }
+.total-valor--green { color: var(--verde); font-size: 1.4rem; }
 
 /* SECCIONES */
 .seccion { margin-bottom: 2rem; }
@@ -181,6 +183,9 @@ form select:focus, form input:focus { outline: 2px solid var(--acento); border-c
 .campos { margin-top: 0; }
 .campos.hidden { display: none; }
 
+.venta-resumen { background: rgba(39,174,96,0.08); border-radius: 6px; padding: 0.5rem 0.75rem; margin-bottom: 0.75rem; font-size: 0.9rem; display: flex; justify-content: space-between; gap: 1rem; min-height: 2.2em; }
+#venta-precio-unit { color: var(--texto-tenue); }
+#venta-total-venta { color: var(--verde); font-weight: 700; }
 .disponible { color: var(--verde); font-size: 0.9rem; margin-bottom: 0.5rem; min-height: 1.2em; }
 .error { color: var(--acento); font-size: 0.9rem; margin-bottom: 0.5rem; }
 .error.hidden { display: none; }
@@ -206,7 +211,9 @@ form select:focus, form input:focus { outline: 2px solid var(--acento); border-c
 
 .hist-desc { flex: 1; }
 .hist-cant { color: var(--acento); font-weight: 700; white-space: nowrap; }
+.hist-ingreso { color: var(--verde); font-weight: 700; white-space: nowrap; min-width: 90px; text-align: right; }
 .hist-fecha { color: var(--texto-tenue); font-size: 0.78rem; white-space: nowrap; }
+.hist-total-label { color: var(--verde); font-weight: 700; font-size: 1rem; margin-bottom: 1rem; padding: 0.5rem; background: rgba(39,174,96,0.08); border-radius: 6px; text-align: center; }
 
 @media (max-width: 600px) {
   header h1 { font-size: 1.1rem; }

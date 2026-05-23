@@ -30,6 +30,10 @@
         <span class="total-label">Remeras niñx</span>
         <span class="total-valor" id="total-ninos">0</span>
       </div>
+      <div class="total-item total-item--green">
+        <span class="total-label">Recaudado</span>
+        <span class="total-valor total-valor--green" id="total-recaudado">$0</span>
+      </div>
     </section>
 
     <!-- Remeras adulto -->
@@ -72,7 +76,7 @@
 
     <!-- Remeras Niñx -->
     <section class="seccion">
-      <h2>Remeras Niñx — Silla Roja</h2>
+      <h2>Remeras Niñx — Reposera Roja</h2>
       <div class="tabla-container">
         <table id="tabla-ninos">
           <thead>
@@ -150,6 +154,10 @@
           <input type="number" id="venta-cantidad" min="1" value="1" required />
         </label>
 
+        <div class="venta-resumen">
+          <span id="venta-precio-unit"></span>
+          <span id="venta-total-venta"></span>
+        </div>
         <p id="venta-disponible" class="disponible"></p>
         <p id="venta-error" class="error hidden"></p>
 
@@ -165,6 +173,7 @@
   <div id="modal-historial" class="modal hidden">
     <div class="modal-content modal-wide">
       <h2>Historial de Ventas</h2>
+      <p id="historial-total-recaudado" class="hist-total-label"></p>
       <div id="lista-historial"></div>
       <div class="modal-actions">
         <button id="btn-cerrar-historial" class="btn-secondary">Cerrar</button>
