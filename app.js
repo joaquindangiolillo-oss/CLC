@@ -285,26 +285,74 @@ function mostrarError(msg) {
 }
 
 // ── Modal Historial ───────────────────────────────────────────────────────────
+function buildResumen() {
+  const cats = {};
+  for (const h of historial) {
+    const key = h.descripcion.startsWith('Remera Niñx') ? 'Niñx Reposera Roja'
+               : h.descripcion.startsWith('Tote') ? h.descripcion
+               : h.descripcion.match(/Remera (.+) talle/)
+                 ? `Remera ${h.descripcion.match(/Remera (.+) talle/)[1]}`
+                 : h.descripcion;
+    if (!cats[key]) cats[key] = { unidades: 0, ingreso: 0 };
+    cats[key].unidades += h.cantidad;
+    cats[key].ingreso  += h.ingreso ?? 0;
+  }
+  return cats;
+}
+
 document.getElementById('btn-historial').addEventListener('click', () => {
   const contenedor = document.getElementById('lista-historial');
   const lblTotal = document.getElementById('historial-total-recaudado');
   const totalRecaudado = historial.reduce((s, h) => s + (h.ingreso ?? 0), 0);
-  lblTotal.textContent = historial.length > 0
-    ? `Total recaudado: ${formatPeso(totalRecaudado)}`
-    : '';
+  const totalUnidades  = historial.reduce((s, h) => s + h.cantidad, 0);
 
   if (historial.length === 0) {
+    lblTotal.textContent = '';
     contenedor.innerHTML = '<p class="historial-vacio">Sin ventas registradas.</p>';
-  } else {
-    contenedor.innerHTML = historial.map(h => `
-      <div class="historial-item">
-        <span class="hist-desc">${h.descripcion}</span>
-        <span class="hist-cant">-${h.cantidad}</span>
-        <span class="hist-ingreso">${h.ingreso ? formatPeso(h.ingreso) : ''}</span>
-        <span class="hist-fecha">${h.fecha}</span>
-      </div>
-    `).join('');
+    document.getElementById('modal-historial').classList.remove('hidden');
+    return;
   }
+
+  lblTotal.innerHTML = `
+    <span>Total vendido: <strong>${totalUnidades} unidades</strong></span>
+    <span>Recaudado: <strong>${formatPeso(totalRecaudado)}</strong></span>
+  `;
+
+  const resumen = buildResumen();
+  const filas = Object.entries(resumen)
+    .sort((a, b) => b[1].ingreso - a[1].ingreso)
+    .map(([nombre, d]) => {
+      const pct = totalRecaudado > 0 ? (d.ingreso / totalRecaudado * 100) : 0;
+      return `
+        <div class="resumen-fila">
+          <div class="resumen-nombre">${nombre}</div>
+          <div class="resumen-barra-wrap">
+            <div class="resumen-barra" style="width:${pct.toFixed(1)}%"></div>
+          </div>
+          <div class="resumen-nums">
+            <span class="resumen-unidades">${d.unidades} u.</span>
+            <span class="resumen-monto">${formatPeso(d.ingreso)}</span>
+          </div>
+        </div>`;
+    }).join('');
+
+  const detalle = historial.map(h => `
+    <div class="historial-item">
+      <span class="hist-desc">${h.descripcion}</span>
+      <span class="hist-cant">-${h.cantidad}</span>
+      <span class="hist-ingreso">${h.ingreso ? formatPeso(h.ingreso) : ''}</span>
+      <span class="hist-fecha">${h.fecha}</span>
+    </div>`).join('');
+
+  contenedor.innerHTML = `
+    <div class="resumen-section">
+      <h3 class="resumen-titulo">Resumen por producto</h3>
+      ${filas}
+    </div>
+    <h3 class="detalle-titulo">Detalle cronológico</h3>
+    <div class="detalle-lista">${detalle}</div>
+  `;
+
   document.getElementById('modal-historial').classList.remove('hidden');
 });
 

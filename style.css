@@ -213,7 +213,21 @@ form select:focus, form input:focus { outline: 2px solid var(--acento); border-c
 .hist-cant { color: var(--acento); font-weight: 700; white-space: nowrap; }
 .hist-ingreso { color: var(--verde); font-weight: 700; white-space: nowrap; min-width: 90px; text-align: right; }
 .hist-fecha { color: var(--texto-tenue); font-size: 0.78rem; white-space: nowrap; }
-.hist-total-label { color: var(--verde); font-weight: 700; font-size: 1rem; margin-bottom: 1rem; padding: 0.5rem; background: rgba(39,174,96,0.08); border-radius: 6px; text-align: center; }
+.hist-total-label { color: var(--verde); font-weight: 700; font-size: 0.95rem; margin-bottom: 1.25rem; padding: 0.6rem 1rem; background: rgba(39,174,96,0.08); border-radius: 8px; display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+
+/* RESUMEN */
+.resumen-section { margin-bottom: 1.5rem; }
+.resumen-titulo, .detalle-titulo { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--texto-tenue); margin-bottom: 0.75rem; }
+.detalle-titulo { margin-top: 1.5rem; margin-bottom: 0.5rem; }
+.resumen-fila { display: grid; grid-template-columns: 1fr 1fr auto; align-items: center; gap: 0.5rem; padding: 0.45rem 0; border-bottom: 1px solid var(--borde); }
+.resumen-fila:last-child { border-bottom: none; }
+.resumen-nombre { font-size: 0.88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.resumen-barra-wrap { background: #2a2a2a; border-radius: 4px; height: 8px; overflow: hidden; }
+.resumen-barra { height: 100%; background: var(--acento); border-radius: 4px; transition: width 0.4s ease; min-width: 2px; }
+.resumen-nums { display: flex; gap: 0.75rem; justify-content: flex-end; white-space: nowrap; }
+.resumen-unidades { color: var(--texto-tenue); font-size: 0.82rem; }
+.resumen-monto { color: var(--verde); font-weight: 700; font-size: 0.88rem; min-width: 80px; text-align: right; }
+.detalle-lista { font-size: 0.9rem; }
 
 @media (max-width: 600px) {
   header h1 { font-size: 1.1rem; }
