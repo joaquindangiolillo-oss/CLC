@@ -180,7 +180,8 @@ const selTalleAdulto   = document.getElementById('venta-talle-adulto');
 const selVarianteAdulto = document.getElementById('venta-variante-adulto');
 const selTalleNino     = document.getElementById('venta-talle-nino');
 const selTote          = document.getElementById('venta-tote');
-const inputCantidad    = document.getElementById('venta-cantidad');
+const inputCantidad      = document.getElementById('venta-cantidad');
+const inputPrecioOverride = document.getElementById('venta-precio-override');
 const pDisponible      = document.getElementById('venta-disponible');
 const pError           = document.getElementById('venta-error');
 
@@ -188,23 +189,30 @@ function ocultarCampos() {
   [camposAdulto, camposNino, camposTote].forEach(c => c.classList.add('hidden'));
 }
 
+function precioBase(cat) {
+  if (cat === 'tote') return PRECIOS.tote;
+  return PRECIOS.remera;
+}
+
+function precioEfectivo() {
+  const override = parseInt(inputPrecioOverride.value, 10);
+  return (!isNaN(override) && override > 0) ? override : precioBase(selCategoria.value);
+}
+
 function actualizarDisponible() {
   const cat   = selCategoria.value;
   let disp    = null;
-  let precio  = 0;
 
   if (cat === 'adulto') {
-    disp   = estado.adultos[selTalleAdulto.value]?.[selVarianteAdulto.value] ?? 0;
-    precio = PRECIOS.remera;
+    disp = estado.adultos[selTalleAdulto.value]?.[selVarianteAdulto.value] ?? 0;
   } else if (cat === 'nino') {
-    disp   = estado.ninos[selTalleNino.value] ?? 0;
-    precio = PRECIOS.remera;
+    disp = estado.ninos[selTalleNino.value] ?? 0;
   } else if (cat === 'tote') {
-    disp   = estado.totes[selTote.value] ?? 0;
-    precio = PRECIOS.tote;
+    disp = estado.totes[selTote.value] ?? 0;
   }
 
-  const cant = parseInt(inputCantidad.value, 10) || 1;
+  const cant        = parseInt(inputCantidad.value, 10) || 1;
+  const precio      = precioEfectivo();
   const pUnit       = document.getElementById('venta-precio-unit');
   const pTotalVenta = document.getElementById('venta-total-venta');
 
@@ -229,15 +237,17 @@ selCategoria.addEventListener('change', () => {
   actualizarDisponible();
 });
 
-[selTalleAdulto, selVarianteAdulto, selTalleNino, selTote, inputCantidad].forEach(el =>
+[selTalleAdulto, selVarianteAdulto, selTalleNino, selTote, inputCantidad, inputPrecioOverride].forEach(el =>
   el.addEventListener('change', actualizarDisponible)
 );
 inputCantidad.addEventListener('input', actualizarDisponible);
+inputPrecioOverride.addEventListener('input', actualizarDisponible);
 
 document.getElementById('btn-venta').addEventListener('click', () => {
   selCategoria.value = '';
   ocultarCampos();
   inputCantidad.value = 1;
+  inputPrecioOverride.value = '';
   pDisponible.textContent = '';
   pError.classList.add('hidden');
   document.getElementById('venta-precio-unit').textContent  = '';
@@ -263,7 +273,7 @@ document.getElementById('form-venta').addEventListener('submit', e => {
   let _stock;
 
   if (cat === 'adulto') {
-    const talle   = selTalleAdulto.value;
+    const talle    = selTalleAdulto.value;
     const variante = selVarianteAdulto.value;
     disponible = estado.adultos[talle][variante];
     if (cant > disponible) { mostrarError(`Stock insuficiente. Disponible: ${disponible}`); return; }
@@ -291,8 +301,10 @@ document.getElementById('form-venta').addEventListener('submit', e => {
     _stock      = { tipo: 'tote', modelo };
   }
 
+  // Precio final: override manual o precio por defecto
+  const precioFinal = precioEfectivo();
   const pago    = document.querySelector('input[name="pago"]:checked').value;
-  const ingreso = pago === 'regalo' ? 0 : precio * cant;
+  const ingreso = pago === 'regalo' ? 0 : precioFinal * cant;
 
   historial.unshift({
     id: Date.now(),
@@ -301,7 +313,7 @@ document.getElementById('form-venta').addEventListener('submit', e => {
     cantidad: cant,
     ingreso,
     pago,
-    precioUnit: precio,
+    precioUnit: precioFinal,
     _stock,
   });
 
@@ -318,6 +330,8 @@ function mostrarError(msg) {
 }
 
 // ── Modal Historial ───────────────────────────────────────────────────────────
+const modalHistorial = document.getElementById('modal-historial');
+
 function buildResumen() {
   const cats = {};
   for (const h of historial) {
@@ -405,17 +419,18 @@ function abrirHistorial() {
     <div class="detalle-lista">${detalle}</div>
   `;
 
-  document.getElementById('modal-historial').classList.remove('hidden');
+  modalHistorial.classList.remove('hidden');
 }
 
 document.getElementById('btn-historial').addEventListener('click', abrirHistorial);
 
 document.getElementById('btn-cerrar-historial').addEventListener('click', () => {
-  document.getElementById('modal-historial').classList.add('hidden');
+  modalHistorial.classList.add('hidden');
 });
 
 // ── Editar registro (full edit) ───────────────────────────────────────────────
 let editandoId = null;
+let editandoDesdeHistorial = false;
 const modalEditar = document.getElementById('modal-editar');
 
 const selEditCategoria   = document.getElementById('editar-categoria');
@@ -465,6 +480,9 @@ window.abrirEditar = function(id) {
   const h = historial.find(x => x.id === id);
   if (!h) return;
   editandoId = id;
+  // Cerrar historial antes de abrir edición (evita modales apilados en iOS)
+  editandoDesdeHistorial = !modalHistorial.classList.contains('hidden');
+  modalHistorial.classList.add('hidden');
 
   document.getElementById('editar-info').textContent =
     `${h.descripcion} — ${h.cantidad} u. — ${h.fecha}`;
@@ -612,10 +630,8 @@ document.getElementById('btn-confirmar-editar').addEventListener('click', () => 
   guardar();
   renderTodo();
   modalEditar.classList.add('hidden');
-  // Refrescar historial si estaba abierto
-  if (!document.getElementById('modal-historial').classList.contains('hidden')) {
-    abrirHistorial();
-  }
+  // Reabrir historial si venía de ahí
+  if (editandoDesdeHistorial) abrirHistorial();
 });
 
 document.getElementById('btn-cancelar-editar').addEventListener('click', () => {
@@ -809,7 +825,7 @@ document.getElementById('btn-cerrar-editar').addEventListener('click', () => {
 });
 
 // ── Cerrar modales al click afuera ────────────────────────────────────────────
-[modalVenta, document.getElementById('modal-historial'), modalEditar].forEach(modal => {
+[modalVenta, modalHistorial, modalEditar].forEach(modal => {
   modal.addEventListener('click', e => {
     if (e.target === modal) modal.classList.add('hidden');
   });

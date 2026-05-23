@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Stock - Cayo la Cabra</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=4" />
 </head>
 <body>
   <header>
@@ -138,6 +138,9 @@
         <label>Cantidad
           <input type="number" id="venta-cantidad" min="1" value="1" required />
         </label>
+        <label>Precio unitario ($)
+          <input type="number" id="venta-precio-override" min="0" step="500" placeholder="Precio por defecto" />
+        </label>
         <label>Método de pago
           <div class="pago-opciones">
             <label class="pago-opcion"><input type="radio" name="pago" value="efectivo" checked /><span>Efectivo</span></label>
@@ -243,6 +246,6 @@
     </div>
   </div>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=4"></script>
 </body>
 </html>
