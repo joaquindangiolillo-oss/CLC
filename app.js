@@ -51,7 +51,29 @@ function cargarHistorial() {
       const arr = JSON.parse(raw);
       let changed = false;
       arr.forEach(h => {
+        // Asignar id a entradas viejas
         if (!h.id) { h.id = Date.now() + Math.random(); changed = true; }
+        // Normalizar entradas sin método de pago (anteriores a esa función)
+        if (h.pago === undefined || h.pago === null) {
+          h.pago = 'efectivo';
+          changed = true;
+        }
+        // Normalizar entradas sin ingreso calculado
+        if (h.ingreso === undefined || h.ingreso === null) {
+          const precio = h.precioUnit ?? 0;
+          h.ingreso = h.pago === 'regalo' ? 0 : precio * (h.cantidad ?? 1);
+          changed = true;
+        }
+        // Normalizar entradas sin precioUnit
+        if (h.precioUnit === undefined || h.precioUnit === null) {
+          // Inferir precio por tipo de producto desde descripción
+          if (h.descripcion && h.descripcion.startsWith('Tote')) {
+            h.precioUnit = 16000;
+          } else {
+            h.precioUnit = 25000;
+          }
+          changed = true;
+        }
       });
       if (changed) localStorage.setItem('cayo_historial', JSON.stringify(arr));
       return arr;
@@ -198,8 +220,12 @@ function renderVentas() {
 
   const lista = document.getElementById('ventas-lista');
 
+  if (historial.length === 0) {
+    lista.innerHTML = '<p class="historial-vacio">Todavía no hay ventas registradas.<br>Usá el botón <strong>+ Registrar</strong> para agregar una.</p>';
+    return;
+  }
   if (filtrados.length === 0) {
-    lista.innerHTML = '<p class="historial-vacio">Sin ventas registradas.</p>';
+    lista.innerHTML = '<p class="historial-vacio">No hay ventas con ese método de pago.</p>';
     return;
   }
 
