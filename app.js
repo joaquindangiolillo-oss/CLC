@@ -99,7 +99,7 @@ function renderTotes() {
   const tbody = document.getElementById('tbody-totes');
   const t = estado.totes;
   tbody.innerHTML = `
-    <tr><td>Silla</td><td class="${claseStock(t.silla)}">${t.silla}</td></tr>
+    <tr><td>Reposera</td><td class="${claseStock(t.silla)}">${t.silla}</td></tr>
     <tr><td>Vereda</td><td class="${claseStock(t.vereda)}">${t.vereda}</td></tr>
     <tr><td style="font-weight:700">Total</td><td style="font-weight:700;color:var(--acento)">${t.silla + t.vereda}</td></tr>
   `;
@@ -258,7 +258,7 @@ document.getElementById('form-venta').addEventListener('submit', e => {
       return;
     }
     estado.totes[modelo] -= cant;
-    descripcion = `Tote Bag ${modelo === 'silla' ? 'Silla' : 'Vereda'}`;
+    descripcion = `Tote Bag ${modelo === 'silla' ? 'Reposera' : 'Vereda'}`;
     precio = PRECIOS.tote;
   }
 
