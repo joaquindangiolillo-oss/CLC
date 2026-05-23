@@ -232,6 +232,7 @@ document.getElementById('form-venta').addEventListener('submit', e => {
   let disponible = 0;
   let precio = 0;
 
+  let _stock;
   if (cat === 'adulto') {
     const talle = selTalleAdulto.value;
     const variante = selVarianteAdulto.value;
@@ -243,6 +244,7 @@ document.getElementById('form-venta').addEventListener('submit', e => {
     estado.adultos[talle][variante] -= cant;
     descripcion = `Remera ${LABEL_VARIANTE[variante]} talle ${talle}`;
     precio = PRECIOS.remera;
+    _stock = { tipo: 'adulto', talle, variante };
 
   } else if (cat === 'nino') {
     const talle = selTalleNino.value;
@@ -254,6 +256,7 @@ document.getElementById('form-venta').addEventListener('submit', e => {
     estado.ninos[talle] -= cant;
     descripcion = `Remera Niñx Reposera Roja talle ${talle}`;
     precio = PRECIOS.remera;
+    _stock = { tipo: 'nino', talle };
 
   } else if (cat === 'tote') {
     const modelo = selTote.value;
@@ -265,17 +268,21 @@ document.getElementById('form-venta').addEventListener('submit', e => {
     estado.totes[modelo] -= cant;
     descripcion = `Tote Bag ${modelo === 'silla' ? 'Reposera' : 'Vereda'}`;
     precio = PRECIOS.tote;
+    _stock = { tipo: 'tote', modelo };
   }
 
   const pago = document.querySelector('input[name="pago"]:checked').value;
   const ingreso = pago === 'regalo' ? 0 : precio * cant;
 
   historial.unshift({
+    id: Date.now(),
     fecha: new Date().toLocaleString('es-AR'),
     descripcion,
     cantidad: cant,
     ingreso,
     pago,
+    precioUnit: precio,
+    _stock,
   });
 
   guardar();
@@ -354,6 +361,10 @@ document.getElementById('btn-historial').addEventListener('click', () => {
       <span class="hist-ingreso">${h.ingreso ? formatPeso(h.ingreso) : ''}</span>
       <span class="hist-pago hist-pago--${h.pago ?? 'efectivo'}">${h.pago === 'transferencia' ? 'Transf.' : h.pago === 'regalo' ? '🎁 Regalo' : 'Efect.'}</span>
       <span class="hist-fecha">${h.fecha}</span>
+      ${h.id ? `<span class="hist-acciones">
+        <button class="btn-hist-edit" onclick="abrirEditar(${h.id})" title="Editar">✏️</button>
+        <button class="btn-hist-del"  onclick="eliminarRegistro(${h.id})" title="Eliminar">🗑️</button>
+      </span>` : ''}
     </div>`).join('');
 
   contenedor.innerHTML = `
@@ -371,6 +382,60 @@ document.getElementById('btn-historial').addEventListener('click', () => {
 document.getElementById('btn-cerrar-historial').addEventListener('click', () => {
   document.getElementById('modal-historial').classList.add('hidden');
 });
+
+// ── Editar / Eliminar registros ───────────────────────────────────────────────
+let editandoId = null;
+const modalEditar = document.getElementById('modal-editar');
+
+window.abrirEditar = function(id) {
+  const h = historial.find(x => x.id === id);
+  if (!h) return;
+  editandoId = id;
+  document.getElementById('editar-desc').textContent =
+    `${h.descripcion} — ${h.cantidad} u. — ${h.fecha}`;
+  document.querySelectorAll('input[name="editar-pago"]').forEach(r => {
+    r.checked = r.value === h.pago;
+  });
+  modalEditar.classList.remove('hidden');
+};
+
+document.getElementById('btn-confirmar-editar').addEventListener('click', () => {
+  const h = historial.find(x => x.id === editandoId);
+  if (!h) return;
+  const nuevoPago = document.querySelector('input[name="editar-pago"]:checked').value;
+  h.pago = nuevoPago;
+  h.ingreso = nuevoPago === 'regalo' ? 0 : (h.precioUnit ?? 0) * h.cantidad;
+  guardar();
+  renderTodo();
+  modalEditar.classList.add('hidden');
+  // refrescar historial si sigue abierto
+  document.getElementById('btn-historial').click();
+});
+
+document.getElementById('btn-cancelar-editar').addEventListener('click', () => {
+  modalEditar.classList.add('hidden');
+});
+
+window.eliminarRegistro = function(id) {
+  const idx = historial.findIndex(x => x.id === id);
+  if (idx === -1) return;
+  const h = historial[idx];
+  const nombre = `${h.descripcion} (${h.cantidad} u.)`;
+  if (!confirm(`¿Eliminar este registro y devolver el stock?\n\n${nombre}`)) return;
+
+  // Restaurar stock
+  if (h._stock) {
+    const { tipo, talle, variante, modelo } = h._stock;
+    if (tipo === 'adulto') estado.adultos[talle][variante] += h.cantidad;
+    else if (tipo === 'nino') estado.ninos[talle] = (estado.ninos[talle] ?? 0) + h.cantidad;
+    else if (tipo === 'tote') estado.totes[modelo] += h.cantidad;
+  }
+
+  historial.splice(idx, 1);
+  guardar();
+  renderTodo();
+  document.getElementById('btn-historial').click();
+};
 
 // Cerrar modales al hacer click afuera
 [modalVenta, document.getElementById('modal-historial')].forEach(modal => {

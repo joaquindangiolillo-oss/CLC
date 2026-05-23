@@ -239,6 +239,12 @@ form select:focus, form input:focus { outline: 2px solid var(--acento); border-c
 .resumen-monto { color: var(--verde); font-weight: 700; font-size: 0.88rem; min-width: 80px; text-align: right; }
 .detalle-lista { font-size: 0.9rem; }
 
+.hist-acciones { display: flex; gap: 0.25rem; white-space: nowrap; }
+.btn-hist-edit, .btn-hist-del { background: none; border: 1px solid var(--borde); border-radius: 5px; padding: 0.2rem 0.4rem; cursor: pointer; font-size: 0.85rem; line-height: 1; transition: background 0.15s; }
+.btn-hist-edit:hover { background: rgba(52,152,219,0.15); }
+.btn-hist-del:hover  { background: rgba(231,76,60,0.15); }
+.editar-desc { font-size: 0.88rem; color: var(--texto-tenue); margin-bottom: 1.25rem; padding: 0.5rem 0.75rem; background: #111; border-radius: 6px; }
+
 @media (max-width: 600px) {
   header h1 { font-size: 1.1rem; }
   .total-valor { font-size: 1.5rem; }

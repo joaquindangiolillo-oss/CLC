@@ -198,6 +198,34 @@
     </div>
   </div>
 
+  <!-- Modal Editar registro -->
+  <div id="modal-editar" class="modal hidden">
+    <div class="modal-content">
+      <h2>Editar registro</h2>
+      <p id="editar-desc" class="editar-desc"></p>
+      <label>Método de pago
+        <div class="pago-opciones">
+          <label class="pago-opcion">
+            <input type="radio" name="editar-pago" value="efectivo" />
+            <span>Efectivo</span>
+          </label>
+          <label class="pago-opcion">
+            <input type="radio" name="editar-pago" value="transferencia" />
+            <span>Transferencia</span>
+          </label>
+          <label class="pago-opcion">
+            <input type="radio" name="editar-pago" value="regalo" />
+            <span>🎁 Regalo</span>
+          </label>
+        </div>
+      </label>
+      <div class="modal-actions">
+        <button id="btn-confirmar-editar" class="btn-primary">Guardar</button>
+        <button id="btn-cancelar-editar" class="btn-secondary">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
   <script src="app.js"></script>
 </body>
 </html>
