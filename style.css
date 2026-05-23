@@ -245,8 +245,102 @@ form select:focus, form input:focus { outline: 2px solid var(--acento); border-c
 .btn-hist-del:hover  { background: rgba(231,76,60,0.15); }
 .editar-desc { font-size: 0.88rem; color: var(--texto-tenue); margin-bottom: 1.25rem; padding: 0.5rem 0.75rem; background: #111; border-radius: 6px; }
 
+/* TABS */
+.tabs {
+  display: flex;
+  gap: 0;
+  background: var(--negro);
+  border-bottom: 1px solid var(--borde);
+  padding: 0 1.5rem;
+}
+
+.tab-btn {
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  color: var(--texto-tenue);
+  font-size: 0.88rem;
+  font-weight: 600;
+  padding: 0.75rem 1.25rem;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.tab-btn:hover { color: var(--texto); }
+.tab-btn.active { color: var(--acento); border-bottom-color: var(--acento); }
+
+.tab-content.hidden { display: none; }
+
+/* AUDITORÍA */
+.auditoria-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+}
+
+.auditoria-desc {
+  color: var(--texto-tenue);
+  font-size: 0.88rem;
+}
+
+.audit-leyenda {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  font-size: 0.82rem;
+  color: var(--texto-tenue);
+  margin-bottom: 1.25rem;
+  padding: 0.6rem 1rem;
+  background: var(--fondo-card);
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  align-items: center;
+}
+
+.audit-leyenda-item { display: flex; align-items: center; gap: 0.5rem; }
+
+.audit-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.audit-actual {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--texto-tenue);
+}
+
+.audit-input {
+  width: 3.5rem;
+  background: #111;
+  border: 1px solid var(--borde);
+  border-radius: 5px;
+  color: var(--texto);
+  font-size: 0.88rem;
+  padding: 0.3rem 0.4rem;
+  text-align: center;
+}
+
+.audit-input:focus {
+  outline: 2px solid var(--acento);
+  border-color: transparent;
+}
+
+.audit-input:not(:placeholder-shown) {
+  border-color: var(--acento);
+  background: rgba(231,76,60,0.06);
+}
+
 @media (max-width: 600px) {
   header h1 { font-size: 1.1rem; }
   .total-valor { font-size: 1.5rem; }
   td, th { padding: 0.5rem 0.6rem; font-size: 0.82rem; }
+  .tabs { padding: 0 0.5rem; }
+  .tab-btn { padding: 0.65rem 0.9rem; font-size: 0.82rem; }
 }
