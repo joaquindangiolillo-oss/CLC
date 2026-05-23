@@ -13,9 +13,9 @@ const STOCK_INICIAL = {
   ninos: { 2: 1, 4: 2, 6: 2, 8: 1, 10: 3, 12: 1, 16: 2 },
 };
 
-const VARIANTES = ['veredaRoja', 'veredaNegra', 'reposeraRoja', 'reposeraNegra', 'blanca'];
-const TALLES_ADULTO = ['S', 'M', 'L', 'XL', 'XXL'];
-const TALLES_NINO = [2, 4, 6, 8, 10, 12, 16];
+const VARIANTES      = ['veredaRoja', 'veredaNegra', 'reposeraRoja', 'reposeraNegra', 'blanca'];
+const TALLES_ADULTO  = ['S', 'M', 'L', 'XL', 'XXL'];
+const TALLES_NINO    = [2, 4, 6, 8, 10, 12, 16];
 
 const PRECIOS = { remera: 25000, tote: 16000 };
 
@@ -28,11 +28,11 @@ const LABEL_VARIANTE = {
 };
 
 const COL_CLASS = {
-  veredaRoja: 'col-vr',
-  veredaNegra: 'col-vn',
-  reposeraRoja: 'col-rr',
+  veredaRoja:    'col-vr',
+  veredaNegra:   'col-vn',
+  reposeraRoja:  'col-rr',
   reposeraNegra: 'col-rn',
-  blanca: 'col-bl',
+  blanca:        'col-bl',
 };
 
 // ── Persistencia ──────────────────────────────────────────────────────────────
@@ -49,9 +49,10 @@ function cargarHistorial() {
     const raw = localStorage.getItem('cayo_historial');
     if (raw) {
       const arr = JSON.parse(raw);
-      // Asignar id a entradas viejas que no lo tienen
       let changed = false;
-      arr.forEach(h => { if (!h.id) { h.id = Date.now() + Math.random(); changed = true; } });
+      arr.forEach(h => {
+        if (!h.id) { h.id = Date.now() + Math.random(); changed = true; }
+      });
       if (changed) localStorage.setItem('cayo_historial', JSON.stringify(arr));
       return arr;
     }
@@ -59,7 +60,7 @@ function cargarHistorial() {
   return [];
 }
 
-// Infiere qué stock restaurar a partir de la descripción (para entradas viejas sin _stock)
+// Infiere qué stock restaurar a partir de la descripción (entradas viejas sin _stock)
 function inferirStock(h) {
   const d = h.descripcion;
   const ninoM = d.match(/Remera Ni[ñn]x .+ talle (\d+)/);
@@ -77,36 +78,41 @@ function inferirStock(h) {
 }
 
 function guardar() {
-  localStorage.setItem('cayo_stock', JSON.stringify(estado));
+  localStorage.setItem('cayo_stock',    JSON.stringify(estado));
   localStorage.setItem('cayo_historial', JSON.stringify(historial));
 }
 
-let estado = cargarEstado();
+let estado   = cargarEstado();
 let historial = cargarHistorial();
 
-// ── Render ────────────────────────────────────────────────────────────────────
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const tab = btn.dataset.tab;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+    document.getElementById('tab-' + tab).classList.remove('hidden');
+    if (tab === 'auditoria') renderAuditoria();
+  });
+});
+
+// ── Render Stock ──────────────────────────────────────────────────────────────
 function claseStock(n) {
   if (n === 0) return 'stock-0';
   if (n <= 2)  return 'stock-low';
   return '';
 }
 
-function celda(val) {
-  const cls = claseStock(val);
-  return `<td class="${cls}">${val}</td>`;
-}
-
 function renderAdultos() {
   const tbody = document.getElementById('tbody-adultos');
   const tfoot = document.getElementById('tfoot-adultos');
-  let totales = { veredaRoja: 0, veredaNegra: 0, reposeraRoja: 0, reposeraNegra: 0, blanca: 0 };
-  let totalGeneral = 0;
+  const totales = { veredaRoja: 0, veredaNegra: 0, reposeraRoja: 0, reposeraNegra: 0, blanca: 0 };
 
   tbody.innerHTML = TALLES_ADULTO.map(talle => {
     const row = estado.adultos[talle];
     const sub = VARIANTES.reduce((s, v) => s + row[v], 0);
     VARIANTES.forEach(v => { totales[v] += row[v]; });
-    totalGeneral += sub;
     return `<tr>
       <td class="talle-label">${talle}</td>
       ${VARIANTES.map(v => `<td class="${COL_CLASS[v]} ${claseStock(row[v])}">${row[v]}</td>`).join('')}
@@ -120,7 +126,6 @@ function renderAdultos() {
     ${VARIANTES.map(v => `<td class="${COL_CLASS[v]}">${totales[v]}</td>`).join('')}
     <td class="subtotal-col">${totalSub}</td>
   </tr>`;
-
   document.getElementById('total-remeras').textContent = totalSub;
 }
 
@@ -166,53 +171,51 @@ function renderTodo() {
 }
 
 // ── Modal Venta ───────────────────────────────────────────────────────────────
-const modalVenta = document.getElementById('modal-venta');
-const selCategoria = document.getElementById('venta-categoria');
-const camposAdulto = document.getElementById('campos-adulto');
-const camposNino   = document.getElementById('campos-nino');
-const camposTote   = document.getElementById('campos-tote');
-const selTalleAdulto  = document.getElementById('venta-talle-adulto');
+const modalVenta       = document.getElementById('modal-venta');
+const selCategoria     = document.getElementById('venta-categoria');
+const camposAdulto     = document.getElementById('campos-adulto');
+const camposNino       = document.getElementById('campos-nino');
+const camposTote       = document.getElementById('campos-tote');
+const selTalleAdulto   = document.getElementById('venta-talle-adulto');
 const selVarianteAdulto = document.getElementById('venta-variante-adulto');
-const selTalleNino = document.getElementById('venta-talle-nino');
-const selTote      = document.getElementById('venta-tote');
-const inputCantidad = document.getElementById('venta-cantidad');
-const pDisponible  = document.getElementById('venta-disponible');
-const pError       = document.getElementById('venta-error');
+const selTalleNino     = document.getElementById('venta-talle-nino');
+const selTote          = document.getElementById('venta-tote');
+const inputCantidad    = document.getElementById('venta-cantidad');
+const pDisponible      = document.getElementById('venta-disponible');
+const pError           = document.getElementById('venta-error');
 
 function ocultarCampos() {
   [camposAdulto, camposNino, camposTote].forEach(c => c.classList.add('hidden'));
 }
 
 function actualizarDisponible() {
-  const cat = selCategoria.value;
-  let disp = null;
-  let precio = 0;
+  const cat   = selCategoria.value;
+  let disp    = null;
+  let precio  = 0;
 
   if (cat === 'adulto') {
-    const talle = selTalleAdulto.value;
-    const variante = selVarianteAdulto.value;
-    disp = estado.adultos[talle]?.[variante] ?? 0;
+    disp   = estado.adultos[selTalleAdulto.value]?.[selVarianteAdulto.value] ?? 0;
     precio = PRECIOS.remera;
   } else if (cat === 'nino') {
-    disp = estado.ninos[selTalleNino.value] ?? 0;
+    disp   = estado.ninos[selTalleNino.value] ?? 0;
     precio = PRECIOS.remera;
   } else if (cat === 'tote') {
-    disp = estado.totes[selTote.value] ?? 0;
+    disp   = estado.totes[selTote.value] ?? 0;
     precio = PRECIOS.tote;
   }
 
   const cant = parseInt(inputCantidad.value, 10) || 1;
-  const pUnit = document.getElementById('venta-precio-unit');
+  const pUnit       = document.getElementById('venta-precio-unit');
   const pTotalVenta = document.getElementById('venta-total-venta');
 
   if (disp !== null) {
     pDisponible.textContent = `Disponible: ${disp}`;
     pDisponible.style.color = disp === 0 ? 'var(--acento)' : 'var(--verde)';
-    pUnit.textContent = `Precio: ${formatPeso(precio)} c/u`;
+    pUnit.textContent       = `Precio: ${formatPeso(precio)} c/u`;
     pTotalVenta.textContent = `Total: ${formatPeso(precio * cant)}`;
   } else {
     pDisponible.textContent = '';
-    pUnit.textContent = '';
+    pUnit.textContent       = '';
     pTotalVenta.textContent = '';
   }
 }
@@ -237,6 +240,8 @@ document.getElementById('btn-venta').addEventListener('click', () => {
   inputCantidad.value = 1;
   pDisponible.textContent = '';
   pError.classList.add('hidden');
+  document.getElementById('venta-precio-unit').textContent  = '';
+  document.getElementById('venta-total-venta').textContent  = '';
   modalVenta.classList.remove('hidden');
 });
 
@@ -248,54 +253,45 @@ document.getElementById('form-venta').addEventListener('submit', e => {
   e.preventDefault();
   pError.classList.add('hidden');
 
-  const cat = selCategoria.value;
+  const cat  = selCategoria.value;
   const cant = parseInt(inputCantidad.value, 10);
   if (!cat || isNaN(cant) || cant < 1) return;
 
   let descripcion = '';
-  let disponible = 0;
-  let precio = 0;
-
+  let disponible  = 0;
+  let precio      = 0;
   let _stock;
+
   if (cat === 'adulto') {
-    const talle = selTalleAdulto.value;
+    const talle   = selTalleAdulto.value;
     const variante = selVarianteAdulto.value;
     disponible = estado.adultos[talle][variante];
-    if (cant > disponible) {
-      mostrarError(`Stock insuficiente. Disponible: ${disponible}`);
-      return;
-    }
+    if (cant > disponible) { mostrarError(`Stock insuficiente. Disponible: ${disponible}`); return; }
     estado.adultos[talle][variante] -= cant;
     descripcion = `Remera ${LABEL_VARIANTE[variante]} talle ${talle}`;
-    precio = PRECIOS.remera;
-    _stock = { tipo: 'adulto', talle, variante };
+    precio      = PRECIOS.remera;
+    _stock      = { tipo: 'adulto', talle, variante };
 
   } else if (cat === 'nino') {
     const talle = selTalleNino.value;
-    disponible = estado.ninos[talle] ?? 0;
-    if (cant > disponible) {
-      mostrarError(`Stock insuficiente. Disponible: ${disponible}`);
-      return;
-    }
+    disponible  = estado.ninos[talle] ?? 0;
+    if (cant > disponible) { mostrarError(`Stock insuficiente. Disponible: ${disponible}`); return; }
     estado.ninos[talle] -= cant;
     descripcion = `Remera Niñx Reposera Roja talle ${talle}`;
-    precio = PRECIOS.remera;
-    _stock = { tipo: 'nino', talle };
+    precio      = PRECIOS.remera;
+    _stock      = { tipo: 'nino', talle };
 
   } else if (cat === 'tote') {
     const modelo = selTote.value;
-    disponible = estado.totes[modelo];
-    if (cant > disponible) {
-      mostrarError(`Stock insuficiente. Disponible: ${disponible}`);
-      return;
-    }
+    disponible   = estado.totes[modelo];
+    if (cant > disponible) { mostrarError(`Stock insuficiente. Disponible: ${disponible}`); return; }
     estado.totes[modelo] -= cant;
     descripcion = `Tote Bag ${modelo === 'silla' ? 'Reposera' : 'Vereda'}`;
-    precio = PRECIOS.tote;
-    _stock = { tipo: 'tote', modelo };
+    precio      = PRECIOS.tote;
+    _stock      = { tipo: 'tote', modelo };
   }
 
-  const pago = document.querySelector('input[name="pago"]:checked').value;
+  const pago    = document.querySelector('input[name="pago"]:checked').value;
   const ingreso = pago === 'regalo' ? 0 : precio * cant;
 
   historial.unshift({
@@ -312,6 +308,8 @@ document.getElementById('form-venta').addEventListener('submit', e => {
   guardar();
   renderTodo();
   modalVenta.classList.add('hidden');
+  // Reset radio pago a efectivo
+  document.querySelector('input[name="pago"][value="efectivo"]').checked = true;
 });
 
 function mostrarError(msg) {
@@ -324,7 +322,7 @@ function buildResumen() {
   const cats = {};
   for (const h of historial) {
     const key = h.descripcion.startsWith('Remera Niñx') ? 'Niñx Reposera Roja'
-               : h.descripcion.startsWith('Tote') ? h.descripcion
+               : h.descripcion.startsWith('Tote')       ? h.descripcion
                : h.descripcion.match(/Remera (.+) talle/)
                  ? `Remera ${h.descripcion.match(/Remera (.+) talle/)[1]}`
                  : h.descripcion;
@@ -335,20 +333,20 @@ function buildResumen() {
   return cats;
 }
 
-document.getElementById('btn-historial').addEventListener('click', () => {
+function abrirHistorial() {
   const contenedor = document.getElementById('lista-historial');
-  const lblTotal = document.getElementById('historial-total-recaudado');
+  const lblTotal   = document.getElementById('historial-total-recaudado');
   const totalRecaudado = historial.reduce((s, h) => s + (h.ingreso ?? 0), 0);
   const totalUnidades  = historial.reduce((s, h) => s + h.cantidad, 0);
 
   if (historial.length === 0) {
-    lblTotal.textContent = '';
-    contenedor.innerHTML = '<p class="historial-vacio">Sin ventas registradas.</p>';
+    lblTotal.textContent  = '';
+    contenedor.innerHTML  = '<p class="historial-vacio">Sin ventas registradas.</p>';
     document.getElementById('modal-historial').classList.remove('hidden');
     return;
   }
 
-  const totalEfectivo      = historial.reduce((s, h) => s + (h.pago === 'efectivo'     ? (h.ingreso ?? 0) : 0), 0);
+  const totalEfectivo      = historial.reduce((s, h) => s + (h.pago === 'efectivo'      ? (h.ingreso ?? 0) : 0), 0);
   const totalTransferencia = historial.reduce((s, h) => s + (h.pago === 'transferencia' ? (h.ingreso ?? 0) : 0), 0);
   const totalRegalosUnid   = historial.reduce((s, h) => s + (h.pago === 'regalo' ? h.cantidad : 0), 0);
 
@@ -386,7 +384,7 @@ document.getElementById('btn-historial').addEventListener('click', () => {
       <span class="hist-pago hist-pago--${h.pago ?? 'efectivo'}">${h.pago === 'transferencia' ? 'Transf.' : h.pago === 'regalo' ? '🎁 Regalo' : 'Efect.'}</span>
       <span class="hist-fecha">${h.fecha}</span>
       <span class="hist-acciones">
-        <button class="btn-hist-edit" onclick="abrirEditar(${h.id})" title="Editar método de pago">✏️</button>
+        <button class="btn-hist-edit" onclick="abrirEditar(${h.id})" title="Editar registro">✏️</button>
         <button class="btn-hist-del"  onclick="eliminarRegistro(${h.id})" title="Eliminar y devolver stock">🗑️</button>
       </span>
     </div>`).join('');
@@ -401,53 +399,214 @@ document.getElementById('btn-historial').addEventListener('click', () => {
   `;
 
   document.getElementById('modal-historial').classList.remove('hidden');
-});
+}
+
+document.getElementById('btn-historial').addEventListener('click', abrirHistorial);
 
 document.getElementById('btn-cerrar-historial').addEventListener('click', () => {
   document.getElementById('modal-historial').classList.add('hidden');
 });
 
-// ── Editar / Eliminar registros ───────────────────────────────────────────────
+// ── Editar registro (full edit) ───────────────────────────────────────────────
 let editandoId = null;
 const modalEditar = document.getElementById('modal-editar');
+
+const selEditCategoria   = document.getElementById('editar-categoria');
+const editCamposAdulto   = document.getElementById('editar-campos-adulto');
+const editCamposNino     = document.getElementById('editar-campos-nino');
+const editCamposTote     = document.getElementById('editar-campos-tote');
+const selEditTalleAdulto = document.getElementById('editar-talle-adulto');
+const selEditVariante    = document.getElementById('editar-variante-adulto');
+const selEditTalleNino   = document.getElementById('editar-talle-nino');
+const selEditTote        = document.getElementById('editar-tote');
+const inputEditCantidad  = document.getElementById('editar-cantidad');
+
+function ocultarCamposEditar() {
+  [editCamposAdulto, editCamposNino, editCamposTote].forEach(c => c.classList.add('hidden'));
+}
+
+function mostrarCamposEditar(cat) {
+  ocultarCamposEditar();
+  if (cat === 'adulto') editCamposAdulto.classList.remove('hidden');
+  else if (cat === 'nino') editCamposNino.classList.remove('hidden');
+  else if (cat === 'tote') editCamposTote.classList.remove('hidden');
+}
+
+function actualizarResumenEditar() {
+  const cat  = selEditCategoria.value;
+  const cant = parseInt(inputEditCantidad.value, 10) || 1;
+  let precio = 0;
+  if (cat === 'adulto' || cat === 'nino') precio = PRECIOS.remera;
+  else if (cat === 'tote') precio = PRECIOS.tote;
+  const pago = document.querySelector('input[name="editar-pago"]:checked')?.value;
+  document.getElementById('editar-precio-unit').textContent  = precio ? `Precio: ${formatPeso(precio)} c/u` : '';
+  document.getElementById('editar-total-venta').textContent  = precio && pago !== 'regalo' ? `Total: ${formatPeso(precio * cant)}` : pago === 'regalo' ? '🎁 Regalo' : '';
+}
+
+selEditCategoria.addEventListener('change', () => {
+  mostrarCamposEditar(selEditCategoria.value);
+  actualizarResumenEditar();
+});
+[selEditTalleAdulto, selEditVariante, selEditTalleNino, selEditTote, inputEditCantidad].forEach(el =>
+  el.addEventListener('change', actualizarResumenEditar)
+);
+inputEditCantidad.addEventListener('input', actualizarResumenEditar);
+document.querySelectorAll('input[name="editar-pago"]').forEach(r =>
+  r.addEventListener('change', actualizarResumenEditar)
+);
 
 window.abrirEditar = function(id) {
   const h = historial.find(x => x.id === id);
   if (!h) return;
   editandoId = id;
-  document.getElementById('editar-desc').textContent =
+
+  document.getElementById('editar-info').textContent =
     `${h.descripcion} — ${h.cantidad} u. — ${h.fecha}`;
+  document.getElementById('editar-error').classList.add('hidden');
+
+  // Determinar categoría, talle, variante/modelo desde _stock o inferirStock
+  const ref = h._stock || inferirStock(h);
+  let cat = 'adulto', talle = 'S', variante = 'veredaRoja', talleNino = '2', modelo = 'silla';
+
+  if (ref) {
+    cat = ref.tipo;
+    if (cat === 'adulto') { talle = ref.talle; variante = ref.variante; }
+    else if (cat === 'nino')  talleNino = String(ref.talle);
+    else if (cat === 'tote')  modelo    = ref.modelo;
+  }
+
+  selEditCategoria.value = cat;
+  mostrarCamposEditar(cat);
+
+  selEditTalleAdulto.value = talle;
+  selEditVariante.value    = variante;
+  selEditTalleNino.value   = talleNino;
+  selEditTote.value        = modelo;
+  inputEditCantidad.value  = h.cantidad;
+
   document.querySelectorAll('input[name="editar-pago"]').forEach(r => {
-    r.checked = r.value === h.pago;
+    r.checked = r.value === (h.pago ?? 'efectivo');
   });
+
+  actualizarResumenEditar();
   modalEditar.classList.remove('hidden');
 };
 
 document.getElementById('btn-confirmar-editar').addEventListener('click', () => {
   const h = historial.find(x => x.id === editandoId);
   if (!h) return;
+
+  const errEl = document.getElementById('editar-error');
+  errEl.classList.add('hidden');
+
+  const nuevaCat  = selEditCategoria.value;
+  const nuevaCant = parseInt(inputEditCantidad.value, 10);
+  if (!nuevaCat || isNaN(nuevaCant) || nuevaCant < 1) return;
+
   const nuevoPago = document.querySelector('input[name="editar-pago"]:checked').value;
-  h.pago = nuevoPago;
-  h.ingreso = nuevoPago === 'regalo' ? 0 : (h.precioUnit ?? 0) * h.cantidad;
+
+  // 1. Restaurar stock anterior
+  const refViejo = h._stock || inferirStock(h);
+  if (refViejo) {
+    const { tipo, talle, variante, modelo } = refViejo;
+    if (tipo === 'adulto') estado.adultos[talle][variante] += h.cantidad;
+    else if (tipo === 'nino') estado.ninos[talle] = (estado.ninos[talle] ?? 0) + h.cantidad;
+    else if (tipo === 'tote') estado.totes[modelo] += h.cantidad;
+  }
+
+  // 2. Calcular nuevo _stock y descripción
+  let nuevaDesc = '';
+  let nuevoPrecio = 0;
+  let nuevo_stock;
+
+  if (nuevaCat === 'adulto') {
+    const talle   = selEditTalleAdulto.value;
+    const variante = selEditVariante.value;
+    const disp    = estado.adultos[talle]?.[variante] ?? 0;
+    if (nuevaCant > disp) {
+      // revertir restauración
+      if (refViejo) {
+        const { tipo, talle: t, variante: v, modelo: m } = refViejo;
+        if (tipo === 'adulto') estado.adultos[t][v] -= h.cantidad;
+        else if (tipo === 'nino') estado.ninos[t] -= h.cantidad;
+        else if (tipo === 'tote') estado.totes[m] -= h.cantidad;
+      }
+      errEl.textContent = `Stock insuficiente para ${LABEL_VARIANTE[variante]} talle ${talle}. Disponible: ${disp}`;
+      errEl.classList.remove('hidden');
+      return;
+    }
+    estado.adultos[talle][variante] -= nuevaCant;
+    nuevaDesc   = `Remera ${LABEL_VARIANTE[variante]} talle ${talle}`;
+    nuevoPrecio = PRECIOS.remera;
+    nuevo_stock = { tipo: 'adulto', talle, variante };
+
+  } else if (nuevaCat === 'nino') {
+    const talle = selEditTalleNino.value;
+    const disp  = estado.ninos[talle] ?? 0;
+    if (nuevaCant > disp) {
+      if (refViejo) {
+        const { tipo, talle: t, variante: v, modelo: m } = refViejo;
+        if (tipo === 'adulto') estado.adultos[t][v] -= h.cantidad;
+        else if (tipo === 'nino') estado.ninos[t] -= h.cantidad;
+        else if (tipo === 'tote') estado.totes[m] -= h.cantidad;
+      }
+      errEl.textContent = `Stock insuficiente para talle ${talle}. Disponible: ${disp}`;
+      errEl.classList.remove('hidden');
+      return;
+    }
+    estado.ninos[talle] -= nuevaCant;
+    nuevaDesc   = `Remera Niñx Reposera Roja talle ${talle}`;
+    nuevoPrecio = PRECIOS.remera;
+    nuevo_stock = { tipo: 'nino', talle };
+
+  } else if (nuevaCat === 'tote') {
+    const modelo = selEditTote.value;
+    const disp   = estado.totes[modelo] ?? 0;
+    if (nuevaCant > disp) {
+      if (refViejo) {
+        const { tipo, talle: t, variante: v, modelo: m } = refViejo;
+        if (tipo === 'adulto') estado.adultos[t][v] -= h.cantidad;
+        else if (tipo === 'nino') estado.ninos[t] -= h.cantidad;
+        else if (tipo === 'tote') estado.totes[m] -= h.cantidad;
+      }
+      errEl.textContent = `Stock insuficiente. Disponible: ${disp}`;
+      errEl.classList.remove('hidden');
+      return;
+    }
+    estado.totes[modelo] -= nuevaCant;
+    nuevaDesc   = `Tote Bag ${modelo === 'silla' ? 'Reposera' : 'Vereda'}`;
+    nuevoPrecio = PRECIOS.tote;
+    nuevo_stock = { tipo: 'tote', modelo };
+  }
+
+  // 3. Actualizar entrada del historial
+  h.descripcion = nuevaDesc;
+  h.cantidad    = nuevaCant;
+  h.pago        = nuevoPago;
+  h.precioUnit  = nuevoPrecio;
+  h.ingreso     = nuevoPago === 'regalo' ? 0 : nuevoPrecio * nuevaCant;
+  h._stock      = nuevo_stock;
+
   guardar();
   renderTodo();
   modalEditar.classList.add('hidden');
-  // refrescar historial si sigue abierto
-  document.getElementById('btn-historial').click();
+  // Refrescar historial si estaba abierto
+  if (!document.getElementById('modal-historial').classList.contains('hidden')) {
+    abrirHistorial();
+  }
 });
 
 document.getElementById('btn-cancelar-editar').addEventListener('click', () => {
   modalEditar.classList.add('hidden');
 });
 
+// ── Eliminar registro ─────────────────────────────────────────────────────────
 window.eliminarRegistro = function(id) {
   const idx = historial.findIndex(x => x.id === id);
   if (idx === -1) return;
   const h = historial[idx];
-  const nombre = `${h.descripcion} (${h.cantidad} u.)`;
-  if (!confirm(`¿Eliminar este registro y devolver el stock?\n\n${nombre}`)) return;
+  if (!confirm(`¿Eliminar este registro y devolver el stock?\n\n${h.descripcion} (${h.cantidad} u.)`)) return;
 
-  // Restaurar stock (usa _stock guardado o infiere desde descripción)
   const ref = h._stock || inferirStock(h);
   if (ref) {
     const { tipo, talle, variante, modelo } = ref;
@@ -459,11 +618,168 @@ window.eliminarRegistro = function(id) {
   historial.splice(idx, 1);
   guardar();
   renderTodo();
-  document.getElementById('btn-historial').click();
+  abrirHistorial();
 };
 
-// Cerrar modales al hacer click afuera
-[modalVenta, document.getElementById('modal-historial')].forEach(modal => {
+// ── Tab Auditoría ─────────────────────────────────────────────────────────────
+function renderAuditoria() {
+  const contenedor = document.getElementById('auditoria-contenido');
+
+  // Adultos
+  const filasAdultos = TALLES_ADULTO.map(talle => {
+    const row = estado.adultos[talle];
+    return `<tr>
+      <td class="talle-label">${talle}</td>
+      ${VARIANTES.map(v => `
+        <td>
+          <div class="audit-cell">
+            <span class="audit-actual">${row[v]}</span>
+            <input type="number" class="audit-input" min="0"
+              data-tipo="adulto" data-talle="${talle}" data-variante="${v}"
+              placeholder="${row[v]}" />
+          </div>
+        </td>`).join('')}
+    </tr>`;
+  }).join('');
+
+  // Totes
+  const filaToteReposera = `<tr>
+    <td>Reposera</td>
+    <td>
+      <div class="audit-cell">
+        <span class="audit-actual">${estado.totes.silla}</span>
+        <input type="number" class="audit-input" min="0"
+          data-tipo="tote" data-modelo="silla"
+          placeholder="${estado.totes.silla}" />
+      </div>
+    </td>
+  </tr>`;
+  const filaToteVereda = `<tr>
+    <td>Vereda</td>
+    <td>
+      <div class="audit-cell">
+        <span class="audit-actual">${estado.totes.vereda}</span>
+        <input type="number" class="audit-input" min="0"
+          data-tipo="tote" data-modelo="vereda"
+          placeholder="${estado.totes.vereda}" />
+      </div>
+    </td>
+  </tr>`;
+
+  // Niños
+  const filasNinos = TALLES_NINO.map(t => {
+    const v = estado.ninos[t] ?? 0;
+    return `<tr>
+      <td class="talle-label">${t}</td>
+      <td>
+        <div class="audit-cell">
+          <span class="audit-actual">${v}</span>
+          <input type="number" class="audit-input" min="0"
+            data-tipo="nino" data-talle="${t}"
+            placeholder="${v}" />
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  contenedor.innerHTML = `
+    <div class="audit-leyenda">
+      <span class="audit-leyenda-item"><span class="audit-actual">N</span> = sistema</span>
+      <span class="audit-leyenda-item"><input type="number" style="width:3.5rem" readonly placeholder="N" /> = físico (dejá vacío si coincide)</span>
+    </div>
+
+    <div class="seccion">
+      <h2>Remeras Adulto</h2>
+      <div class="tabla-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Talle</th>
+              <th>Vereda Roja</th>
+              <th>Vereda Negra</th>
+              <th>Reposera Roja</th>
+              <th>Reposera Negra</th>
+              <th>Blanca</th>
+            </tr>
+          </thead>
+          <tbody>${filasAdultos}</tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="seccion">
+      <h2>Tote Bags</h2>
+      <div class="tabla-container">
+        <table>
+          <thead><tr><th>Modelo</th><th>Cantidad</th></tr></thead>
+          <tbody>${filaToteReposera}${filaToteVereda}</tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="seccion">
+      <h2>Remeras Niñx — Reposera Roja</h2>
+      <div class="tabla-container">
+        <table>
+          <thead><tr><th>Talle</th><th>Cantidad</th></tr></thead>
+          <tbody>${filasNinos}</tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+document.getElementById('btn-guardar-auditoria').addEventListener('click', () => {
+  const inputs = document.querySelectorAll('.audit-input');
+  const ajustes = [];
+
+  inputs.forEach(input => {
+    const val = input.value.trim();
+    if (val === '') return; // sin cambio
+    const fisico = parseInt(val, 10);
+    if (isNaN(fisico) || fisico < 0) return;
+
+    const tipo    = input.dataset.tipo;
+    const talle   = input.dataset.talle;
+    const variante = input.dataset.variante;
+    const modelo  = input.dataset.modelo;
+
+    if (tipo === 'adulto') {
+      const actual = estado.adultos[talle][variante];
+      if (fisico !== actual) {
+        ajustes.push(`${LABEL_VARIANTE[variante]} talle ${talle}: ${actual} → ${fisico}`);
+        estado.adultos[talle][variante] = fisico;
+      }
+    } else if (tipo === 'tote') {
+      const actual = estado.totes[modelo];
+      if (fisico !== actual) {
+        ajustes.push(`Tote ${modelo === 'silla' ? 'Reposera' : 'Vereda'}: ${actual} → ${fisico}`);
+        estado.totes[modelo] = fisico;
+      }
+    } else if (tipo === 'nino') {
+      const actual = estado.ninos[talle] ?? 0;
+      if (fisico !== actual) {
+        ajustes.push(`Niñx talle ${talle}: ${actual} → ${fisico}`);
+        estado.ninos[talle] = fisico;
+      }
+    }
+  });
+
+  if (ajustes.length === 0) {
+    alert('Sin diferencias. No se realizaron ajustes.');
+    return;
+  }
+
+  guardar();
+  renderTodo();
+  renderAuditoria();
+
+  const msg = `✅ Ajustes aplicados (${ajustes.length}):\n\n${ajustes.join('\n')}`;
+  alert(msg);
+});
+
+// ── Cerrar modales al click afuera ────────────────────────────────────────────
+[modalVenta, document.getElementById('modal-historial'), modalEditar].forEach(modal => {
   modal.addEventListener('click', e => {
     if (e.target === modal) modal.classList.add('hidden');
   });

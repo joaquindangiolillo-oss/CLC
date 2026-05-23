@@ -8,91 +8,86 @@
 </head>
 <body>
   <header>
-    <h1>🐐 Cayo la Cabra — Control de Stock</h1>
+    <h1>🐐 Cayo la Cabra</h1>
     <div class="header-actions">
-      <button id="btn-venta" class="btn-primary">Registrar Venta</button>
-      <button id="btn-historial" class="btn-secondary">Ver Historial</button>
+      <button id="btn-venta" class="btn-primary">+ Registrar</button>
+      <button id="btn-historial" class="btn-secondary">Historial</button>
     </div>
   </header>
 
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="stock">📦 Stock</button>
+    <button class="tab-btn" data-tab="auditoria">✅ Auditoría</button>
+  </nav>
+
   <main>
-    <!-- Totales generales -->
-    <section class="totales-card">
-      <div class="total-item">
-        <span class="total-label">Total remeras</span>
-        <span class="total-valor" id="total-remeras">0</span>
-      </div>
-      <div class="total-item">
-        <span class="total-label">Tote bags</span>
-        <span class="total-valor" id="total-totes">0</span>
-      </div>
-      <div class="total-item">
-        <span class="total-label">Remeras niñx</span>
-        <span class="total-valor" id="total-ninos">0</span>
-      </div>
-      <div class="total-item total-item--green">
-        <span class="total-label">Recaudado</span>
-        <span class="total-valor total-valor--green" id="total-recaudado">$0</span>
-      </div>
-    </section>
+    <!-- ── TAB STOCK ── -->
+    <div id="tab-stock" class="tab-content">
+      <section class="totales-card">
+        <div class="total-item">
+          <span class="total-label">Remeras adulto</span>
+          <span class="total-valor" id="total-remeras">0</span>
+        </div>
+        <div class="total-item">
+          <span class="total-label">Tote bags</span>
+          <span class="total-valor" id="total-totes">0</span>
+        </div>
+        <div class="total-item">
+          <span class="total-label">Remeras niñx</span>
+          <span class="total-valor" id="total-ninos">0</span>
+        </div>
+        <div class="total-item total-item--green">
+          <span class="total-label">Recaudado</span>
+          <span class="total-valor total-valor--green" id="total-recaudado">$0</span>
+        </div>
+      </section>
 
-    <!-- Remeras adulto -->
-    <section class="seccion">
-      <h2>Remeras Adulto</h2>
-      <div class="tabla-container">
-        <table id="tabla-adultos">
-          <thead>
-            <tr>
-              <th>Talle</th>
-              <th>Vereda Roja</th>
-              <th>Vereda Negra</th>
-              <th>Reposera Roja</th>
-              <th>Reposera Negra</th>
-              <th>Blanca</th>
-              <th>Subtotal</th>
-            </tr>
-          </thead>
-          <tbody id="tbody-adultos"></tbody>
-          <tfoot id="tfoot-adultos"></tfoot>
-        </table>
-      </div>
-    </section>
+      <section class="seccion">
+        <h2>Remeras Adulto</h2>
+        <div class="tabla-container">
+          <table>
+            <thead>
+              <tr><th>Talle</th><th>Vereda Roja</th><th>Vereda Negra</th><th>Reposera Roja</th><th>Reposera Negra</th><th>Blanca</th><th>Subtotal</th></tr>
+            </thead>
+            <tbody id="tbody-adultos"></tbody>
+            <tfoot id="tfoot-adultos"></tfoot>
+          </table>
+        </div>
+      </section>
 
-    <!-- Tote Bags -->
-    <section class="seccion">
-      <h2>Tote Bags</h2>
-      <div class="tabla-container">
-        <table id="tabla-totes">
-          <thead>
-            <tr>
-              <th>Producto</th>
-              <th>Cantidad</th>
-            </tr>
-          </thead>
-          <tbody id="tbody-totes"></tbody>
-        </table>
-      </div>
-    </section>
+      <section class="seccion">
+        <h2>Tote Bags</h2>
+        <div class="tabla-container">
+          <table>
+            <thead><tr><th>Producto</th><th>Cantidad</th></tr></thead>
+            <tbody id="tbody-totes"></tbody>
+          </table>
+        </div>
+      </section>
 
-    <!-- Remeras Niñx -->
-    <section class="seccion">
-      <h2>Remeras Niñx — Reposera Roja</h2>
-      <div class="tabla-container">
-        <table id="tabla-ninos">
-          <thead>
-            <tr>
-              <th>Talle</th>
-              <th>Cantidad</th>
-            </tr>
-          </thead>
-          <tbody id="tbody-ninos"></tbody>
-          <tfoot id="tfoot-ninos"></tfoot>
-        </table>
+      <section class="seccion">
+        <h2>Remeras Niñx — Reposera Roja</h2>
+        <div class="tabla-container">
+          <table>
+            <thead><tr><th>Talle</th><th>Cantidad</th></tr></thead>
+            <tbody id="tbody-ninos"></tbody>
+            <tfoot id="tfoot-ninos"></tfoot>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <!-- ── TAB AUDITORÍA ── -->
+    <div id="tab-auditoria" class="tab-content hidden">
+      <div class="auditoria-header">
+        <p class="auditoria-desc">Contá el stock físico y ajustá si hay diferencias.</p>
+        <button id="btn-guardar-auditoria" class="btn-primary">Guardar todos los ajustes</button>
       </div>
-    </section>
+      <div id="auditoria-contenido"></div>
+    </div>
   </main>
 
-  <!-- Modal Venta -->
+  <!-- ── MODAL VENTA ── -->
   <div id="modal-venta" class="modal hidden">
     <div class="modal-content">
       <h2>Registrar Venta</h2>
@@ -105,15 +100,10 @@
             <option value="tote">Tote Bag</option>
           </select>
         </label>
-
         <div id="campos-adulto" class="campos hidden">
           <label>Talle
             <select id="venta-talle-adulto">
-              <option value="S">S</option>
-              <option value="M">M</option>
-              <option value="L">L</option>
-              <option value="XL">XL</option>
-              <option value="XXL">XXL</option>
+              <option value="S">S</option><option value="M">M</option><option value="L">L</option><option value="XL">XL</option><option value="XXL">XXL</option>
             </select>
           </label>
           <label>Diseño / Color
@@ -126,21 +116,14 @@
             </select>
           </label>
         </div>
-
         <div id="campos-nino" class="campos hidden">
           <label>Talle
             <select id="venta-talle-nino">
-              <option value="2">2</option>
-              <option value="4">4</option>
-              <option value="6">6</option>
-              <option value="8">8</option>
-              <option value="10">10</option>
-              <option value="12">12</option>
-              <option value="16">16</option>
+              <option value="2">2</option><option value="4">4</option><option value="6">6</option>
+              <option value="8">8</option><option value="10">10</option><option value="12">12</option><option value="16">16</option>
             </select>
           </label>
         </div>
-
         <div id="campos-tote" class="campos hidden">
           <label>Modelo
             <select id="venta-tote">
@@ -149,35 +132,22 @@
             </select>
           </label>
         </div>
-
         <label>Cantidad
           <input type="number" id="venta-cantidad" min="1" value="1" required />
         </label>
-
         <label>Método de pago
           <div class="pago-opciones">
-            <label class="pago-opcion">
-              <input type="radio" name="pago" value="efectivo" checked />
-              <span>Efectivo</span>
-            </label>
-            <label class="pago-opcion">
-              <input type="radio" name="pago" value="transferencia" />
-              <span>Transferencia</span>
-            </label>
-            <label class="pago-opcion">
-              <input type="radio" name="pago" value="regalo" />
-              <span>🎁 Regalo</span>
-            </label>
+            <label class="pago-opcion"><input type="radio" name="pago" value="efectivo" checked /><span>Efectivo</span></label>
+            <label class="pago-opcion"><input type="radio" name="pago" value="transferencia" /><span>Transferencia</span></label>
+            <label class="pago-opcion"><input type="radio" name="pago" value="regalo" /><span>🎁 Regalo</span></label>
           </div>
         </label>
-
         <div class="venta-resumen">
           <span id="venta-precio-unit"></span>
           <span id="venta-total-venta"></span>
         </div>
         <p id="venta-disponible" class="disponible"></p>
         <p id="venta-error" class="error hidden"></p>
-
         <div class="modal-actions">
           <button type="submit" class="btn-primary">Confirmar</button>
           <button type="button" id="btn-cancelar-venta" class="btn-secondary">Cancelar</button>
@@ -186,7 +156,7 @@
     </div>
   </div>
 
-  <!-- Modal Historial -->
+  <!-- ── MODAL HISTORIAL ── -->
   <div id="modal-historial" class="modal hidden">
     <div class="modal-content modal-wide">
       <h2>Historial de Ventas</h2>
@@ -198,27 +168,65 @@
     </div>
   </div>
 
-  <!-- Modal Editar registro -->
+  <!-- ── MODAL EDITAR REGISTRO ── -->
   <div id="modal-editar" class="modal hidden">
     <div class="modal-content">
       <h2>Editar registro</h2>
-      <p id="editar-desc" class="editar-desc"></p>
+      <p id="editar-info" class="editar-desc"></p>
+      <label>Categoría
+        <select id="editar-categoria">
+          <option value="adulto">Remera Adulto</option>
+          <option value="nino">Remera Niñx</option>
+          <option value="tote">Tote Bag</option>
+        </select>
+      </label>
+      <div id="editar-campos-adulto" class="campos">
+        <label>Talle
+          <select id="editar-talle-adulto">
+            <option value="S">S</option><option value="M">M</option><option value="L">L</option><option value="XL">XL</option><option value="XXL">XXL</option>
+          </select>
+        </label>
+        <label>Diseño / Color
+          <select id="editar-variante-adulto">
+            <option value="veredaRoja">Vereda Roja</option>
+            <option value="veredaNegra">Vereda Negra</option>
+            <option value="reposeraRoja">Reposera Roja</option>
+            <option value="reposeraNegra">Reposera Negra</option>
+            <option value="blanca">Blanca</option>
+          </select>
+        </label>
+      </div>
+      <div id="editar-campos-nino" class="campos hidden">
+        <label>Talle
+          <select id="editar-talle-nino">
+            <option value="2">2</option><option value="4">4</option><option value="6">6</option>
+            <option value="8">8</option><option value="10">10</option><option value="12">12</option><option value="16">16</option>
+          </select>
+        </label>
+      </div>
+      <div id="editar-campos-tote" class="campos hidden">
+        <label>Modelo
+          <select id="editar-tote">
+            <option value="silla">Reposera</option>
+            <option value="vereda">Vereda</option>
+          </select>
+        </label>
+      </div>
+      <label>Cantidad
+        <input type="number" id="editar-cantidad" min="1" value="1" />
+      </label>
       <label>Método de pago
         <div class="pago-opciones">
-          <label class="pago-opcion">
-            <input type="radio" name="editar-pago" value="efectivo" />
-            <span>Efectivo</span>
-          </label>
-          <label class="pago-opcion">
-            <input type="radio" name="editar-pago" value="transferencia" />
-            <span>Transferencia</span>
-          </label>
-          <label class="pago-opcion">
-            <input type="radio" name="editar-pago" value="regalo" />
-            <span>🎁 Regalo</span>
-          </label>
+          <label class="pago-opcion"><input type="radio" name="editar-pago" value="efectivo" /><span>Efectivo</span></label>
+          <label class="pago-opcion"><input type="radio" name="editar-pago" value="transferencia" /><span>Transferencia</span></label>
+          <label class="pago-opcion"><input type="radio" name="editar-pago" value="regalo" /><span>🎁 Regalo</span></label>
         </div>
       </label>
+      <div class="venta-resumen">
+        <span id="editar-precio-unit"></span>
+        <span id="editar-total-venta"></span>
+      </div>
+      <p id="editar-error" class="error hidden"></p>
       <div class="modal-actions">
         <button id="btn-confirmar-editar" class="btn-primary">Guardar</button>
         <button id="btn-cancelar-editar" class="btn-secondary">Cancelar</button>
