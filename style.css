@@ -371,6 +371,10 @@ form select:focus, form input:focus { outline: 2px solid var(--acento); border-c
 }
 
 /* CARD RECAUDADO CLICKEABLE */
+button.total-item {
+  font: inherit;
+  width: 100%;
+}
 .total-item--clickable {
   cursor: pointer;
   transition: border-color 0.15s, transform 0.1s;
