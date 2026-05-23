@@ -17,6 +17,7 @@
 
   <nav class="tabs">
     <button class="tab-btn active" data-tab="stock">📦 Stock</button>
+    <button class="tab-btn" data-tab="ventas">💰 Ventas</button>
     <button class="tab-btn" data-tab="auditoria">✅ Auditoría</button>
   </nav>
 
@@ -36,8 +37,8 @@
           <span class="total-label">Remeras niñx</span>
           <span class="total-valor" id="total-ninos">0</span>
         </div>
-        <div class="total-item total-item--green">
-          <span class="total-label">Recaudado</span>
+        <div class="total-item total-item--green total-item--clickable" id="card-recaudado" title="Ver ventas">
+          <span class="total-label">Recaudado 👉</span>
           <span class="total-valor total-valor--green" id="total-recaudado">$0</span>
         </div>
       </section>
@@ -75,6 +76,40 @@
           </table>
         </div>
       </section>
+    </div>
+
+    <!-- ── TAB VENTAS ── -->
+    <div id="tab-ventas" class="tab-content hidden">
+      <!-- Resumen -->
+      <section class="ventas-resumen-cards">
+        <div class="vcard vcard--total">
+          <span class="vcard-label">Total recaudado</span>
+          <span class="vcard-valor" id="v-total">$0</span>
+        </div>
+        <div class="vcard vcard--efectivo">
+          <span class="vcard-label">💵 Efectivo</span>
+          <span class="vcard-valor" id="v-efectivo">$0</span>
+        </div>
+        <div class="vcard vcard--transf">
+          <span class="vcard-label">🏦 Transferencia</span>
+          <span class="vcard-valor" id="v-transf">$0</span>
+        </div>
+        <div class="vcard vcard--regalo">
+          <span class="vcard-label">🎁 Regalos</span>
+          <span class="vcard-valor" id="v-regalos">0 u.</span>
+        </div>
+      </section>
+
+      <!-- Filtros -->
+      <div class="ventas-filtros">
+        <button class="filtro-btn active" data-filtro="todos">Todos</button>
+        <button class="filtro-btn" data-filtro="efectivo">Efectivo</button>
+        <button class="filtro-btn" data-filtro="transferencia">Transferencia</button>
+        <button class="filtro-btn" data-filtro="regalo">Regalos</button>
+      </div>
+
+      <!-- Lista -->
+      <div id="ventas-lista"></div>
     </div>
 
     <!-- ── TAB AUDITORÍA ── -->
