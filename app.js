@@ -409,6 +409,7 @@ document.getElementById('btn-cerrar-historial').addEventListener('click', () => 
 
 // ── Editar registro (full edit) ───────────────────────────────────────────────
 let editandoId = null;
+let editandoPrecioUnit = 0;   // precio original del registro que se está editando
 const modalEditar = document.getElementById('modal-editar');
 
 const selEditCategoria   = document.getElementById('editar-categoria');
@@ -433,13 +434,10 @@ function mostrarCamposEditar(cat) {
 }
 
 function actualizarResumenEditar() {
-  const cat  = selEditCategoria.value;
-  const cant = parseInt(inputEditCantidad.value, 10) || 1;
-  let precio = 0;
-  if (cat === 'adulto' || cat === 'nino') precio = PRECIOS.remera;
-  else if (cat === 'tote') precio = PRECIOS.tote;
-  const pago = document.querySelector('input[name="editar-pago"]:checked')?.value;
-  document.getElementById('editar-precio-unit').textContent  = precio ? `Precio: ${formatPeso(precio)} c/u` : '';
+  const cant  = parseInt(inputEditCantidad.value, 10) || 1;
+  const precio = editandoPrecioUnit;   // siempre el precio original de la venta
+  const pago  = document.querySelector('input[name="editar-pago"]:checked')?.value;
+  document.getElementById('editar-precio-unit').textContent  = precio ? `Precio original: ${formatPeso(precio)} c/u` : '';
   document.getElementById('editar-total-venta').textContent  = precio && pago !== 'regalo' ? `Total: ${formatPeso(precio * cant)}` : pago === 'regalo' ? '🎁 Regalo' : '';
 }
 
@@ -459,6 +457,7 @@ window.abrirEditar = function(id) {
   const h = historial.find(x => x.id === id);
   if (!h) return;
   editandoId = id;
+  editandoPrecioUnit = h.precioUnit ?? 0;   // guardar precio original
 
   document.getElementById('editar-info').textContent =
     `${h.descripcion} — ${h.cantidad} u. — ${h.fecha}`;
@@ -537,7 +536,7 @@ document.getElementById('btn-confirmar-editar').addEventListener('click', () => 
     }
     estado.adultos[talle][variante] -= nuevaCant;
     nuevaDesc   = `Remera ${LABEL_VARIANTE[variante]} talle ${talle}`;
-    nuevoPrecio = PRECIOS.remera;
+    nuevoPrecio = h.precioUnit ?? PRECIOS.remera;   // conservar precio original
     nuevo_stock = { tipo: 'adulto', talle, variante };
 
   } else if (nuevaCat === 'nino') {
@@ -556,7 +555,7 @@ document.getElementById('btn-confirmar-editar').addEventListener('click', () => 
     }
     estado.ninos[talle] -= nuevaCant;
     nuevaDesc   = `Remera Niñx Reposera Roja talle ${talle}`;
-    nuevoPrecio = PRECIOS.remera;
+    nuevoPrecio = h.precioUnit ?? PRECIOS.remera;   // conservar precio original
     nuevo_stock = { tipo: 'nino', talle };
 
   } else if (nuevaCat === 'tote') {
@@ -575,7 +574,7 @@ document.getElementById('btn-confirmar-editar').addEventListener('click', () => 
     }
     estado.totes[modelo] -= nuevaCant;
     nuevaDesc   = `Tote Bag ${modelo === 'silla' ? 'Reposera' : 'Vereda'}`;
-    nuevoPrecio = PRECIOS.tote;
+    nuevoPrecio = h.precioUnit ?? PRECIOS.tote;   // conservar precio original
     nuevo_stock = { tipo: 'tote', modelo };
   }
 
