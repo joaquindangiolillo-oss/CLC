@@ -16,6 +16,7 @@
   </header>
 
   <main>
+    <!-- Totales generales -->
     <section class="totales-card">
       <div class="total-item">
         <span class="total-label">Total remeras</span>
@@ -35,32 +36,55 @@
       </div>
     </section>
 
+    <!-- Remeras adulto -->
     <section class="seccion">
       <h2>Remeras Adulto</h2>
       <div class="tabla-container">
         <table id="tabla-adultos">
-          <thead><tr><th>Talle</th><th>Vereda Roja</th><th>Vereda Negra</th><th>Reposera Roja</th><th>Reposera Negra</th><th>Blanca</th><th>Subtotal</th></tr></thead>
+          <thead>
+            <tr>
+              <th>Talle</th>
+              <th>Vereda Roja</th>
+              <th>Vereda Negra</th>
+              <th>Reposera Roja</th>
+              <th>Reposera Negra</th>
+              <th>Blanca</th>
+              <th>Subtotal</th>
+            </tr>
+          </thead>
           <tbody id="tbody-adultos"></tbody>
           <tfoot id="tfoot-adultos"></tfoot>
         </table>
       </div>
     </section>
 
+    <!-- Tote Bags -->
     <section class="seccion">
       <h2>Tote Bags</h2>
       <div class="tabla-container">
         <table id="tabla-totes">
-          <thead><tr><th>Producto</th><th>Cantidad</th></tr></thead>
+          <thead>
+            <tr>
+              <th>Producto</th>
+              <th>Cantidad</th>
+            </tr>
+          </thead>
           <tbody id="tbody-totes"></tbody>
         </table>
       </div>
     </section>
 
+    <!-- Remeras Niñx -->
     <section class="seccion">
       <h2>Remeras Niñx — Reposera Roja</h2>
       <div class="tabla-container">
         <table id="tabla-ninos">
-          <thead><tr><th>Talle</th><th>Cantidad</th></tr></thead>
+          <thead>
+            <tr>
+              <th>Talle</th>
+              <th>Cantidad</th>
+            </tr>
+          </thead>
           <tbody id="tbody-ninos"></tbody>
           <tfoot id="tfoot-ninos"></tfoot>
         </table>
@@ -68,6 +92,7 @@
     </section>
   </main>
 
+  <!-- Modal Venta -->
   <div id="modal-venta" class="modal hidden">
     <div class="modal-content">
       <h2>Registrar Venta</h2>
@@ -80,10 +105,15 @@
             <option value="tote">Tote Bag</option>
           </select>
         </label>
+
         <div id="campos-adulto" class="campos hidden">
           <label>Talle
             <select id="venta-talle-adulto">
-              <option value="S">S</option><option value="M">M</option><option value="L">L</option><option value="XL">XL</option><option value="XXL">XXL</option>
+              <option value="S">S</option>
+              <option value="M">M</option>
+              <option value="L">L</option>
+              <option value="XL">XL</option>
+              <option value="XXL">XXL</option>
             </select>
           </label>
           <label>Diseño / Color
@@ -96,13 +126,21 @@
             </select>
           </label>
         </div>
+
         <div id="campos-nino" class="campos hidden">
           <label>Talle
             <select id="venta-talle-nino">
-              <option value="2">2</option><option value="4">4</option><option value="6">6</option><option value="8">8</option><option value="10">10</option><option value="12">12</option><option value="16">16</option>
+              <option value="2">2</option>
+              <option value="4">4</option>
+              <option value="6">6</option>
+              <option value="8">8</option>
+              <option value="10">10</option>
+              <option value="12">12</option>
+              <option value="16">16</option>
             </select>
           </label>
         </div>
+
         <div id="campos-tote" class="campos hidden">
           <label>Modelo
             <select id="venta-tote">
@@ -111,9 +149,11 @@
             </select>
           </label>
         </div>
+
         <label>Cantidad
           <input type="number" id="venta-cantidad" min="1" value="1" required />
         </label>
+
         <label>Método de pago
           <div class="pago-opciones">
             <label class="pago-opcion">
@@ -124,14 +164,20 @@
               <input type="radio" name="pago" value="transferencia" />
               <span>Transferencia</span>
             </label>
+            <label class="pago-opcion">
+              <input type="radio" name="pago" value="regalo" />
+              <span>🎁 Regalo</span>
+            </label>
           </div>
         </label>
+
         <div class="venta-resumen">
           <span id="venta-precio-unit"></span>
           <span id="venta-total-venta"></span>
         </div>
         <p id="venta-disponible" class="disponible"></p>
         <p id="venta-error" class="error hidden"></p>
+
         <div class="modal-actions">
           <button type="submit" class="btn-primary">Confirmar</button>
           <button type="button" id="btn-cancelar-venta" class="btn-secondary">Cancelar</button>
@@ -140,6 +186,7 @@
     </div>
   </div>
 
+  <!-- Modal Historial -->
   <div id="modal-historial" class="modal hidden">
     <div class="modal-content modal-wide">
       <h2>Historial de Ventas</h2>
