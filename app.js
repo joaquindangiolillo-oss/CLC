@@ -67,11 +67,6 @@ function claseStock(n) {
   return '';
 }
 
-function celda(val) {
-  const cls = claseStock(val);
-  return `<td class="${cls}">${val}</td>`;
-}
-
 function renderAdultos() {
   const tbody = document.getElementById('tbody-adultos');
   const tfoot = document.getElementById('tfoot-adultos');
