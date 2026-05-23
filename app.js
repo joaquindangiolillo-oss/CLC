@@ -201,11 +201,14 @@ function renderTodo() {
 let filtroVentas = 'todos';
 
 function renderVentas() {
-  const totalRec  = historial.reduce((s, h) => s + (h.ingreso ?? 0), 0);
-  const totalEfec = historial.reduce((s, h) => s + (h.pago === 'efectivo'      ? (h.ingreso ?? 0) : 0), 0);
+  // Totales globales (siempre sobre todo el historial)
+  const totalUnid  = historial.reduce((s, h) => s + h.cantidad, 0);
+  const totalRec   = historial.reduce((s, h) => s + (h.ingreso ?? 0), 0);
+  const totalEfec  = historial.reduce((s, h) => s + (h.pago === 'efectivo'      ? (h.ingreso ?? 0) : 0), 0);
   const totalTrans = historial.reduce((s, h) => s + (h.pago === 'transferencia' ? (h.ingreso ?? 0) : 0), 0);
   const totalRegU  = historial.reduce((s, h) => h.pago === 'regalo' ? s + h.cantidad : s, 0);
 
+  document.getElementById('v-unidades').textContent = totalUnid;
   document.getElementById('v-total').textContent    = formatPeso(totalRec);
   document.getElementById('v-efectivo').textContent = formatPeso(totalEfec);
   document.getElementById('v-transf').textContent   = formatPeso(totalTrans);

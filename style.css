@@ -399,6 +399,8 @@ button.total-item {
 }
 .vcard-label { display: block; font-size: 0.75rem; color: var(--texto-tenue); margin-bottom: 0.3rem; text-transform: uppercase; letter-spacing: 0.04em; }
 .vcard-valor { font-size: 1.25rem; font-weight: 700; }
+.vcard--vendido  { grid-column: 1 / -1; border-color: rgba(231,76,60,0.3); }
+.vcard--vendido .vcard-valor  { color: var(--acento); font-size: 1.6rem; }
 .vcard--total    { grid-column: 1 / -1; border-color: rgba(39,174,96,0.3); }
 .vcard--total .vcard-valor    { color: var(--verde); font-size: 1.6rem; }
 .vcard--efectivo .vcard-valor { color: #2ecc71; }
