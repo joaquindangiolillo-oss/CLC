@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Stock - Cayo la Cabra</title>
   <link rel="stylesheet" href="style.css" />
 </head>
@@ -90,7 +90,10 @@
   <!-- ── MODAL VENTA ── -->
   <div id="modal-venta" class="modal hidden">
     <div class="modal-content">
-      <h2>Registrar Venta</h2>
+      <div class="modal-header">
+        <h2>Registrar Venta</h2>
+        <button class="modal-cerrar" id="btn-cerrar-venta" aria-label="Cerrar">✕</button>
+      </div>
       <form id="form-venta">
         <label>Categoría
           <select id="venta-categoria" required>
@@ -159,19 +162,22 @@
   <!-- ── MODAL HISTORIAL ── -->
   <div id="modal-historial" class="modal hidden">
     <div class="modal-content modal-wide">
-      <h2>Historial de Ventas</h2>
+      <div class="modal-header">
+        <h2>Historial de Ventas</h2>
+        <button class="modal-cerrar" id="btn-cerrar-historial" aria-label="Cerrar">✕</button>
+      </div>
       <p id="historial-total-recaudado" class="hist-total-label"></p>
       <div id="lista-historial"></div>
-      <div class="modal-actions">
-        <button id="btn-cerrar-historial" class="btn-secondary">Cerrar</button>
-      </div>
     </div>
   </div>
 
   <!-- ── MODAL EDITAR REGISTRO ── -->
   <div id="modal-editar" class="modal hidden">
     <div class="modal-content">
-      <h2>Editar registro</h2>
+      <div class="modal-header">
+        <h2>Editar registro</h2>
+        <button class="modal-cerrar" id="btn-cerrar-editar" aria-label="Cerrar">✕</button>
+      </div>
       <p id="editar-info" class="editar-desc"></p>
       <label>Categoría
         <select id="editar-categoria">
