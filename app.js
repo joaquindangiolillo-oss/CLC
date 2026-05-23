@@ -267,11 +267,14 @@ document.getElementById('form-venta').addEventListener('submit', e => {
     precio = PRECIOS.tote;
   }
 
+  const pago = document.querySelector('input[name="pago"]:checked').value;
+
   historial.unshift({
     fecha: new Date().toLocaleString('es-AR'),
     descripcion,
     cantidad: cant,
     ingreso: precio * cant,
+    pago,
   });
 
   guardar();
@@ -313,9 +316,14 @@ document.getElementById('btn-historial').addEventListener('click', () => {
     return;
   }
 
+  const totalEfectivo     = historial.reduce((s, h) => s + (h.pago === 'efectivo'     ? (h.ingreso ?? 0) : 0), 0);
+  const totalTransferencia = historial.reduce((s, h) => s + (h.pago === 'transferencia' ? (h.ingreso ?? 0) : 0), 0);
+
   lblTotal.innerHTML = `
-    <span>Total vendido: <strong>${totalUnidades} unidades</strong></span>
-    <span>Recaudado: <strong>${formatPeso(totalRecaudado)}</strong></span>
+    <span>Total vendido: <strong>${totalUnidades} u.</strong></span>
+    <span>Efectivo: <strong>${formatPeso(totalEfectivo)}</strong></span>
+    <span>Transf.: <strong>${formatPeso(totalTransferencia)}</strong></span>
+    <span>Total: <strong>${formatPeso(totalRecaudado)}</strong></span>
   `;
 
   const resumen = buildResumen();
@@ -341,6 +349,7 @@ document.getElementById('btn-historial').addEventListener('click', () => {
       <span class="hist-desc">${h.descripcion}</span>
       <span class="hist-cant">-${h.cantidad}</span>
       <span class="hist-ingreso">${h.ingreso ? formatPeso(h.ingreso) : ''}</span>
+      <span class="hist-pago hist-pago--${h.pago ?? 'efectivo'}">${h.pago === 'transferencia' ? 'Transf.' : 'Efect.'}</span>
       <span class="hist-fecha">${h.fecha}</span>
     </div>`).join('');
 

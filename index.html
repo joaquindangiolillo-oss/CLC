@@ -154,6 +154,19 @@
           <input type="number" id="venta-cantidad" min="1" value="1" required />
         </label>
 
+        <label>Método de pago
+          <div class="pago-opciones">
+            <label class="pago-opcion">
+              <input type="radio" name="pago" value="efectivo" checked />
+              <span>Efectivo</span>
+            </label>
+            <label class="pago-opcion">
+              <input type="radio" name="pago" value="transferencia" />
+              <span>Transferencia</span>
+            </label>
+          </div>
+        </label>
+
         <div class="venta-resumen">
           <span id="venta-precio-unit"></span>
           <span id="venta-total-venta"></span>
