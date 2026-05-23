@@ -13,7 +13,7 @@ const STOCK_INICIAL = {
   ninos: { 2: 1, 4: 2, 6: 2, 8: 1, 10: 3, 12: 1, 16: 2 },
 };
 
-const VARIANTES      = ['veredaRoja', 'veredaNegra', 'reposeraRoja', 'reposeraNegra', 'blanca'];
+const VARIANTES      = ['reposeraRoja', 'reposeraNegra', 'blanca', 'veredaRoja', 'veredaNegra'];
 const TALLES_ADULTO  = ['S', 'M', 'L', 'XL', 'XXL'];
 const TALLES_NINO    = [2, 4, 6, 8, 10, 12, 16];
 
@@ -695,11 +695,11 @@ function renderAuditoria() {
           <thead>
             <tr>
               <th>Talle</th>
-              <th>Vereda Roja</th>
-              <th>Vereda Negra</th>
               <th>Reposera Roja</th>
               <th>Reposera Negra</th>
               <th>Blanca</th>
+              <th>Vereda Roja</th>
+              <th>Vereda Negra</th>
             </tr>
           </thead>
           <tbody>${filasAdultos}</tbody>
