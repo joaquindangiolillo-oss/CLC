@@ -35,6 +35,18 @@ const COL_CLASS = {
   blanca:        'col-bl',
 };
 
+// Agrupación para la tabla transpuesta (diseño + color separados)
+const GRUPOS_ADULTO = [
+  { nombre: 'Reposera', variantes: ['reposeraRoja', 'reposeraNegra'] },
+  { nombre: 'Blanca',   variantes: ['blanca'] },
+  { nombre: 'Vereda',   variantes: ['veredaRoja',   'veredaNegra']   },
+];
+const COLOR_VARIANTE = {
+  reposeraRoja: 'Roja', reposeraNegra: 'Negra',
+  blanca: '—',
+  veredaRoja: 'Roja',   veredaNegra: 'Negra',
+};
+
 // ── Persistencia ──────────────────────────────────────────────────────────────
 function cargarEstado() {
   try {
@@ -132,24 +144,30 @@ function claseStock(n) {
 function renderAdultos() {
   const tbody = document.getElementById('tbody-adultos');
   const tfoot = document.getElementById('tfoot-adultos');
-  // totales por talle (columnas)
   const totalesPorTalle = Object.fromEntries(TALLES_ADULTO.map(t => [t, 0]));
 
-  tbody.innerHTML = VARIANTES.map(v => {
-    const sub = TALLES_ADULTO.reduce((s, t) => {
-      totalesPorTalle[t] += estado.adultos[t][v];
-      return s + estado.adultos[t][v];
-    }, 0);
-    return `<tr>
-      <td class="talle-label ${COL_CLASS[v]}">${LABEL_VARIANTE[v]}</td>
-      ${TALLES_ADULTO.map(t => `<td class="${claseStock(estado.adultos[t][v])}">${estado.adultos[t][v]}</td>`).join('')}
-      <td class="subtotal-col">${sub}</td>
-    </tr>`;
-  }).join('');
+  // Acumular totales
+  VARIANTES.forEach(v => TALLES_ADULTO.forEach(t => { totalesPorTalle[t] += estado.adultos[t][v]; }));
+
+  tbody.innerHTML = GRUPOS_ADULTO.map(grupo =>
+    grupo.variantes.map((v, idx) => {
+      const sub = TALLES_ADULTO.reduce((s, t) => s + estado.adultos[t][v], 0);
+      const celdaGrupo = idx === 0
+        ? `<td class="grupo-label" rowspan="${grupo.variantes.length}">${grupo.nombre}</td>`
+        : '';
+      const color = COLOR_VARIANTE[v];
+      return `<tr class="fila-variante">
+        ${celdaGrupo}
+        <td class="color-label color-${color.toLowerCase()}">${color}</td>
+        ${TALLES_ADULTO.map(t => `<td class="${claseStock(estado.adultos[t][v])}">${estado.adultos[t][v]}</td>`).join('')}
+        <td class="subtotal-col">${sub}</td>
+      </tr>`;
+    }).join('')
+  ).join('');
 
   const totalGeneral = TALLES_ADULTO.reduce((s, t) => s + totalesPorTalle[t], 0);
   tfoot.innerHTML = `<tr>
-    <td>Total</td>
+    <td colspan="2">Total</td>
     ${TALLES_ADULTO.map(t => `<td>${totalesPorTalle[t]}</td>`).join('')}
     <td class="subtotal-col">${totalGeneral}</td>
   </tr>`;
@@ -762,23 +780,28 @@ window.eliminarRegistro = function(id) {
 function renderAuditoria() {
   const contenedor = document.getElementById('auditoria-contenido');
 
-  // Adultos — filas = diseño, columnas = talle
-  const filasAdultos = VARIANTES.map(v => {
-    return `<tr>
-      <td class="talle-label ${COL_CLASS[v]}">${LABEL_VARIANTE[v]}</td>
-      ${TALLES_ADULTO.map(talle => {
-        const val = estado.adultos[talle][v];
-        return `<td>
-          <div class="audit-cell">
+  // Adultos — filas = diseño+color, columnas = talle
+  const filasAdultos = GRUPOS_ADULTO.map(grupo =>
+    grupo.variantes.map((v, idx) => {
+      const color = COLOR_VARIANTE[v];
+      const celdaGrupo = idx === 0
+        ? `<td class="grupo-label" rowspan="${grupo.variantes.length}">${grupo.nombre}</td>`
+        : '';
+      return `<tr>
+        ${celdaGrupo}
+        <td class="color-label color-${color.toLowerCase()}">${color}</td>
+        ${TALLES_ADULTO.map(talle => {
+          const val = estado.adultos[talle][v];
+          return `<td><div class="audit-cell">
             <span class="audit-actual">${val}</span>
             <input type="number" class="audit-input" min="0"
               data-tipo="adulto" data-talle="${talle}" data-variante="${v}"
               placeholder="${val}" />
-          </div>
-        </td>`;
-      }).join('')}
-    </tr>`;
-  }).join('');
+          </div></td>`;
+        }).join('')}
+      </tr>`;
+    }).join('')
+  ).join('');
 
   // Totes
   const filaToteReposera = `<tr>
@@ -833,6 +856,7 @@ function renderAuditoria() {
           <thead>
             <tr>
               <th>Diseño</th>
+              <th>Color</th>
               ${TALLES_ADULTO.map(t => `<th>${t}</th>`).join('')}
             </tr>
           </thead>
