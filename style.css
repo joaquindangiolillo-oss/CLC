@@ -151,6 +151,21 @@ tfoot td { background: #141414; font-weight: 700; border-top: 2px solid var(--bo
 .talle-label  { font-weight: 700; }
 .subtotal-col { color: var(--acento); font-weight: 700; }
 
+.grupo-label {
+  font-weight: 700;
+  vertical-align: middle;
+  border-right: 1px solid var(--borde);
+  white-space: nowrap;
+}
+.color-label {
+  font-size: 0.82rem;
+  white-space: nowrap;
+  padding-left: 0.5rem !important;
+}
+.color-roja  { color: #e74c3c; font-weight: 600; }
+.color-negra { color: #aaa;    font-weight: 600; }
+.fila-variante td { border-top: 1px solid var(--borde); }
+
 /* COLORES COLUMNAS */
 .col-vr { border-left: 2px solid rgba(192,57,43,0.4); }
 .col-vn { border-left: 2px solid rgba(80,80,80,0.4); }
