@@ -132,26 +132,28 @@ function claseStock(n) {
 function renderAdultos() {
   const tbody = document.getElementById('tbody-adultos');
   const tfoot = document.getElementById('tfoot-adultos');
-  const totales = { veredaRoja: 0, veredaNegra: 0, reposeraRoja: 0, reposeraNegra: 0, blanca: 0 };
+  // totales por talle (columnas)
+  const totalesPorTalle = Object.fromEntries(TALLES_ADULTO.map(t => [t, 0]));
 
-  tbody.innerHTML = TALLES_ADULTO.map(talle => {
-    const row = estado.adultos[talle];
-    const sub = VARIANTES.reduce((s, v) => s + row[v], 0);
-    VARIANTES.forEach(v => { totales[v] += row[v]; });
+  tbody.innerHTML = VARIANTES.map(v => {
+    const sub = TALLES_ADULTO.reduce((s, t) => {
+      totalesPorTalle[t] += estado.adultos[t][v];
+      return s + estado.adultos[t][v];
+    }, 0);
     return `<tr>
-      <td class="talle-label">${talle}</td>
-      ${VARIANTES.map(v => `<td class="${COL_CLASS[v]} ${claseStock(row[v])}">${row[v]}</td>`).join('')}
+      <td class="talle-label ${COL_CLASS[v]}">${LABEL_VARIANTE[v]}</td>
+      ${TALLES_ADULTO.map(t => `<td class="${claseStock(estado.adultos[t][v])}">${estado.adultos[t][v]}</td>`).join('')}
       <td class="subtotal-col">${sub}</td>
     </tr>`;
   }).join('');
 
-  const totalSub = VARIANTES.reduce((s, v) => s + totales[v], 0);
+  const totalGeneral = TALLES_ADULTO.reduce((s, t) => s + totalesPorTalle[t], 0);
   tfoot.innerHTML = `<tr>
     <td>Total</td>
-    ${VARIANTES.map(v => `<td class="${COL_CLASS[v]}">${totales[v]}</td>`).join('')}
-    <td class="subtotal-col">${totalSub}</td>
+    ${TALLES_ADULTO.map(t => `<td>${totalesPorTalle[t]}</td>`).join('')}
+    <td class="subtotal-col">${totalGeneral}</td>
   </tr>`;
-  document.getElementById('total-remeras').textContent = totalSub;
+  document.getElementById('total-remeras').textContent = totalGeneral;
 }
 
 function renderTotes() {
@@ -760,20 +762,21 @@ window.eliminarRegistro = function(id) {
 function renderAuditoria() {
   const contenedor = document.getElementById('auditoria-contenido');
 
-  // Adultos
-  const filasAdultos = TALLES_ADULTO.map(talle => {
-    const row = estado.adultos[talle];
+  // Adultos — filas = diseño, columnas = talle
+  const filasAdultos = VARIANTES.map(v => {
     return `<tr>
-      <td class="talle-label">${talle}</td>
-      ${VARIANTES.map(v => `
-        <td>
+      <td class="talle-label ${COL_CLASS[v]}">${LABEL_VARIANTE[v]}</td>
+      ${TALLES_ADULTO.map(talle => {
+        const val = estado.adultos[talle][v];
+        return `<td>
           <div class="audit-cell">
-            <span class="audit-actual">${row[v]}</span>
+            <span class="audit-actual">${val}</span>
             <input type="number" class="audit-input" min="0"
               data-tipo="adulto" data-talle="${talle}" data-variante="${v}"
-              placeholder="${row[v]}" />
+              placeholder="${val}" />
           </div>
-        </td>`).join('')}
+        </td>`;
+      }).join('')}
     </tr>`;
   }).join('');
 
@@ -829,12 +832,8 @@ function renderAuditoria() {
         <table>
           <thead>
             <tr>
-              <th>Talle</th>
-              <th>Reposera Roja</th>
-              <th>Reposera Negra</th>
-              <th>Blanca</th>
-              <th>Vereda Roja</th>
-              <th>Vereda Negra</th>
+              <th>Diseño</th>
+              ${TALLES_ADULTO.map(t => `<th>${t}</th>`).join('')}
             </tr>
           </thead>
           <tbody>${filasAdultos}</tbody>
