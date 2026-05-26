@@ -61,6 +61,7 @@ function doPost(e) {
       if (!sheet) sheet = ss.insertSheet('Historial');
       sheet.getRange('A1').setValue(JSON.stringify(body.historial));
       actualizarHojaVentas(ss, body.historial);
+      actualizarPorVariante(ss, body.historial);
     }
 
     // Actualizar resumen con los datos más recientes
@@ -103,7 +104,6 @@ function actualizarHojaVentas(ss, historial) {
   let sheet = ss.getSheetByName('📋 Ventas');
   if (!sheet) {
     sheet = ss.insertSheet('📋 Ventas');
-    // Mover al frente
     ss.setActiveSheet(sheet);
     ss.moveActiveSheet(1);
   }
@@ -111,7 +111,7 @@ function actualizarHojaVentas(ss, historial) {
   sheet.clearContents();
   sheet.clearFormats();
 
-  const headers = ['Fecha', 'Producto', 'Cant.', 'Precio unit. ($)', 'Total ($)', 'Pago'];
+  const headers = ['Fecha', 'Producto', 'Cant.', 'Precio unit. ($)', 'Total ($)', 'Método de pago', 'Nombre (anota)'];
   const headerRange = sheet.getRange(1, 1, 1, headers.length);
   headerRange.setValues([headers]);
   estilizarEncabezado(headerRange);
@@ -122,33 +122,122 @@ function actualizarHojaVentas(ss, historial) {
   }
 
   const rows = historial.map(h => {
-    const pago = h.pago === 'regalo'         ? '🎁 Regalo'
-               : h.pago === 'transferencia'  ? 'Transferencia'
-               :                               'Efectivo';
+    const pago = h.pago === 'regalo'        ? '🎁 Regalo'
+               : h.pago === 'transferencia' ? 'Transferencia'
+               : h.pago === 'anota'         ? '📝 Anota'
+               :                              'Efectivo';
+    const adeuda = h.pago === 'anota' ? (h.precioUnit || 0) * (h.cantidad || 1) : (h.ingreso || 0);
     return [
-      h.fecha        || '',
-      h.descripcion  || '',
-      h.cantidad     || 0,
-      h.precioUnit   || 0,
-      h.ingreso      || 0,
+      h.fecha              || '',
+      h.descripcion        || '',
+      h.cantidad           || 0,
+      h.precioUnit         || 0,
+      adeuda,
       pago,
+      h.nombreAnota        || '',
     ];
   });
 
   const dataRange = sheet.getRange(2, 1, rows.length, headers.length);
   dataRange.setValues(rows);
 
-  // Zebra (filas alternadas) para legibilidad
   for (let i = 0; i < rows.length; i++) {
-    sheet.getRange(i + 2, 1, 1, headers.length)
-         .setBackground(i % 2 === 0 ? '#2a2a2a' : '#1c1c1c')
-         .setFontColor('#e8e8e8');
+    const bg = i % 2 === 0 ? '#2a2a2a' : '#1c1c1c';
+    sheet.getRange(i + 2, 1, 1, headers.length).setBackground(bg).setFontColor('#e8e8e8');
   }
 
-  // Formato moneda en columnas de precio
   sheet.getRange(2, 4, rows.length, 2).setNumberFormat('$#,##0');
-
   sheet.autoResizeColumns(1, headers.length);
+}
+
+// ── Hoja "📈 Por variante" — ventas agrupadas por diseño/color/talle ──────────
+function actualizarPorVariante(ss, historial) {
+  let sheet = ss.getSheetByName('📈 Por variante');
+  if (!sheet) {
+    sheet = ss.insertSheet('📈 Por variante');
+    ss.setActiveSheet(sheet);
+    ss.moveActiveSheet(3);
+  }
+
+  sheet.clearContents();
+  sheet.clearFormats();
+
+  const VARIANTES = ['reposeraRoja', 'reposeraNegra', 'blanca', 'veredaRoja', 'veredaNegra'];
+  const TALLES    = ['S', 'M', 'L', 'XL', 'XXL'];
+  const LABELS    = { reposeraRoja:'Reposera', reposeraNegra:'Reposera', blanca:'Blanca', veredaRoja:'Vereda', veredaNegra:'Vereda' };
+  const COLORES   = { reposeraRoja:'Roja', reposeraNegra:'Negra', blanca:'—', veredaRoja:'Roja', veredaNegra:'Negra' };
+
+  // Calcular ventas de adulto por variante+talle
+  const ventasAdulto = {};
+  VARIANTES.forEach(v => { ventasAdulto[v] = {}; TALLES.forEach(t => { ventasAdulto[v][t] = 0; }); });
+
+  const ventasTote   = { silla: 0, vereda: 0 };
+  const ventasNino   = {};
+
+  const arr = Array.isArray(historial) ? historial : [];
+  arr.forEach(h => {
+    const s = h._stock;
+    if (!s) return;
+    const cant = h.cantidad || 1;
+    if (s.tipo === 'adulto' && s.variante && s.talle) {
+      if (ventasAdulto[s.variante]) ventasAdulto[s.variante][s.talle] = (ventasAdulto[s.variante][s.talle] || 0) + cant;
+    } else if (s.tipo === 'tote' && s.modelo) {
+      ventasTote[s.modelo] = (ventasTote[s.modelo] || 0) + cant;
+    } else if (s.tipo === 'nino' && s.talle) {
+      ventasNino[s.talle] = (ventasNino[s.talle] || 0) + cant;
+    }
+  });
+
+  let row = 1;
+
+  // ─ Remeras Adulto ─
+  const headersAdulto = ['Diseño', 'Color', ...TALLES, 'Total'];
+  const hrAdulto = sheet.getRange(row, 1, 1, headersAdulto.length);
+  hrAdulto.setValues([headersAdulto]);
+  estilizarEncabezado(hrAdulto);
+  row++;
+
+  VARIANTES.forEach((v, i) => {
+    const talleVals = TALLES.map(t => ventasAdulto[v][t] || 0);
+    const total     = talleVals.reduce((a, b) => a + b, 0);
+    const rowData   = [LABELS[v], COLORES[v], ...talleVals, total];
+    const r = sheet.getRange(row, 1, 1, rowData.length);
+    r.setValues([rowData]);
+    r.setBackground(i % 2 === 0 ? '#2a2a2a' : '#1c1c1c').setFontColor('#e8e8e8');
+    row++;
+  });
+
+  // Total por talle
+  const totalesTalle = TALLES.map(t => VARIANTES.reduce((s, v) => s + (ventasAdulto[v][t] || 0), 0));
+  const totalAdulto  = totalesTalle.reduce((a, b) => a + b, 0);
+  const filaTotal    = sheet.getRange(row, 1, 1, headersAdulto.length);
+  filaTotal.setValues([['TOTAL', '', ...totalesTalle, totalAdulto]]);
+  filaTotal.setFontWeight('bold').setFontColor('#27ae60').setBackground('#1c1c1c');
+  row += 2;
+
+  // ─ Tote Bags ─
+  const hrTote = sheet.getRange(row, 1, 1, 2);
+  hrTote.setValues([['Tote Bags', 'Vendidas']]);
+  estilizarEncabezado(hrTote);
+  row++;
+  sheet.getRange(row,   1, 1, 2).setValues([['Reposera', ventasTote.silla  || 0]]).setBackground('#2a2a2a').setFontColor('#e8e8e8');
+  sheet.getRange(row+1, 1, 1, 2).setValues([['Vereda',   ventasTote.vereda || 0]]).setBackground('#1c1c1c').setFontColor('#e8e8e8');
+  row += 3;
+
+  // ─ Remeras Niñx ─
+  const hrNino = sheet.getRange(row, 1, 1, 2);
+  hrNino.setValues([['Remera Niñx', 'Vendidas']]);
+  estilizarEncabezado(hrNino);
+  row++;
+  [2,4,6,8,10,12,16].forEach((t, i) => {
+    sheet.getRange(row, 1, 1, 2)
+      .setValues([[`Talle ${t}`, ventasNino[String(t)] || 0]])
+      .setBackground(i % 2 === 0 ? '#2a2a2a' : '#1c1c1c')
+      .setFontColor('#e8e8e8');
+    row++;
+  });
+
+  sheet.autoResizeColumns(1, headersAdulto.length);
 }
 
 // ── Hoja "📊 Resumen" — totales y stock actual ────────────────────────────────
