@@ -56,37 +56,30 @@ function cargarEstado() {
   return JSON.parse(JSON.stringify(STOCK_INICIAL));
 }
 
+// Normaliza campos faltantes en entradas viejas del historial
+function normalizeHistorial(arr) {
+  let changed = false;
+  arr.forEach(h => {
+    if (!h.id) { h.id = Date.now() + Math.random(); changed = true; }
+    if (h.pago === undefined || h.pago === null) { h.pago = 'efectivo'; changed = true; }
+    if (h.ingreso === undefined || h.ingreso === null) {
+      h.ingreso = h.pago === 'regalo' ? 0 : (h.precioUnit ?? 0) * (h.cantidad ?? 1);
+      changed = true;
+    }
+    if (h.precioUnit === undefined || h.precioUnit === null) {
+      h.precioUnit = h.descripcion?.startsWith('Tote') ? 16000 : 25000;
+      changed = true;
+    }
+  });
+  return changed;
+}
+
 function cargarHistorial() {
   try {
     const raw = localStorage.getItem('cayo_historial');
     if (raw) {
       const arr = JSON.parse(raw);
-      let changed = false;
-      arr.forEach(h => {
-        // Asignar id a entradas viejas
-        if (!h.id) { h.id = Date.now() + Math.random(); changed = true; }
-        // Normalizar entradas sin método de pago (anteriores a esa función)
-        if (h.pago === undefined || h.pago === null) {
-          h.pago = 'efectivo';
-          changed = true;
-        }
-        // Normalizar entradas sin ingreso calculado
-        if (h.ingreso === undefined || h.ingreso === null) {
-          const precio = h.precioUnit ?? 0;
-          h.ingreso = h.pago === 'regalo' ? 0 : precio * (h.cantidad ?? 1);
-          changed = true;
-        }
-        // Normalizar entradas sin precioUnit
-        if (h.precioUnit === undefined || h.precioUnit === null) {
-          // Inferir precio por tipo de producto desde descripción
-          if (h.descripcion && h.descripcion.startsWith('Tote')) {
-            h.precioUnit = 16000;
-          } else {
-            h.precioUnit = 25000;
-          }
-          changed = true;
-        }
-      });
+      const changed = normalizeHistorial(arr);
       if (changed) localStorage.setItem('cayo_historial', JSON.stringify(arr));
       return arr;
     }
@@ -112,12 +105,79 @@ function inferirStock(h) {
 }
 
 function guardar() {
-  localStorage.setItem('cayo_stock',    JSON.stringify(estado));
+  localStorage.setItem('cayo_stock',     JSON.stringify(estado));
   localStorage.setItem('cayo_historial', JSON.stringify(historial));
+  pushToCloud(); // sincronización en segundo plano
 }
 
 let estado   = cargarEstado();
 let historial = cargarHistorial();
+
+// ── Sincronización con Google Sheets ─────────────────────────────────────────
+const GAS_URL_KEY = 'cayo_gas_url';
+let gasUrl = localStorage.getItem(GAS_URL_KEY) || '';
+
+function setSincStatus(st) {
+  const el = document.getElementById('sinc-icon');
+  if (!el) return;
+  const icons = { idle: '☁️', syncing: '🔄', ok: '✅', error: '❌' };
+  el.textContent = icons[st] ?? '☁️';
+}
+
+// Escribe en la nube (fire-and-forget, no-cors evita problemas de CORS/preflight)
+async function pushToCloud() {
+  if (!gasUrl) return;
+  setSincStatus('syncing');
+  try {
+    await fetch(gasUrl, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+      body: JSON.stringify({ stock: estado, historial }),
+    });
+    setSincStatus('ok');
+  } catch (err) {
+    console.warn('[Sync] push error:', err);
+    setSincStatus('error');
+  }
+}
+
+// Lee desde la nube (GET estándar, GAS lo permite cross-origin)
+async function pullFromCloud() {
+  if (!gasUrl) return null;
+  try {
+    const resp = await fetch(`${gasUrl}?action=load&_t=${Date.now()}`);
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+    return data;
+  } catch (err) {
+    console.warn('[Sync] pull error:', err);
+    return null;
+  }
+}
+
+// Descarga datos de la nube y actualiza el estado local
+async function sincronizarDesdeNube() {
+  if (!gasUrl) return;
+  setSincStatus('syncing');
+  const data = await pullFromCloud();
+  if (!data) { setSincStatus('error'); return; }
+  let changed = false;
+  if (data.stock && typeof data.stock === 'object') {
+    estado = data.stock;
+    localStorage.setItem('cayo_stock', JSON.stringify(estado));
+    changed = true;
+  }
+  if (Array.isArray(data.historial)) {
+    historial = data.historial;
+    normalizeHistorial(historial);
+    localStorage.setItem('cayo_historial', JSON.stringify(historial));
+    changed = true;
+  }
+  if (changed) renderTodo();
+  setSincStatus('ok');
+}
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
 window.irATab = function(tab) {
@@ -936,6 +996,70 @@ document.getElementById('btn-guardar-auditoria').addEventListener('click', () =>
   alert(msg);
 });
 
+// ── Modal Configuración Sync ──────────────────────────────────────────────────
+const modalConfig = document.getElementById('modal-config');
+
+document.getElementById('btn-sinc').addEventListener('click', () => {
+  document.getElementById('config-url').value = gasUrl;
+  document.getElementById('config-status').textContent =
+    gasUrl ? '✅ URL configurada. Podés cambiarla o desactivarla.' : '';
+  modalConfig.classList.remove('hidden');
+});
+
+document.getElementById('btn-cerrar-config').addEventListener('click', () => {
+  modalConfig.classList.add('hidden');
+});
+
+document.getElementById('btn-config-guardar').addEventListener('click', async () => {
+  const url      = document.getElementById('config-url').value.trim();
+  const statusEl = document.getElementById('config-status');
+  if (!url) { statusEl.textContent = '❌ Ingresá una URL válida.'; return; }
+
+  statusEl.textContent = '🔄 Probando conexión...';
+  try {
+    // Validar con un GET de prueba
+    const resp = await fetch(`${url}?action=load&_t=${Date.now()}`);
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+
+    // Guardar URL
+    gasUrl = url;
+    localStorage.setItem(GAS_URL_KEY, gasUrl);
+
+    // Si la nube tiene datos → descargar; si está vacía → subir los locales
+    const cloudTieneDatos = (data.stock !== null && data.stock !== undefined)
+                         || (Array.isArray(data.historial) && data.historial.length > 0);
+    if (cloudTieneDatos) {
+      statusEl.textContent = '🔄 Descargando datos de la nube...';
+      await sincronizarDesdeNube();
+    } else {
+      statusEl.textContent = '🔄 Subiendo datos al servidor...';
+      await pushToCloud();
+    }
+
+    statusEl.textContent = '✅ ¡Sincronizado! Los datos ahora se comparten entre dispositivos.';
+    setTimeout(() => modalConfig.classList.add('hidden'), 2200);
+
+  } catch (err) {
+    statusEl.textContent = `❌ No se pudo conectar: ${err.message}. Verificá la URL.`;
+    setSincStatus('error');
+  }
+});
+
+document.getElementById('btn-config-borrar').addEventListener('click', () => {
+  if (!confirm('¿Desactivar la sincronización?\nLos datos locales se mantienen.')) return;
+  gasUrl = '';
+  localStorage.removeItem(GAS_URL_KEY);
+  setSincStatus('idle');
+  document.getElementById('config-url').value = '';
+  document.getElementById('config-status').textContent = 'Sincronización desactivada.';
+});
+
+modalConfig.addEventListener('click', e => {
+  if (e.target === modalConfig) modalConfig.classList.add('hidden');
+});
+
 // ── Botones ✕ para cerrar modales ────────────────────────────────────────────
 document.getElementById('btn-cerrar-venta').addEventListener('click', () => {
   modalVenta.classList.add('hidden');
@@ -953,3 +1077,7 @@ document.getElementById('btn-cerrar-editar').addEventListener('click', () => {
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 renderTodo();
+if (gasUrl) {
+  setSincStatus('syncing');
+  sincronizarDesdeNube(); // al abrir la app, traer datos frescos de la nube
+}

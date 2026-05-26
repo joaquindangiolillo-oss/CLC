@@ -503,6 +503,62 @@ button.total-item {
 .audit-input:focus { outline: 2px solid var(--acento); border-color: transparent; }
 .audit-input:not(:placeholder-shown) { border-color: var(--acento); background: rgba(231,76,60,0.06); }
 
+/* BOTÓN SYNC */
+.btn-sinc {
+  background: none;
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1.15rem;
+  padding: 0.3rem 0.5rem;
+  line-height: 1;
+  transition: background 0.15s, border-color 0.15s;
+  min-height: 44px;
+  min-width: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn-sinc:hover { background: rgba(255,255,255,0.06); border-color: #555; }
+.btn-sinc:active { opacity: 0.75; }
+
+/* MODAL CONFIG */
+.config-desc {
+  font-size: 0.88rem;
+  color: var(--texto-tenue);
+  line-height: 1.55;
+  margin-bottom: 1.1rem;
+}
+.config-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.82rem;
+  color: var(--texto-tenue);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.75rem;
+}
+.config-input {
+  background: #111;
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  color: var(--texto);
+  font-size: 0.9rem;
+  font-family: monospace;
+  padding: 0.55rem 0.75rem;
+  width: 100%;
+  min-height: 44px;
+}
+.config-input:focus { outline: 2px solid var(--acento); border-color: transparent; }
+.config-status-text {
+  min-height: 1.4rem;
+  font-size: 0.88rem;
+  color: var(--texto-tenue);
+  margin-bottom: 0.25rem;
+  line-height: 1.4;
+}
+
 /* RESPONSIVE GENERAL ≤ 480px */
 @media (max-width: 480px) {
   header { padding: 0.75rem 1rem; }
