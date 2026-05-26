@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Stock - Cayo la Cabra</title>
-  <link rel="stylesheet" href="style.css?v=8" />
+  <link rel="stylesheet" href="style.css?v=9" />
 </head>
 <body>
   <header>
@@ -12,6 +12,7 @@
     <div class="header-actions">
       <button id="btn-venta" class="btn-primary">+ Registrar</button>
       <button id="btn-historial" class="btn-secondary">Historial</button>
+      <button id="btn-lock" class="btn-lock" title="Desbloquear edición">🔒</button>
       <button id="btn-sinc" class="btn-sinc" title="Sincronización entre dispositivos"><span id="sinc-icon">☁️</span></button>
     </div>
   </header>
@@ -322,6 +323,28 @@
         💡 La URL la obtenés en Apps Script → Implementar → Nueva implementación.<br>
         En <strong>"Quién tiene acceso"</strong> elegí <strong>Cualquier persona</strong>.
       </p>
+
+      <hr class="config-divider" />
+      <div class="pin-config-wrap">
+        <p class="config-label">PIN de edición</p>
+        <p id="pin-config-estado-texto" class="config-ayuda"></p>
+        <div id="pin-config-campos" class="campos hidden">
+          <label class="config-label">Nuevo PIN
+            <input type="password" id="pin-nuevo" class="config-input" maxlength="8" placeholder="Ej: 1234" inputmode="numeric" autocomplete="off" />
+          </label>
+          <label class="config-label">Confirmar PIN
+            <input type="password" id="pin-confirma" class="config-input" maxlength="8" placeholder="Repetir PIN" inputmode="numeric" autocomplete="off" />
+          </label>
+          <p id="pin-config-error" class="error hidden"></p>
+        </div>
+        <div class="pin-config-btns">
+          <button id="btn-pin-configurar" class="btn-secondary">🔐 Configurar PIN</button>
+          <button id="btn-pin-quitar"     class="btn-secondary pin-btn-hidden">Quitar PIN</button>
+          <button id="btn-pin-guardar"    class="btn-primary   pin-btn-hidden">Guardar PIN</button>
+          <button id="btn-pin-cancelar"   class="btn-secondary pin-btn-hidden">Cancelar</button>
+        </div>
+      </div>
+
       <p id="config-status" class="config-status-text"></p>
       <div class="modal-actions">
         <button id="btn-config-guardar" class="btn-primary">Guardar URL</button>
@@ -331,6 +354,26 @@
     </div>
   </div>
 
-  <script src="app.js?v=8"></script>
+  <!-- ── MODAL PIN ── -->
+  <div id="modal-pin" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>🔐 Ingresar PIN</h2>
+        <button class="modal-cerrar" id="btn-cerrar-pin" aria-label="Cerrar">✕</button>
+      </div>
+      <p class="config-desc">Ingresá tu PIN para habilitar la edición.</p>
+      <label class="config-label">PIN
+        <input type="password" id="pin-input" class="config-input" maxlength="8"
+          placeholder="●●●●" inputmode="numeric" autocomplete="off" />
+      </label>
+      <p id="pin-error" class="error hidden">PIN incorrecto. Intentá de nuevo.</p>
+      <div class="modal-actions">
+        <button id="btn-confirmar-pin" class="btn-primary">Desbloquear</button>
+        <button id="btn-cancelar-pin"  class="btn-secondary">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js?v=9"></script>
 </body>
 </html>
