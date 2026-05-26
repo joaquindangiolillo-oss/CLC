@@ -1068,10 +1068,22 @@ document.getElementById('btn-config-guardar').addEventListener('click', async ()
 
 document.getElementById('btn-config-subir').addEventListener('click', async () => {
   const statusEl = document.getElementById('config-status');
-  if (!gasUrl) { statusEl.textContent = '❌ Primero guardá una URL.'; return; }
-  statusEl.textContent = '🔄 Subiendo datos...';
+  const btn      = document.getElementById('btn-config-subir');
+
+  if (!gasUrl) {
+    statusEl.textContent = '❌ No hay URL configurada. Pegá la URL primero y tocá "Guardar URL".';
+    return;
+  }
+
+  btn.disabled    = true;
+  btn.textContent = '🔄 Subiendo...';
+  statusEl.textContent = '🔄 Enviando datos a Google Sheets...';
+
   await pushToCloud();
-  statusEl.textContent = '✅ Datos subidos. Revisá las hojas en Google Sheets.';
+
+  btn.disabled    = false;
+  btn.textContent = '⬆️ Subir datos ahora';
+  statusEl.textContent = '✅ Datos enviados. Abrí tu Google Sheet y buscá las hojas "📋 Ventas" y "📊 Resumen".';
 });
 
 document.getElementById('btn-config-borrar').addEventListener('click', () => {
