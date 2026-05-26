@@ -1015,17 +1015,23 @@ document.getElementById('btn-config-guardar').addEventListener('click', async ()
   const statusEl = document.getElementById('config-status');
   if (!url) { statusEl.textContent = '❌ Ingresá una URL válida.'; return; }
 
+  // Validar formato básico (debe ser URL de implementación de GAS)
+  if (!url.includes('script.google.com/macros/s/')) {
+    statusEl.textContent = '❌ URL incorrecta. Debe empezar con https://script.google.com/macros/s/...';
+    return;
+  }
+
+  // Guardar URL primero (antes de testear) para que persista aunque el test falle
+  gasUrl = url;
+  localStorage.setItem(GAS_URL_KEY, gasUrl);
+  setSincStatus('syncing');
   statusEl.textContent = '🔄 Probando conexión...';
+
   try {
-    // Validar con un GET de prueba
     const resp = await fetch(`${url}?action=load&_t=${Date.now()}`);
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
     const data = await resp.json();
     if (data.error) throw new Error(data.error);
-
-    // Guardar URL
-    gasUrl = url;
-    localStorage.setItem(GAS_URL_KEY, gasUrl);
 
     // Si la nube tiene datos → descargar; si está vacía → subir los locales
     const cloudTieneDatos = (data.stock !== null && data.stock !== undefined)
@@ -1038,12 +1044,25 @@ document.getElementById('btn-config-guardar').addEventListener('click', async ()
       await pushToCloud();
     }
 
-    statusEl.textContent = '✅ ¡Sincronizado! Los datos ahora se comparten entre dispositivos.';
-    setTimeout(() => modalConfig.classList.add('hidden'), 2200);
+    statusEl.textContent = '✅ ¡Sincronizado correctamente!';
+    setSincStatus('ok');
+    setTimeout(() => modalConfig.classList.add('hidden'), 2000);
 
   } catch (err) {
-    statusEl.textContent = `❌ No se pudo conectar: ${err.message}. Verificá la URL.`;
-    setSincStatus('error');
+    // Detectar error de CORS (lo más común con GAS)
+    const esCors = err instanceof TypeError || err.message.includes('NetworkError') || err.message.includes('Failed to fetch');
+    if (esCors) {
+      setSincStatus('error');
+      statusEl.innerHTML =
+        '⚠️ La URL fue guardada, pero Google bloqueó el test de conexión (error CORS).<br>' +
+        'Esto pasa cuando el script no está configurado como <strong>"Cualquier persona"</strong>.<br>' +
+        '<strong>Verificá en Apps Script</strong>: Implementar → Gestionar implementaciones → ' +
+        'el campo "Quién tiene acceso" debe ser <em>Cualquier persona (incluso anónimas)</em>.<br>' +
+        'Después cerrá este modal y recargá la página.';
+    } else {
+      setSincStatus('error');
+      statusEl.textContent = `❌ Error: ${err.message}. Verificá la URL e intentá de nuevo.`;
+    }
   }
 });
 
