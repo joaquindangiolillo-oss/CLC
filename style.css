@@ -267,7 +267,7 @@ form select:focus, form input:focus { outline: 2px solid var(--acento); border-c
 .campos { margin-top: 0; }
 .campos.hidden { display: none; }
 
-.pago-opciones { display: flex; gap: 0.4rem; margin-top: 0.25rem; flex-wrap: nowrap; }
+.pago-opciones { display: flex; gap: 0.4rem; margin-top: 0.25rem; flex-wrap: wrap; }
 .pago-opcion {
   display: flex; flex-direction: row; align-items: center; gap: 0.35rem;
   cursor: pointer; font-size: 0.88rem; color: var(--texto);
@@ -568,6 +568,18 @@ button.total-item {
   margin-bottom: 0.25rem;
   line-height: 1.4;
 }
+
+/* ANOTA */
+.hist-pago--anota   { background: rgba(243,156,18,0.15); color: #f39c12; }
+.vcard--anota       { border-color: rgba(243,156,18,0.3); }
+.vcard--anota .vcard-valor { color: #f39c12; }
+.anota-nombre       { display: inline-block; font-size: 0.78rem; color: #f39c12;
+                      background: rgba(243,156,18,0.1); border-radius: 4px;
+                      padding: 0.1rem 0.4rem; margin-left: 0.4rem; font-weight: 600; }
+.anota-adeuda       { color: #f39c12 !important; }
+.venta-anota,
+.historial-anota    { border-left: 2px solid rgba(243,156,18,0.4); }
+.pago-opcion        { flex: 1 1 5rem; }
 
 /* RESPONSIVE GENERAL ≤ 480px */
 @media (max-width: 480px) {

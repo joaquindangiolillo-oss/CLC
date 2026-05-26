@@ -103,6 +103,10 @@
           <span class="vcard-label">🎁 Regalos</span>
           <span class="vcard-valor" id="v-regalos">0 u.</span>
         </div>
+        <div class="vcard vcard--anota">
+          <span class="vcard-label">📝 Anotados (deben)</span>
+          <span class="vcard-valor" id="v-anota">$0</span>
+        </div>
       </section>
 
       <!-- Filtros -->
@@ -111,6 +115,7 @@
         <button class="filtro-btn" data-filtro="efectivo">Efectivo</button>
         <button class="filtro-btn" data-filtro="transferencia">Transferencia</button>
         <button class="filtro-btn" data-filtro="regalo">Regalos</button>
+        <button class="filtro-btn" data-filtro="anota">📝 Anotados</button>
       </div>
 
       <!-- Lista -->
@@ -186,8 +191,14 @@
             <label class="pago-opcion"><input type="radio" name="pago" value="efectivo" checked /><span>Efectivo</span></label>
             <label class="pago-opcion"><input type="radio" name="pago" value="transferencia" /><span>Transferencia</span></label>
             <label class="pago-opcion"><input type="radio" name="pago" value="regalo" /><span>🎁 Regalo</span></label>
+            <label class="pago-opcion"><input type="radio" name="pago" value="anota" /><span>📝 Anota</span></label>
           </div>
         </label>
+        <div id="campos-anota-nombre" class="campos hidden">
+          <label>Nombre (quién anota)
+            <input type="text" id="venta-nombre-anota" maxlength="60" placeholder="Ej: Juan García..." />
+          </label>
+        </div>
         <div class="venta-resumen">
           <span id="venta-precio-unit"></span>
           <span id="venta-total-venta"></span>
@@ -272,8 +283,14 @@
           <label class="pago-opcion"><input type="radio" name="editar-pago" value="efectivo" /><span>Efectivo</span></label>
           <label class="pago-opcion"><input type="radio" name="editar-pago" value="transferencia" /><span>Transferencia</span></label>
           <label class="pago-opcion"><input type="radio" name="editar-pago" value="regalo" /><span>🎁 Regalo</span></label>
+          <label class="pago-opcion"><input type="radio" name="editar-pago" value="anota" /><span>📝 Anota</span></label>
         </div>
       </label>
+      <div id="editar-campos-anota-nombre" class="campos hidden">
+        <label>Nombre (quién anota)
+          <input type="text" id="editar-nombre-anota" maxlength="60" placeholder="Ej: Juan García..." />
+        </label>
+      </div>
       <div class="venta-resumen">
         <span id="editar-precio-unit"></span>
         <span id="editar-total-venta"></span>
