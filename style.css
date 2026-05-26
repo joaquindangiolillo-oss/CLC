@@ -581,6 +581,44 @@ button.total-item {
 .historial-anota    { border-left: 2px solid rgba(243,156,18,0.4); }
 .pago-opcion        { flex: 1 1 5rem; }
 
+/* BOTÓN LOCK ──────────────────────────────────────────────────────────────── */
+.btn-lock {
+  background: none;
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1.1rem;
+  padding: 0.3rem 0.5rem;
+  line-height: 1;
+  transition: background 0.15s, border-color 0.15s;
+  min-height: 44px;
+  min-width: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn-lock:hover  { background: rgba(255,255,255,0.06); border-color: #555; }
+.btn-lock:active { opacity: 0.75; }
+/* Borde verde cuando está desbloqueado */
+body:not(.modo-lectura) .btn-lock { border-color: rgba(39,174,96,0.55); }
+
+/* MODO LECTURA — ocultar controles de edición ────────────────────────────── */
+.modo-lectura #btn-venta             { display: none !important; }
+.modo-lectura .hist-acciones         { visibility: hidden !important; pointer-events: none; }
+.modo-lectura #btn-guardar-auditoria { display: none !important; }
+.modo-lectura .audit-input           { visibility: hidden !important; pointer-events: none; }
+
+/* PIN CONFIG (en modal ☁️) ──────────────────────────────────────────────── */
+.config-divider {
+  border: none;
+  border-top: 1px solid var(--borde);
+  margin: 1.1rem 0 1rem;
+}
+.pin-config-wrap { margin-bottom: 0.5rem; }
+.pin-config-btns { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.6rem; }
+.pin-config-btns button { flex: 1; min-height: 40px; }
+.pin-btn-hidden  { display: none !important; }
+
 /* RESPONSIVE GENERAL ≤ 480px */
 @media (max-width: 480px) {
   header { padding: 0.75rem 1rem; }
