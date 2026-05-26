@@ -1066,6 +1066,14 @@ document.getElementById('btn-config-guardar').addEventListener('click', async ()
   }
 });
 
+document.getElementById('btn-config-subir').addEventListener('click', async () => {
+  const statusEl = document.getElementById('config-status');
+  if (!gasUrl) { statusEl.textContent = '❌ Primero guardá una URL.'; return; }
+  statusEl.textContent = '🔄 Subiendo datos...';
+  await pushToCloud();
+  statusEl.textContent = '✅ Datos subidos. Revisá las hojas en Google Sheets.';
+});
+
 document.getElementById('btn-config-borrar').addEventListener('click', () => {
   if (!confirm('¿Desactivar la sincronización?\nLos datos locales se mantienen.')) return;
   gasUrl = '';
