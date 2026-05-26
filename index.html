@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Stock - Cayo la Cabra</title>
-  <link rel="stylesheet" href="style.css?v=5" />
+  <link rel="stylesheet" href="style.css?v=6" />
 </head>
 <body>
   <header>
@@ -12,6 +12,7 @@
     <div class="header-actions">
       <button id="btn-venta" class="btn-primary">+ Registrar</button>
       <button id="btn-historial" class="btn-secondary">Historial</button>
+      <button id="btn-sinc" class="btn-sinc" title="Sincronización entre dispositivos"><span id="sinc-icon">☁️</span></button>
     </div>
   </header>
 
@@ -285,6 +286,29 @@
     </div>
   </div>
 
-  <script src="app.js?v=5"></script>
+  <!-- ── MODAL CONFIGURACIÓN SYNC ── -->
+  <div id="modal-config" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>☁️ Sincronización</h2>
+        <button class="modal-cerrar" id="btn-cerrar-config" aria-label="Cerrar">✕</button>
+      </div>
+      <p class="config-desc">
+        Compartí los datos entre el celular y la PC usando Google Sheets.
+        Necesitás configurarlo una sola vez por dispositivo.
+      </p>
+      <label class="config-label">URL del script de Google
+        <input type="url" id="config-url" class="config-input"
+          placeholder="https://script.google.com/macros/s/..." />
+      </label>
+      <p id="config-status" class="config-status-text"></p>
+      <div class="modal-actions">
+        <button id="btn-config-guardar" class="btn-primary">Guardar y sincronizar</button>
+        <button id="btn-config-borrar" class="btn-secondary">Desactivar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js?v=6"></script>
 </body>
 </html>
