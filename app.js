@@ -286,13 +286,16 @@ function renderVentas() {
   const totalRec   = historial.reduce((s, h) => s + (h.ingreso ?? 0), 0);
   const totalEfec  = historial.reduce((s, h) => s + (h.pago === 'efectivo'      ? (h.ingreso ?? 0) : 0), 0);
   const totalTrans = historial.reduce((s, h) => s + (h.pago === 'transferencia' ? (h.ingreso ?? 0) : 0), 0);
-  const totalRegU  = historial.reduce((s, h) => h.pago === 'regalo' ? s + h.cantidad : s, 0);
+  const totalRegU   = historial.reduce((s, h) => h.pago === 'regalo' ? s + h.cantidad : s, 0);
+  const totalAnotaU = historial.reduce((s, h) => h.pago === 'anota'  ? s + h.cantidad : s, 0);
+  const totalAnotaM = historial.reduce((s, h) => h.pago === 'anota'  ? s + (h.precioUnit || 0) * h.cantidad : s, 0);
 
   document.getElementById('v-unidades').textContent = totalUnid;
   document.getElementById('v-total').textContent    = formatPeso(totalRec);
   document.getElementById('v-efectivo').textContent = formatPeso(totalEfec);
   document.getElementById('v-transf').textContent   = formatPeso(totalTrans);
   document.getElementById('v-regalos').textContent  = `${totalRegU} u.`;
+  document.getElementById('v-anota').textContent    = formatPeso(totalAnotaM);
 
   const filtrados = filtroVentas === 'todos'
     ? historial
@@ -310,18 +313,26 @@ function renderVentas() {
   }
 
   lista.innerHTML = filtrados.map(h => {
-    const pagoLabel = h.pago === 'transferencia' ? 'Transf.' : h.pago === 'regalo' ? '🎁 Regalo' : 'Efect.';
+    const pagoLabel = h.pago === 'transferencia' ? 'Transf.'
+                    : h.pago === 'regalo'        ? '🎁 Regalo'
+                    : h.pago === 'anota'         ? '📝 Anota'
+                    : 'Efect.';
+    const nombreHtml = h.pago === 'anota' && h.nombreAnota
+      ? `<span class="anota-nombre">👤 ${h.nombreAnota}</span>` : '';
+    const montoHtml = h.pago === 'anota'
+      ? `<span class="venta-ingreso anota-adeuda">Adeuda ${formatPeso((h.precioUnit||0)*h.cantidad)}</span>`
+      : `<span class="venta-ingreso">${h.ingreso ? formatPeso(h.ingreso) : '—'}</span>`;
     const edicionesHtml = h._ediciones?.length
       ? `<div class="ediciones-log">${h._ediciones.map(e =>
           `<div class="edicion-entrada">📝 ${e.fecha}: ${e.detalle}</div>`
         ).join('')}</div>`
       : '';
     return `
-    <div class="venta-item${h._ediciones?.length ? ' tiene-ediciones' : ''}">
+    <div class="venta-item${h._ediciones?.length ? ' tiene-ediciones' : ''}${h.pago === 'anota' ? ' venta-anota' : ''}">
       <div class="venta-item-main">
-        <span class="venta-desc">${h.descripcion}</span>
+        <span class="venta-desc">${h.descripcion}${nombreHtml}</span>
         <span class="venta-cant">-${h.cantidad}</span>
-        <span class="venta-ingreso">${h.ingreso ? formatPeso(h.ingreso) : '—'}</span>
+        ${montoHtml}
         <span class="hist-pago hist-pago--${h.pago ?? 'efectivo'}">${pagoLabel}</span>
         <span class="hist-acciones">
           <button class="btn-hist-edit" onclick="abrirEditar(${h.id})" title="Editar">✏️</button>
@@ -420,11 +431,22 @@ selCategoria.addEventListener('change', () => {
 inputCantidad.addEventListener('input', actualizarDisponible);
 inputPrecioOverride.addEventListener('input', actualizarDisponible);
 
+// Mostrar/ocultar campo nombre cuando se elige Anota
+document.querySelectorAll('input[name="pago"]').forEach(r => {
+  r.addEventListener('change', () => {
+    const isAnota = document.querySelector('input[name="pago"]:checked')?.value === 'anota';
+    document.getElementById('campos-anota-nombre').classList.toggle('hidden', !isAnota);
+    actualizarDisponible();
+  });
+});
+
 document.getElementById('btn-venta').addEventListener('click', () => {
   selCategoria.value = '';
   ocultarCampos();
   inputCantidad.value = 1;
   inputPrecioOverride.value = '';
+  document.getElementById('venta-nombre-anota').value = '';
+  document.getElementById('campos-anota-nombre').classList.add('hidden');
   pDisponible.textContent = '';
   pError.classList.add('hidden');
   document.getElementById('venta-precio-unit').textContent  = '';
@@ -480,10 +502,18 @@ document.getElementById('form-venta').addEventListener('submit', e => {
 
   // Precio final: override manual o precio por defecto
   const precioFinal = precioEfectivo();
-  const pago    = document.querySelector('input[name="pago"]:checked').value;
-  const ingreso = pago === 'regalo' ? 0 : precioFinal * cant;
+  const pago        = document.querySelector('input[name="pago"]:checked').value;
 
-  historial.unshift({
+  // Validar nombre si es Anota
+  let nombreAnota = '';
+  if (pago === 'anota') {
+    nombreAnota = document.getElementById('venta-nombre-anota').value.trim();
+    if (!nombreAnota) { mostrarError('Ingresá el nombre de quien anota.'); return; }
+  }
+
+  const ingreso = (pago === 'regalo' || pago === 'anota') ? 0 : precioFinal * cant;
+
+  const entrada = {
     id: Date.now(),
     fecha: new Date().toLocaleString('es-AR'),
     descripcion,
@@ -492,13 +522,17 @@ document.getElementById('form-venta').addEventListener('submit', e => {
     pago,
     precioUnit: precioFinal,
     _stock,
-  });
+  };
+  if (nombreAnota) entrada.nombreAnota = nombreAnota;
+  historial.unshift(entrada);
 
   guardar();
   renderTodo();
   modalVenta.classList.add('hidden');
-  // Reset radio pago a efectivo
+  // Reset radio pago a efectivo y limpiar nombre
   document.querySelector('input[name="pago"][value="efectivo"]').checked = true;
+  document.getElementById('venta-nombre-anota').value = '';
+  document.getElementById('campos-anota-nombre').classList.add('hidden');
 });
 
 function mostrarError(msg) {
@@ -573,12 +607,21 @@ function abrirHistorial() {
           `<div class="edicion-entrada">📝 ${e.fecha}: ${e.detalle}</div>`
         ).join('')}</div>`
       : '';
+    const pagoLbl = h.pago === 'transferencia' ? 'Transf.'
+                  : h.pago === 'regalo'        ? '🎁 Regalo'
+                  : h.pago === 'anota'         ? '📝 Anota'
+                  : 'Efect.';
+    const nombreHtml = h.pago === 'anota' && h.nombreAnota
+      ? ` <span class="anota-nombre">👤 ${h.nombreAnota}</span>` : '';
+    const ingresoHtml = h.pago === 'anota'
+      ? `<span class="hist-ingreso anota-adeuda">Adeuda ${formatPeso((h.precioUnit||0)*h.cantidad)}</span>`
+      : `<span class="hist-ingreso">${h.ingreso ? formatPeso(h.ingreso) : ''}</span>`;
     return `
-    <div class="historial-item${h._ediciones?.length ? ' tiene-ediciones' : ''}">
-      <span class="hist-desc">${h.descripcion}</span>
+    <div class="historial-item${h._ediciones?.length ? ' tiene-ediciones' : ''}${h.pago === 'anota' ? ' historial-anota' : ''}">
+      <span class="hist-desc">${h.descripcion}${nombreHtml}</span>
       <span class="hist-cant">-${h.cantidad}</span>
-      <span class="hist-ingreso">${h.ingreso ? formatPeso(h.ingreso) : ''}</span>
-      <span class="hist-pago hist-pago--${h.pago ?? 'efectivo'}">${h.pago === 'transferencia' ? 'Transf.' : h.pago === 'regalo' ? '🎁 Regalo' : 'Efect.'}</span>
+      ${ingresoHtml}
+      <span class="hist-pago hist-pago--${h.pago ?? 'efectivo'}">${pagoLbl}</span>
       <span class="hist-fecha">${h.fecha}</span>
       <span class="hist-acciones">
         <button class="btn-hist-edit" onclick="abrirEditar(${h.id})" title="Editar registro">✏️</button>
@@ -644,6 +687,14 @@ selEditCategoria.addEventListener('change', () => {
   mostrarCamposEditar(selEditCategoria.value);
   actualizarResumenEditar();
 });
+
+document.querySelectorAll('input[name="editar-pago"]').forEach(r => {
+  r.addEventListener('change', () => {
+    const isAnota = document.querySelector('input[name="editar-pago"]:checked')?.value === 'anota';
+    document.getElementById('editar-campos-anota-nombre').classList.toggle('hidden', !isAnota);
+    actualizarResumenEditar();
+  });
+});
 [selEditTalleAdulto, selEditVariante, selEditTalleNino, selEditTote, inputEditCantidad, inputEditPrecio].forEach(el =>
   el.addEventListener('change', actualizarResumenEditar)
 );
@@ -690,6 +741,10 @@ window.abrirEditar = function(id) {
     r.checked = r.value === (h.pago ?? 'efectivo');
   });
 
+  const isAnota = (h.pago === 'anota');
+  document.getElementById('editar-campos-anota-nombre').classList.toggle('hidden', !isAnota);
+  document.getElementById('editar-nombre-anota').value = h.nombreAnota || '';
+
   actualizarResumenEditar();
   modalEditar.classList.remove('hidden');
 };
@@ -707,6 +762,18 @@ document.getElementById('btn-confirmar-editar').addEventListener('click', () => 
   if (!nuevaCat || isNaN(nuevaCant) || nuevaCant < 1) return;
 
   const nuevoPago = document.querySelector('input[name="editar-pago"]:checked').value;
+
+  // Validar nombre si es Anota
+  let nuevoNombreAnota = '';
+  if (nuevoPago === 'anota') {
+    nuevoNombreAnota = document.getElementById('editar-nombre-anota').value.trim();
+    if (!nuevoNombreAnota) {
+      errEl.textContent = 'Ingresá el nombre de quien anota.';
+      errEl.classList.remove('hidden');
+      return;
+    }
+  }
+
   // Precio: usa el del input si es válido, si no conserva el original
   const nuevoPrecio = (!isNaN(nuevoPrecioInput) && nuevoPrecioInput >= 0)
     ? nuevoPrecioInput
@@ -791,18 +858,22 @@ document.getElementById('btn-confirmar-editar').addEventListener('click', () => 
     cambios.push(`Precio: ${formatPeso(h.precioUnit ?? 0)} → ${formatPeso(nuevoPrecio)}`);
   if ((h.pago ?? 'efectivo') !== nuevoPago)
     cambios.push(`Pago: ${h.pago ?? 'efectivo'} → ${nuevoPago}`);
+  if (nuevoPago === 'anota' && h.nombreAnota !== nuevoNombreAnota)
+    cambios.push(`Nombre: "${h.nombreAnota || ''}" → "${nuevoNombreAnota}"`);
   if (cambios.length > 0) {
     h._ediciones = h._ediciones || [];
     h._ediciones.push({ fecha: new Date().toLocaleString('es-AR'), detalle: cambios.join(' | ') });
   }
 
   // 4. Actualizar entrada del historial
-  h.descripcion = nuevaDesc;
-  h.cantidad    = nuevaCant;
-  h.pago        = nuevoPago;
-  h.precioUnit  = nuevoPrecio;
-  h.ingreso     = nuevoPago === 'regalo' ? 0 : nuevoPrecio * nuevaCant;
-  h._stock      = nuevo_stock;
+  h.descripcion  = nuevaDesc;
+  h.cantidad     = nuevaCant;
+  h.pago         = nuevoPago;
+  h.precioUnit   = nuevoPrecio;
+  h.ingreso      = (nuevoPago === 'regalo' || nuevoPago === 'anota') ? 0 : nuevoPrecio * nuevaCant;
+  h._stock       = nuevo_stock;
+  if (nuevoPago === 'anota') h.nombreAnota = nuevoNombreAnota;
+  else delete h.nombreAnota;
 
   guardar();
   renderTodo();
