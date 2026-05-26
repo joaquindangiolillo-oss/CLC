@@ -551,6 +551,16 @@ button.total-item {
   min-height: 44px;
 }
 .config-input:focus { outline: 2px solid var(--acento); border-color: transparent; }
+.config-ayuda {
+  font-size: 0.82rem;
+  color: var(--texto-tenue);
+  line-height: 1.5;
+  margin-bottom: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(255,255,255,0.03);
+  border-left: 2px solid var(--borde);
+  border-radius: 0 6px 6px 0;
+}
 .config-status-text {
   min-height: 1.4rem;
   font-size: 0.88rem;
