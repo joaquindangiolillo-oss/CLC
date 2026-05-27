@@ -201,26 +201,20 @@ document.getElementById('btn-lock').addEventListener('click', () => {
     setModoEdicion(false);
     return;
   }
-  // Bloqueado → intentar desbloquear
-  if (!editPin) {
-    // Sin PIN configurado → abrir config para que configure uno
-    document.getElementById('config-url').value = gasUrl;
-    document.getElementById('config-status').textContent = '';
-    actualizarEstadoPinConfig();
-    document.getElementById('modal-config').classList.remove('hidden');
-    return;
-  }
-  // Abrir modal PIN
+  // Bloqueado → intentar desbloquear con PIN
   document.getElementById('pin-input').value = '';
   document.getElementById('pin-error').classList.add('hidden');
+  document.getElementById('pin-modal-desc').textContent = editPin
+    ? 'Ingresá el PIN para habilitar la edición.'
+    : '🔒 No hay PIN configurado en este dispositivo. Pedile el PIN al organizador y configuralo en ☁️.';
   document.getElementById('modal-pin').classList.remove('hidden');
-  setTimeout(() => document.getElementById('pin-input').focus(), 80);
+  if (editPin) setTimeout(() => document.getElementById('pin-input').focus(), 80);
 });
 
-// Verificar PIN
+// Verificar PIN — si no hay PIN configurado en este dispositivo, nada desbloquea
 function confirmarPin() {
   const ingresado = document.getElementById('pin-input').value;
-  if (ingresado === editPin) {
+  if (editPin && ingresado === editPin) {
     document.getElementById('modal-pin').classList.add('hidden');
     setModoEdicion(true);
   } else {
@@ -1326,8 +1320,8 @@ document.getElementById('btn-cerrar-editar').addEventListener('click', () => {
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 renderTodo();
-// Si hay PIN configurado → inicia bloqueado; si no hay PIN → desbloqueado
-setModoEdicion(!editPin);
+// Siempre arranca en modo lectura — solo se desbloquea con PIN
+setModoEdicion(false);
 if (gasUrl) {
   setSincStatus('syncing');
   sincronizarDesdeNube(); // al abrir la app, traer datos frescos de la nube
