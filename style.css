@@ -657,11 +657,33 @@ button.total-item {
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* MODAL MOTIVO ───────────────────────────────────────────────────────────── */
-.motivo-resumen-box {
-  background: rgba(231,76,60,0.06); border: 1px solid rgba(231,76,60,0.2);
-  border-radius: 10px; padding: 0.85rem 1rem;
-  margin-bottom: 0.25rem; font-size: 0.88rem; line-height: 1.6;
+/* MODAL RESULTADO AUDITORÍA ─────────────────────────────────────────────── */
+.resultado-body {
+  max-height: 52vh; overflow-y: auto;
+  margin-bottom: 0.25rem;
+}
+
+.resultado-seccion { margin-bottom: 0.9rem; }
+
+.resultado-titulo {
+  font-size: 0.82rem; font-weight: 700;
+  margin: 0 0 0.35rem; padding: 0.22rem 0.6rem;
+  border-radius: 5px; display: inline-block;
+}
+.resultado-titulo--diff { background: rgba(231,76,60,0.12);  color: var(--acento); }
+.resultado-titulo--ok   { background: rgba(39,174,96,0.12);  color: #27ae60; }
+.resultado-titulo--sc   { background: rgba(136,136,136,0.1); color: var(--texto-tenue); }
+
+.resultado-neto {
+  border-top: 1px solid var(--borde);
+  padding-top: 0.6rem; margin-top: 0.6rem;
+  font-size: 0.88rem;
+}
+.resultado-neto--ok strong { color: #27ae60; }
+
+.resultado-ok-msg {
+  font-size: 0.9rem; color: #27ae60;
+  padding: 0.5rem 0 0.75rem; font-weight: 600;
 }
 
 /* BOTÓN LOCK ──────────────────────────────────────────────────────────────── */
