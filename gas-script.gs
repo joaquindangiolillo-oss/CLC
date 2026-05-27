@@ -1,5 +1,5 @@
 // ══════════════════════════════════════════════════════════════════════════════
-// Cayo la Cabra — Script de sincronización v2 (Google Apps Script)
+// Cayo la Cabra — Script de sincronización v3 (Google Apps Script)
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // CÓMO ACTUALIZAR:
@@ -19,13 +19,16 @@ function doGet(e) {
     if (action === 'load') {
       const stockSheet = ss.getSheetByName('Stock');
       const histSheet  = ss.getSheetByName('Historial');
+      const auditSheet = ss.getSheetByName('Auditorias');
 
       const stockRaw = stockSheet ? stockSheet.getRange('A1').getValue() : '';
       const histRaw  = histSheet  ? histSheet.getRange('A1').getValue()  : '';
+      const auditRaw = auditSheet ? auditSheet.getRange('A1').getValue() : '';
 
       const result = {
-        stock:     stockRaw ? JSON.parse(stockRaw) : null,
-        historial: histRaw  ? JSON.parse(histRaw)  : null,
+        stock:      stockRaw ? JSON.parse(stockRaw) : null,
+        historial:  histRaw  ? JSON.parse(histRaw)  : null,
+        auditorias: auditRaw ? JSON.parse(auditRaw) : null,
       };
 
       return ContentService
@@ -64,9 +67,16 @@ function doPost(e) {
       actualizarPorVariante(ss, body.historial);
     }
 
+    if (body.auditorias !== undefined) {
+      let sheet = ss.getSheetByName('Auditorias');
+      if (!sheet) sheet = ss.insertSheet('Auditorias');
+      sheet.getRange('A1').setValue(JSON.stringify(body.auditorias));
+      actualizarHojaAuditorias(ss, body.auditorias);
+    }
+
     // Actualizar resumen con los datos más recientes
-    const stockData   = body.stock     || leerJSON(ss, 'Stock',    '{}');
-    const histData    = body.historial || leerJSON(ss, 'Historial', '[]');
+    const stockData = body.stock     || leerJSON(ss, 'Stock',    '{}');
+    const histData  = body.historial || leerJSON(ss, 'Historial', '[]');
     actualizarResumen(ss, stockData, histData);
 
     return ContentService
@@ -126,15 +136,15 @@ function actualizarHojaVentas(ss, historial) {
                : h.pago === 'transferencia' ? 'Transferencia'
                : h.pago === 'anota'         ? '📝 Anota'
                :                              'Efectivo';
-    const adeuda = h.pago === 'anota' ? (h.precioUnit || 0) * (h.cantidad || 1) : (h.ingreso || 0);
+    const monto = h.pago === 'anota' ? (h.precioUnit || 0) * (h.cantidad || 1) : (h.ingreso || 0);
     return [
-      h.fecha              || '',
-      h.descripcion        || '',
-      h.cantidad           || 0,
-      h.precioUnit         || 0,
-      adeuda,
+      h.fecha       || '',
+      h.descripcion || '',
+      h.cantidad    || 0,
+      h.precioUnit  || 0,
+      monto,
       pago,
-      h.nombreAnota        || '',
+      h.nombreAnota || '',
     ];
   });
 
@@ -147,6 +157,79 @@ function actualizarHojaVentas(ss, historial) {
   }
 
   sheet.getRange(2, 4, rows.length, 2).setNumberFormat('$#,##0');
+  sheet.autoResizeColumns(1, headers.length);
+}
+
+// ── Hoja "✅ Auditorías" — historial de controles de stock ────────────────────
+function actualizarHojaAuditorias(ss, auditorias) {
+  let sheet = ss.getSheetByName('✅ Auditorías');
+  if (!sheet) {
+    sheet = ss.insertSheet('✅ Auditorías');
+    ss.setActiveSheet(sheet);
+    ss.moveActiveSheet(4);
+  }
+
+  sheet.clearContents();
+  sheet.clearFormats();
+
+  const headers = ['Fecha', 'Ítem ajustado', 'Antes', 'Después', 'Diferencia', 'Neto auditoría', 'Motivo', 'Descripción'];
+  const headerRange = sheet.getRange(1, 1, 1, headers.length);
+  headerRange.setValues([headers]);
+  estilizarEncabezado(headerRange);
+
+  const arr = Array.isArray(auditorias) ? auditorias : [];
+  if (arr.length === 0) {
+    sheet.autoResizeColumns(1, headers.length);
+    return;
+  }
+
+  const rows = [];
+  // Mostrar más reciente primero
+  [...arr].reverse().forEach(a => {
+    a.ajustes.forEach((aj, idx) => {
+      rows.push([
+        idx === 0 ? a.fecha : '',                          // fecha solo en la primera fila del grupo
+        aj.desc,
+        aj.anterior,
+        aj.nuevo,
+        aj.diff,
+        idx === 0 ? a.diferenciaNeta : '',                 // neto solo en primera fila
+        idx === 0 ? (a.motivo      || (a.diferenciaNeta === 0 ? '— redistribución —' : '')) : '',
+        idx === 0 ? (a.motivoDetalle || '') : '',
+      ]);
+    });
+  });
+
+  if (rows.length === 0) {
+    sheet.autoResizeColumns(1, headers.length);
+    return;
+  }
+
+  const dataRange = sheet.getRange(2, 1, rows.length, headers.length);
+  dataRange.setValues(rows);
+
+  for (let i = 0; i < rows.length; i++) {
+    const bg = i % 2 === 0 ? '#2a2a2a' : '#1c1c1c';
+    sheet.getRange(i + 2, 1, 1, headers.length).setBackground(bg).setFontColor('#e8e8e8');
+
+    // Colorear columna diferencia (E)
+    const diff = rows[i][4];
+    if (diff !== '') {
+      const cell = sheet.getRange(i + 2, 5);
+      if (diff < 0)      cell.setFontColor('#e74c3c').setFontWeight('bold');
+      else if (diff > 0) cell.setFontColor('#5dade2').setFontWeight('bold');
+    }
+
+    // Colorear columna neto (F)
+    const neto = rows[i][5];
+    if (neto !== '') {
+      const cell = sheet.getRange(i + 2, 6);
+      if (neto < 0)       cell.setFontColor('#e74c3c').setFontWeight('bold');
+      else if (neto > 0)  cell.setFontColor('#5dade2').setFontWeight('bold');
+      else                cell.setFontColor('#27ae60').setFontWeight('bold');
+    }
+  }
+
   sheet.autoResizeColumns(1, headers.length);
 }
 
@@ -167,12 +250,11 @@ function actualizarPorVariante(ss, historial) {
   const LABELS    = { reposeraRoja:'Reposera', reposeraNegra:'Reposera', blanca:'Blanca', veredaRoja:'Vereda', veredaNegra:'Vereda' };
   const COLORES   = { reposeraRoja:'Roja', reposeraNegra:'Negra', blanca:'—', veredaRoja:'Roja', veredaNegra:'Negra' };
 
-  // Calcular ventas de adulto por variante+talle
   const ventasAdulto = {};
   VARIANTES.forEach(v => { ventasAdulto[v] = {}; TALLES.forEach(t => { ventasAdulto[v][t] = 0; }); });
 
-  const ventasTote   = { silla: 0, vereda: 0 };
-  const ventasNino   = {};
+  const ventasTote = { silla: 0, vereda: 0 };
+  const ventasNino = {};
 
   const arr = Array.isArray(historial) ? historial : [];
   arr.forEach(h => {
@@ -190,7 +272,6 @@ function actualizarPorVariante(ss, historial) {
 
   let row = 1;
 
-  // ─ Remeras Adulto ─
   const headersAdulto = ['Diseño', 'Color', ...TALLES, 'Total'];
   const hrAdulto = sheet.getRange(row, 1, 1, headersAdulto.length);
   hrAdulto.setValues([headersAdulto]);
@@ -207,7 +288,6 @@ function actualizarPorVariante(ss, historial) {
     row++;
   });
 
-  // Total por talle
   const totalesTalle = TALLES.map(t => VARIANTES.reduce((s, v) => s + (ventasAdulto[v][t] || 0), 0));
   const totalAdulto  = totalesTalle.reduce((a, b) => a + b, 0);
   const filaTotal    = sheet.getRange(row, 1, 1, headersAdulto.length);
@@ -215,7 +295,6 @@ function actualizarPorVariante(ss, historial) {
   filaTotal.setFontWeight('bold').setFontColor('#27ae60').setBackground('#1c1c1c');
   row += 2;
 
-  // ─ Tote Bags ─
   const hrTote = sheet.getRange(row, 1, 1, 2);
   hrTote.setValues([['Tote Bags', 'Vendidas']]);
   estilizarEncabezado(hrTote);
@@ -224,7 +303,6 @@ function actualizarPorVariante(ss, historial) {
   sheet.getRange(row+1, 1, 1, 2).setValues([['Vereda',   ventasTote.vereda || 0]]).setBackground('#1c1c1c').setFontColor('#e8e8e8');
   row += 3;
 
-  // ─ Remeras Niñx ─
   const hrNino = sheet.getRange(row, 1, 1, 2);
   hrNino.setValues([['Remera Niñx', 'Vendidas']]);
   estilizarEncabezado(hrNino);
@@ -272,7 +350,6 @@ function actualizarResumen(ss, stock, historial) {
 
   const data = [];
 
-  // ── Sección Ventas ───────────────────────────────────────────
   data.push(['VENTAS', '']);
   data.push(['Unidades vendidas',  totalUnid]);
   data.push(['Total recaudado',    totalRec]);
@@ -281,7 +358,6 @@ function actualizarResumen(ss, stock, historial) {
   data.push(['🎁 Regalos (u.)',    totalRegU]);
   data.push(['', '']);
 
-  // ── Sección Stock ────────────────────────────────────────────
   data.push(['STOCK ACTUAL', '']);
 
   if (stock && stock.adultos) {
@@ -316,7 +392,6 @@ function actualizarResumen(ss, stock, historial) {
 
   sheet.getRange(1, 1, data.length, 2).setValues(data);
 
-  // Estilizar filas de sección (VENTAS, STOCK ACTUAL, subtítulos)
   data.forEach((row, i) => {
     const rowNum = i + 1;
     const cel = sheet.getRange(rowNum, 1, 1, 2);
@@ -331,7 +406,6 @@ function actualizarResumen(ss, stock, historial) {
     }
   });
 
-  // Formato moneda en col B para filas de ventas ($)
   [2,3,4,5].forEach(r => {
     if (r <= 5) sheet.getRange(r, 2).setNumberFormat('$#,##0');
   });

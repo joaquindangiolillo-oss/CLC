@@ -143,7 +143,7 @@ async function pushToCloud() {
       method: 'POST',
       mode: 'no-cors',
       headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-      body: JSON.stringify({ stock: estado, historial }),
+      body: JSON.stringify({ stock: estado, historial, auditorias }),
     });
     setSincStatus('ok');
   } catch (err) {
@@ -183,6 +183,11 @@ async function sincronizarDesdeNube() {
     historial = data.historial;
     normalizeHistorial(historial);
     localStorage.setItem('cayo_historial', JSON.stringify(historial));
+    changed = true;
+  }
+  if (Array.isArray(data.auditorias)) {
+    auditorias = data.auditorias;
+    localStorage.setItem('cayo_auditorias', JSON.stringify(auditorias));
     changed = true;
   }
   if (changed) renderTodo();
