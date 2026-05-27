@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Stock - Cayo la Cabra</title>
-  <link rel="stylesheet" href="style.css?v=11" />
+  <link rel="stylesheet" href="style.css?v=12" />
 </head>
 <body>
   <header>
@@ -126,10 +126,20 @@
     <!-- ── TAB AUDITORÍA ── -->
     <div id="tab-auditoria" class="tab-content hidden">
       <div class="auditoria-header">
-        <p class="auditoria-desc">Contá el stock físico y ajustá si hay diferencias.</p>
-        <button id="btn-guardar-auditoria" class="btn-primary">Guardar todos los ajustes</button>
+        <p class="auditoria-desc">Contá el stock físico y comparalo con el sistema. Solo ingresá los valores que difieren.</p>
+        <div class="audit-header-btns">
+          <label class="audit-ciego-label" title="Ocultá los valores del sistema mientras contás para evitar sesgo">
+            <input type="checkbox" id="audit-modo-ciego" />
+            <span>👁 Modo ciego</span>
+          </label>
+          <button id="btn-guardar-auditoria" class="btn-primary">Guardar auditoría</button>
+        </div>
       </div>
       <div id="auditoria-contenido"></div>
+      <div class="audit-historial-section">
+        <h2 class="audit-hist-titulo">📋 Historial de auditorías</h2>
+        <div id="audit-historial-lista"></div>
+      </div>
     </div>
   </main>
 
@@ -333,6 +343,36 @@
     </div>
   </div>
 
+  <!-- ── MODAL MOTIVO AUDITORÍA ── -->
+  <div id="modal-motivo" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>⚖️ Ajuste con diferencia neta</h2>
+        <button class="modal-cerrar" id="btn-cerrar-motivo" aria-label="Cerrar">✕</button>
+      </div>
+      <div id="motivo-resumen" class="motivo-resumen-box"></div>
+      <label class="config-label" style="margin-top:0.5rem">Motivo del ajuste
+        <select id="motivo-select" class="config-input">
+          <option value="">— Seleccioná el motivo —</option>
+          <option value="Merma / pérdida">📉 Merma / pérdida</option>
+          <option value="Mercadería dañada">🔨 Mercadería dañada</option>
+          <option value="Error de conteo anterior">🔄 Corrección de error de conteo</option>
+          <option value="Recepción de nuevo stock">📦 Recepción de nuevo stock</option>
+          <option value="Devolución">↩️ Devolución</option>
+          <option value="Otro">📝 Otro</option>
+        </select>
+      </label>
+      <label class="config-label" id="motivo-detalle-label" style="display:none">Descripción breve
+        <input type="text" id="motivo-detalle" class="config-input" placeholder="Ej: se dañaron 2 remeras en la lluvia..." maxlength="200" />
+      </label>
+      <p id="motivo-error" class="error hidden">Seleccioná un motivo para confirmar.</p>
+      <div class="modal-actions">
+        <button id="btn-confirmar-motivo" class="btn-primary">Confirmar ajuste</button>
+        <button id="btn-cancelar-motivo"  class="btn-secondary">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ── MODAL PIN ── -->
   <div id="modal-pin" class="modal hidden">
     <div class="modal-content">
@@ -353,6 +393,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=11"></script>
+  <script src="app.js?v=12"></script>
 </body>
 </html>
