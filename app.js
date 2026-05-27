@@ -120,8 +120,8 @@ function cargarAuditorias() {
     return raw ? JSON.parse(raw) : [];
   } catch (_) { return []; }
 }
-let auditorias       = cargarAuditorias();
-let ajustesPendientes = [];
+let auditorias      = cargarAuditorias();
+let auditComparacion = null; // { ajustes, coincidencias, sinContar, diferenciaNeta }
 
 // ── Sincronización con Google Sheets ─────────────────────────────────────────
 const GAS_URL_KEY = 'cayo_gas_url';
@@ -994,7 +994,7 @@ function renderAuditoria() {
             <span class="audit-actual">${val}</span>
             <input type="number" class="audit-input" min="0"
               data-tipo="adulto" data-talle="${talle}" data-variante="${v}"
-              placeholder="${val}" />
+              data-sistema="${val}" placeholder="—" />
           </div></td>`;
         }).join('')}
       </tr>`;
@@ -1009,7 +1009,7 @@ function renderAuditoria() {
         <span class="audit-actual">${estado.totes.silla}</span>
         <input type="number" class="audit-input" min="0"
           data-tipo="tote" data-modelo="silla"
-          placeholder="${estado.totes.silla}" />
+          data-sistema="${estado.totes.silla}" placeholder="—" />
       </div>
     </td>
   </tr>`;
@@ -1020,7 +1020,7 @@ function renderAuditoria() {
         <span class="audit-actual">${estado.totes.vereda}</span>
         <input type="number" class="audit-input" min="0"
           data-tipo="tote" data-modelo="vereda"
-          placeholder="${estado.totes.vereda}" />
+          data-sistema="${estado.totes.vereda}" placeholder="—" />
       </div>
     </td>
   </tr>`;
@@ -1035,7 +1035,7 @@ function renderAuditoria() {
           <span class="audit-actual">${v}</span>
           <input type="number" class="audit-input" min="0"
             data-tipo="nino" data-talle="${t}"
-            placeholder="${v}" />
+            data-sistema="${v}" placeholder="—" />
         </div>
       </td>
     </tr>`;
@@ -1043,8 +1043,7 @@ function renderAuditoria() {
 
   contenedor.innerHTML = `
     <div class="audit-leyenda">
-      <span class="audit-leyenda-item"><span class="audit-actual">N</span> = sistema</span>
-      <span class="audit-leyenda-item"><input type="number" style="width:3.5rem" readonly placeholder="N" /> = físico (dejá vacío si coincide)</span>
+      <span class="audit-leyenda-item">🙈 Los valores del sistema están ocultos. Ingresá la cantidad física de cada ítem. Dejá en blanco lo que no contaste.</span>
     </div>
 
     <div class="seccion">
@@ -1083,87 +1082,83 @@ function renderAuditoria() {
       </div>
     </div>
   `;
+
+  // Activar modo ciego por defecto al renderizar
+  const checkbox = document.getElementById('audit-modo-ciego');
+  if (checkbox) {
+    checkbox.checked = true;
+    document.querySelectorAll('.audit-actual').forEach(el => {
+      el.style.visibility = 'hidden';
+    });
+  }
 }
 
 document.getElementById('btn-guardar-auditoria').addEventListener('click', () => {
-  ajustesPendientes = [];
+  const ajustes       = [];
+  const coincidencias = [];
+  const sinContar     = [];
 
   document.querySelectorAll('.audit-input').forEach(input => {
-    const val = input.value.trim();
-    if (val === '') return;
-    const fisico = parseInt(val, 10);
-    if (isNaN(fisico) || fisico < 0) return;
-
+    const val      = input.value.trim();
     const tipo     = input.dataset.tipo;
     const talle    = input.dataset.talle;
     const variante = input.dataset.variante;
     const modelo   = input.dataset.modelo;
 
+    let desc   = '';
+    let actual = 0;
     if (tipo === 'adulto') {
-      const actual = estado.adultos[talle][variante];
-      if (fisico !== actual) ajustesPendientes.push({
-        tipo, talle, variante,
-        desc: `${LABEL_VARIANTE[variante]} talle ${talle}`,
-        anterior: actual, nuevo: fisico, diff: fisico - actual,
-      });
+      desc   = `${LABEL_VARIANTE[variante]} talle ${talle}`;
+      actual = estado.adultos[talle][variante];
     } else if (tipo === 'tote') {
-      const actual = estado.totes[modelo];
-      if (fisico !== actual) ajustesPendientes.push({
-        tipo, modelo,
-        desc: `Tote Bag ${modelo === 'silla' ? 'Reposera' : 'Vereda'}`,
-        anterior: actual, nuevo: fisico, diff: fisico - actual,
-      });
+      desc   = `Tote Bag ${modelo === 'silla' ? 'Reposera' : 'Vereda'}`;
+      actual = estado.totes[modelo];
     } else if (tipo === 'nino') {
-      const actual = estado.ninos[talle] ?? 0;
-      if (fisico !== actual) ajustesPendientes.push({
-        tipo, talle,
-        desc: `Remera Niñx talle ${talle}`,
-        anterior: actual, nuevo: fisico, diff: fisico - actual,
-      });
+      desc   = `Remera Niñx talle ${talle}`;
+      actual = estado.ninos[talle] ?? 0;
+    }
+
+    if (val === '') {
+      sinContar.push({ desc, valor: actual });
+      return;
+    }
+
+    const fisico = parseInt(val, 10);
+    if (isNaN(fisico) || fisico < 0) {
+      sinContar.push({ desc, valor: actual });
+      return;
+    }
+
+    if (fisico !== actual) {
+      ajustes.push({ tipo, talle, variante, modelo, desc, anterior: actual, nuevo: fisico, diff: fisico - actual });
+    } else {
+      coincidencias.push({ desc, valor: actual });
     }
   });
 
-  if (ajustesPendientes.length === 0) {
-    alert('Sin diferencias. No se realizaron ajustes.');
+  // No se ingresó nada
+  if (ajustes.length === 0 && coincidencias.length === 0) {
+    alert('No ingresaste ningún valor. Completá los campos con el conteo físico.');
     return;
   }
 
-  const diferenciaNeta = ajustesPendientes.reduce((s, a) => s + a.diff, 0);
-
-  if (diferenciaNeta !== 0) {
-    // Unidades aparecen o desaparecen → pedir motivo
-    const signo = diferenciaNeta > 0 ? '+' : '';
-    const cls   = diferenciaNeta < 0 ? 'audit-net-neg' : 'audit-net-pos';
-    document.getElementById('motivo-resumen').innerHTML =
-      `Se detectaron <strong>${ajustesPendientes.length} ajuste${ajustesPendientes.length !== 1 ? 's' : ''}</strong>
-       con una diferencia neta de
-       <strong class="${cls}">${signo}${diferenciaNeta} unidades</strong>.<br>
-       <span style="font-size:0.82rem;color:var(--texto-tenue)">
-         Indicá el motivo que justifica que el total de stock cambia.
-       </span>`;
-    document.getElementById('motivo-select').value = '';
-    document.getElementById('motivo-detalle-label').style.display = 'none';
-    document.getElementById('motivo-detalle').value = '';
-    document.getElementById('motivo-error').classList.add('hidden');
-    document.getElementById('modal-motivo').classList.remove('hidden');
-  } else {
-    // Redistribución interna — sin cambio neto → guardar directo
-    aplicarAjustesAuditoria(null, '');
-  }
+  const diferenciaNeta = ajustes.reduce((s, a) => s + a.diff, 0);
+  mostrarResultadoAuditoria({ ajustes, coincidencias, sinContar, diferenciaNeta });
 });
 
 function aplicarAjustesAuditoria(motivo, motivoDetalle) {
-  ajustesPendientes.forEach(aj => {
+  const { ajustes, diferenciaNeta } = auditComparacion;
+
+  ajustes.forEach(aj => {
     if (aj.tipo === 'adulto')    estado.adultos[aj.talle][aj.variante] = aj.nuevo;
     else if (aj.tipo === 'tote') estado.totes[aj.modelo]               = aj.nuevo;
     else if (aj.tipo === 'nino') estado.ninos[aj.talle]                = aj.nuevo;
   });
 
-  const diferenciaNeta = ajustesPendientes.reduce((s, a) => s + a.diff, 0);
   const entrada = {
     id:            Date.now(),
     fecha:         new Date().toLocaleString('es-AR'),
-    ajustes:       ajustesPendientes.map(a => ({ desc: a.desc, anterior: a.anterior, nuevo: a.nuevo, diff: a.diff })),
+    ajustes:       ajustes.map(a => ({ desc: a.desc, anterior: a.anterior, nuevo: a.nuevo, diff: a.diff })),
     diferenciaNeta,
     motivo:        motivo || null,
     motivoDetalle: motivoDetalle || '',
@@ -1171,18 +1166,20 @@ function aplicarAjustesAuditoria(motivo, motivoDetalle) {
 
   auditorias.push(entrada);
   localStorage.setItem('cayo_auditorias', JSON.stringify(auditorias));
-  ajustesPendientes = [];
+  auditComparacion = null;
 
   guardar();
   renderTodo();
   renderAuditoria();
   renderHistorialAuditorias();
 
-  // Banner de confirmación (sin alert)
+  // Banner de confirmación
   const banner = document.createElement('div');
   banner.className = 'audit-guardado-banner';
   const motivoTxt = motivo ? ` · ${motivo}` : '';
-  banner.textContent = `✅ Auditoría guardada — ${entrada.ajustes.length} ajuste${entrada.ajustes.length !== 1 ? 's' : ''}${motivoTxt}`;
+  banner.textContent = ajustes.length > 0
+    ? `✅ Auditoría guardada — ${ajustes.length} ajuste${ajustes.length !== 1 ? 's' : ''}${motivoTxt}`
+    : `✅ Auditoría guardada — sin diferencias`;
   document.querySelector('.audit-historial-section').prepend(banner);
   setTimeout(() => banner.remove(), 4000);
 }
@@ -1206,15 +1203,20 @@ function renderHistorialAuditorias() {
     const detalleHtml = a.motivoDetalle
       ? `<div class="audit-detalle-txt">💬 "${a.motivoDetalle}"</div>` : '';
 
-    const ajustesHtml = a.ajustes.map(aj => {
-      const d   = aj.diff > 0 ? `+${aj.diff}` : String(aj.diff);
-      const dcls = aj.diff < 0 ? 'audit-aj-neg' : 'audit-aj-pos';
-      return `<div class="audit-aj-fila">
-        <span class="audit-aj-desc">${aj.desc}</span>
-        <span class="audit-aj-vals">${aj.anterior} → ${aj.nuevo}</span>
-        <span class="audit-aj-diff ${dcls}">${d}</span>
-      </div>`;
-    }).join('');
+    const ajustesHtml = a.ajustes.length === 0
+      ? `<div class="audit-aj-fila" style="font-style:italic">
+          <span class="audit-aj-desc" style="color:var(--texto-tenue)">Sin diferencias — todo lo contado coincidió</span>
+          <span></span><span></span>
+        </div>`
+      : a.ajustes.map(aj => {
+          const d    = aj.diff > 0 ? `+${aj.diff}` : String(aj.diff);
+          const dcls = aj.diff < 0 ? 'audit-aj-neg' : 'audit-aj-pos';
+          return `<div class="audit-aj-fila">
+            <span class="audit-aj-desc">${aj.desc}</span>
+            <span class="audit-aj-vals">${aj.anterior} → ${aj.nuevo}</span>
+            <span class="audit-aj-diff ${dcls}">${d}</span>
+          </div>`;
+        }).join('');
 
     return `<div class="audit-hist-item" data-id="${a.id}">
       <div class="audit-hist-header" onclick="toggleAuditItem(${a.id})">
@@ -1243,36 +1245,117 @@ window.toggleAuditItem = function(id) {
   ico.textContent = open ? '▼' : '▲';
 };
 
-// Modal motivo
-document.getElementById('motivo-select').addEventListener('change', () => {
-  document.getElementById('motivo-detalle-label').style.display =
-    document.getElementById('motivo-select').value ? 'flex' : 'none';
-  document.getElementById('motivo-error').classList.add('hidden');
+// ── Modal resultado auditoría ─────────────────────────────────────────────────
+function mostrarResultadoAuditoria(comparacion) {
+  auditComparacion = comparacion;
+  const { ajustes, coincidencias, sinContar, diferenciaNeta } = comparacion;
+
+  let html = '';
+
+  if (ajustes.length > 0) {
+    html += `<div class="resultado-seccion">
+      <h3 class="resultado-titulo resultado-titulo--diff">🔴 Diferencias (${ajustes.length})</h3>
+      ${ajustes.map(a => {
+        const d    = a.diff > 0 ? `+${a.diff}` : String(a.diff);
+        const dcls = a.diff < 0 ? 'audit-aj-neg' : 'audit-aj-pos';
+        return `<div class="audit-aj-fila">
+          <span class="audit-aj-desc">${a.desc}</span>
+          <span class="audit-aj-vals">${a.anterior} → ${a.nuevo}</span>
+          <span class="audit-aj-diff ${dcls}">${d}</span>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+
+  if (coincidencias.length > 0) {
+    html += `<div class="resultado-seccion">
+      <h3 class="resultado-titulo resultado-titulo--ok">✅ Coincidencias (${coincidencias.length})</h3>
+      ${coincidencias.map(c => `<div class="audit-aj-fila">
+        <span class="audit-aj-desc">${c.desc}</span>
+        <span class="audit-aj-vals">${c.valor} u. — ok</span>
+        <span></span>
+      </div>`).join('')}
+    </div>`;
+  }
+
+  if (sinContar.length > 0) {
+    html += `<div class="resultado-seccion">
+      <h3 class="resultado-titulo resultado-titulo--sc">⚪ Sin contar (${sinContar.length})</h3>
+      ${sinContar.map(s => `<div class="audit-aj-fila">
+        <span class="audit-aj-desc">${s.desc}</span>
+        <span class="audit-aj-vals" style="color:var(--texto-tenue);font-style:italic">no contado</span>
+        <span></span>
+      </div>`).join('')}
+    </div>`;
+  }
+
+  if (ajustes.length === 0) {
+    html = `<p class="resultado-ok-msg">✅ Todo lo contado coincide con el sistema.</p>` + html;
+  }
+
+  if (diferenciaNeta !== 0) {
+    const signo = diferenciaNeta > 0 ? '+' : '';
+    const cls   = diferenciaNeta < 0 ? 'audit-net-neg' : 'audit-net-pos';
+    html += `<div class="resultado-neto">
+      Diferencia neta: <strong class="${cls}">${signo}${diferenciaNeta} u.</strong>
+    </div>`;
+  } else if (ajustes.length > 0) {
+    html += `<div class="resultado-neto resultado-neto--ok">
+      Diferencia neta: <strong>0 u.</strong> — redistribución interna ✅
+    </div>`;
+  }
+
+  document.getElementById('resultado-body').innerHTML = html;
+
+  const motivoSection = document.getElementById('resultado-motivo-section');
+  if (diferenciaNeta !== 0) {
+    motivoSection.classList.remove('hidden');
+    document.getElementById('resultado-motivo-select').value = '';
+    document.getElementById('resultado-detalle-label').style.display = 'none';
+    document.getElementById('resultado-detalle').value = '';
+    document.getElementById('resultado-error').classList.add('hidden');
+  } else {
+    motivoSection.classList.add('hidden');
+  }
+
+  document.getElementById('modal-resultado-auditoria').classList.remove('hidden');
+}
+
+document.getElementById('resultado-motivo-select').addEventListener('change', () => {
+  document.getElementById('resultado-detalle-label').style.display =
+    document.getElementById('resultado-motivo-select').value ? 'flex' : 'none';
+  document.getElementById('resultado-error').classList.add('hidden');
 });
 
-document.getElementById('btn-confirmar-motivo').addEventListener('click', () => {
-  const motivo  = document.getElementById('motivo-select').value;
-  const detalle = document.getElementById('motivo-detalle').value.trim();
-  if (!motivo) { document.getElementById('motivo-error').classList.remove('hidden'); return; }
-  document.getElementById('modal-motivo').classList.add('hidden');
-  aplicarAjustesAuditoria(motivo, detalle);
-});
-
-['btn-cancelar-motivo', 'btn-cerrar-motivo'].forEach(id => {
-  document.getElementById(id).addEventListener('click', () => {
-    document.getElementById('modal-motivo').classList.add('hidden');
-    ajustesPendientes = [];
-  });
-});
-
-document.getElementById('modal-motivo').addEventListener('click', e => {
-  if (e.target === document.getElementById('modal-motivo')) {
-    document.getElementById('modal-motivo').classList.add('hidden');
-    ajustesPendientes = [];
+document.getElementById('btn-confirmar-resultado').addEventListener('click', () => {
+  if (!auditComparacion) return;
+  if (auditComparacion.diferenciaNeta !== 0) {
+    const motivo = document.getElementById('resultado-motivo-select').value;
+    if (!motivo) { document.getElementById('resultado-error').classList.remove('hidden'); return; }
+    const detalle = document.getElementById('resultado-detalle').value.trim();
+    document.getElementById('modal-resultado-auditoria').classList.add('hidden');
+    aplicarAjustesAuditoria(motivo, detalle);
+  } else {
+    document.getElementById('modal-resultado-auditoria').classList.add('hidden');
+    aplicarAjustesAuditoria(null, '');
   }
 });
 
-// Modo ciego — oculta los valores del sistema para un conteo sin sesgo
+['btn-cancelar-resultado', 'btn-cerrar-resultado'].forEach(id => {
+  document.getElementById(id).addEventListener('click', () => {
+    document.getElementById('modal-resultado-auditoria').classList.add('hidden');
+    auditComparacion = null;
+  });
+});
+
+document.getElementById('modal-resultado-auditoria').addEventListener('click', e => {
+  if (e.target === document.getElementById('modal-resultado-auditoria')) {
+    document.getElementById('modal-resultado-auditoria').classList.add('hidden');
+    auditComparacion = null;
+  }
+});
+
+// Modo ciego — oculta/muestra los valores del sistema
 document.getElementById('audit-modo-ciego').addEventListener('change', function() {
   document.querySelectorAll('.audit-actual').forEach(el => {
     el.style.visibility = this.checked ? 'hidden' : '';
