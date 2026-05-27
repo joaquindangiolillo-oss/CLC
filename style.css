@@ -475,10 +475,21 @@ button.total-item {
 
 /* AUDITORÍA */
 .auditoria-header {
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex; align-items: flex-start; justify-content: space-between;
   gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1.25rem;
 }
-.auditoria-desc { color: var(--texto-tenue); font-size: 0.85rem; }
+.auditoria-desc { color: var(--texto-tenue); font-size: 0.85rem; flex: 1; }
+.audit-header-btns { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; flex-shrink: 0; }
+
+/* Modo ciego */
+.audit-ciego-label {
+  display: flex; align-items: center; gap: 0.4rem; cursor: pointer;
+  font-size: 0.82rem; color: var(--texto-tenue);
+  padding: 0.4rem 0.75rem; border: 1px solid var(--borde); border-radius: 8px;
+  transition: border-color 0.15s, color 0.15s; min-height: 40px; white-space: nowrap;
+}
+.audit-ciego-label:has(input:checked) { border-color: var(--acento); color: var(--texto); }
+.audit-ciego-label input[type="checkbox"] { accent-color: var(--acento); }
 
 .audit-leyenda {
   display: flex; gap: 1rem; flex-wrap: wrap;
@@ -580,6 +591,78 @@ button.total-item {
 .venta-anota,
 .historial-anota    { border-left: 2px solid rgba(243,156,18,0.4); }
 .pago-opcion        { flex: 1 1 5rem; }
+
+/* HISTORIAL DE AUDITORÍAS ───────────────────────────────────────────────── */
+.audit-historial-section { margin-top: 2.5rem; }
+.audit-hist-titulo {
+  font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--texto-tenue); margin-bottom: 0.75rem;
+}
+
+.audit-hist-item {
+  border: 1px solid var(--borde); border-radius: 10px;
+  margin-bottom: 0.6rem; overflow: hidden;
+}
+.audit-hist-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 0.7rem 1rem; cursor: pointer;
+  background: var(--fondo-card); transition: background 0.15s;
+}
+.audit-hist-header:hover { background: #242424; }
+.audit-hist-meta {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.65rem; flex: 1;
+}
+.audit-hist-fecha { font-size: 0.82rem; font-weight: 600; }
+.audit-hist-count { font-size: 0.78rem; color: var(--texto-tenue); }
+
+.audit-net      { font-size: 0.75rem; font-weight: 700; padding: 0.12rem 0.5rem; border-radius: 12px; white-space: nowrap; }
+.audit-net-ok   { background: rgba(39,174,96,0.15);  color: #27ae60; }
+.audit-net-neg  { background: rgba(231,76,60,0.15);  color: var(--acento); }
+.audit-net-pos  { background: rgba(52,152,219,0.15); color: #5dade2; }
+
+.audit-motivo-badge {
+  font-size: 0.72rem; color: var(--texto-tenue);
+  border: 1px solid var(--borde); border-radius: 12px; padding: 0.1rem 0.5rem;
+  white-space: nowrap;
+}
+.audit-toggle-icon { color: var(--texto-tenue); font-size: 0.72rem; flex-shrink: 0; }
+
+.audit-hist-detalle { padding: 0.65rem 1rem 0.8rem; background: #141414; }
+.audit-hist-detalle.audit-collapsed { display: none; }
+
+.audit-aj-fila {
+  display: grid; grid-template-columns: 1fr auto auto;
+  gap: 0.4rem 0.9rem; align-items: center;
+  padding: 0.28rem 0; border-bottom: 1px solid var(--borde); font-size: 0.83rem;
+}
+.audit-aj-fila:last-of-type { border-bottom: none; }
+.audit-aj-desc  { color: var(--texto); }
+.audit-aj-vals  { color: var(--texto-tenue); font-size: 0.78rem; white-space: nowrap; }
+.audit-aj-diff  { font-weight: 700; white-space: nowrap; }
+.audit-aj-neg   { color: var(--acento); }
+.audit-aj-pos   { color: #5dade2; }
+.audit-detalle-txt {
+  margin-top: 0.65rem; font-size: 0.82rem; color: var(--texto-tenue); font-style: italic;
+}
+
+/* Banner confirmación */
+.audit-guardado-banner {
+  background: rgba(39,174,96,0.1); border: 1px solid rgba(39,174,96,0.3);
+  color: #27ae60; border-radius: 8px; padding: 0.65rem 1rem;
+  font-size: 0.88rem; font-weight: 600; margin-bottom: 1rem;
+  animation: slideDown 0.25s ease;
+}
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* MODAL MOTIVO ───────────────────────────────────────────────────────────── */
+.motivo-resumen-box {
+  background: rgba(231,76,60,0.06); border: 1px solid rgba(231,76,60,0.2);
+  border-radius: 10px; padding: 0.85rem 1rem;
+  margin-bottom: 0.25rem; font-size: 0.88rem; line-height: 1.6;
+}
 
 /* BOTÓN LOCK ──────────────────────────────────────────────────────────────── */
 .btn-lock {

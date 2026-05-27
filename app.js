@@ -110,8 +110,18 @@ function guardar() {
   pushToCloud(); // sincronización en segundo plano
 }
 
-let estado   = cargarEstado();
+let estado    = cargarEstado();
 let historial = cargarHistorial();
+
+// Historial de auditorías
+function cargarAuditorias() {
+  try {
+    const raw = localStorage.getItem('cayo_auditorias');
+    return raw ? JSON.parse(raw) : [];
+  } catch (_) { return []; }
+}
+let auditorias       = cargarAuditorias();
+let ajustesPendientes = [];
 
 // ── Sincronización con Google Sheets ─────────────────────────────────────────
 const GAS_URL_KEY = 'cayo_gas_url';
@@ -238,7 +248,7 @@ window.irATab = function(tab) {
   });
   document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
   document.getElementById('tab-' + tab).classList.remove('hidden');
-  if (tab === 'auditoria') renderAuditoria();
+  if (tab === 'auditoria') { renderAuditoria(); renderHistorialAuditorias(); }
   if (tab === 'ventas')    renderVentas();
 };
 
@@ -1071,52 +1081,197 @@ function renderAuditoria() {
 }
 
 document.getElementById('btn-guardar-auditoria').addEventListener('click', () => {
-  const inputs = document.querySelectorAll('.audit-input');
-  const ajustes = [];
+  ajustesPendientes = [];
 
-  inputs.forEach(input => {
+  document.querySelectorAll('.audit-input').forEach(input => {
     const val = input.value.trim();
-    if (val === '') return; // sin cambio
+    if (val === '') return;
     const fisico = parseInt(val, 10);
     if (isNaN(fisico) || fisico < 0) return;
 
-    const tipo    = input.dataset.tipo;
-    const talle   = input.dataset.talle;
+    const tipo     = input.dataset.tipo;
+    const talle    = input.dataset.talle;
     const variante = input.dataset.variante;
-    const modelo  = input.dataset.modelo;
+    const modelo   = input.dataset.modelo;
 
     if (tipo === 'adulto') {
       const actual = estado.adultos[talle][variante];
-      if (fisico !== actual) {
-        ajustes.push(`${LABEL_VARIANTE[variante]} talle ${talle}: ${actual} → ${fisico}`);
-        estado.adultos[talle][variante] = fisico;
-      }
+      if (fisico !== actual) ajustesPendientes.push({
+        tipo, talle, variante,
+        desc: `${LABEL_VARIANTE[variante]} talle ${talle}`,
+        anterior: actual, nuevo: fisico, diff: fisico - actual,
+      });
     } else if (tipo === 'tote') {
       const actual = estado.totes[modelo];
-      if (fisico !== actual) {
-        ajustes.push(`Tote ${modelo === 'silla' ? 'Reposera' : 'Vereda'}: ${actual} → ${fisico}`);
-        estado.totes[modelo] = fisico;
-      }
+      if (fisico !== actual) ajustesPendientes.push({
+        tipo, modelo,
+        desc: `Tote Bag ${modelo === 'silla' ? 'Reposera' : 'Vereda'}`,
+        anterior: actual, nuevo: fisico, diff: fisico - actual,
+      });
     } else if (tipo === 'nino') {
       const actual = estado.ninos[talle] ?? 0;
-      if (fisico !== actual) {
-        ajustes.push(`Niñx talle ${talle}: ${actual} → ${fisico}`);
-        estado.ninos[talle] = fisico;
-      }
+      if (fisico !== actual) ajustesPendientes.push({
+        tipo, talle,
+        desc: `Remera Niñx talle ${talle}`,
+        anterior: actual, nuevo: fisico, diff: fisico - actual,
+      });
     }
   });
 
-  if (ajustes.length === 0) {
+  if (ajustesPendientes.length === 0) {
     alert('Sin diferencias. No se realizaron ajustes.');
     return;
   }
 
+  const diferenciaNeta = ajustesPendientes.reduce((s, a) => s + a.diff, 0);
+
+  if (diferenciaNeta !== 0) {
+    // Unidades aparecen o desaparecen → pedir motivo
+    const signo = diferenciaNeta > 0 ? '+' : '';
+    const cls   = diferenciaNeta < 0 ? 'audit-net-neg' : 'audit-net-pos';
+    document.getElementById('motivo-resumen').innerHTML =
+      `Se detectaron <strong>${ajustesPendientes.length} ajuste${ajustesPendientes.length !== 1 ? 's' : ''}</strong>
+       con una diferencia neta de
+       <strong class="${cls}">${signo}${diferenciaNeta} unidades</strong>.<br>
+       <span style="font-size:0.82rem;color:var(--texto-tenue)">
+         Indicá el motivo que justifica que el total de stock cambia.
+       </span>`;
+    document.getElementById('motivo-select').value = '';
+    document.getElementById('motivo-detalle-label').style.display = 'none';
+    document.getElementById('motivo-detalle').value = '';
+    document.getElementById('motivo-error').classList.add('hidden');
+    document.getElementById('modal-motivo').classList.remove('hidden');
+  } else {
+    // Redistribución interna — sin cambio neto → guardar directo
+    aplicarAjustesAuditoria(null, '');
+  }
+});
+
+function aplicarAjustesAuditoria(motivo, motivoDetalle) {
+  ajustesPendientes.forEach(aj => {
+    if (aj.tipo === 'adulto')    estado.adultos[aj.talle][aj.variante] = aj.nuevo;
+    else if (aj.tipo === 'tote') estado.totes[aj.modelo]               = aj.nuevo;
+    else if (aj.tipo === 'nino') estado.ninos[aj.talle]                = aj.nuevo;
+  });
+
+  const diferenciaNeta = ajustesPendientes.reduce((s, a) => s + a.diff, 0);
+  const entrada = {
+    id:            Date.now(),
+    fecha:         new Date().toLocaleString('es-AR'),
+    ajustes:       ajustesPendientes.map(a => ({ desc: a.desc, anterior: a.anterior, nuevo: a.nuevo, diff: a.diff })),
+    diferenciaNeta,
+    motivo:        motivo || null,
+    motivoDetalle: motivoDetalle || '',
+  };
+
+  auditorias.push(entrada);
+  localStorage.setItem('cayo_auditorias', JSON.stringify(auditorias));
+  ajustesPendientes = [];
+
   guardar();
   renderTodo();
   renderAuditoria();
+  renderHistorialAuditorias();
 
-  const msg = `✅ Ajustes aplicados (${ajustes.length}):\n\n${ajustes.join('\n')}`;
-  alert(msg);
+  // Banner de confirmación (sin alert)
+  const banner = document.createElement('div');
+  banner.className = 'audit-guardado-banner';
+  const motivoTxt = motivo ? ` · ${motivo}` : '';
+  banner.textContent = `✅ Auditoría guardada — ${entrada.ajustes.length} ajuste${entrada.ajustes.length !== 1 ? 's' : ''}${motivoTxt}`;
+  document.querySelector('.audit-historial-section').prepend(banner);
+  setTimeout(() => banner.remove(), 4000);
+}
+
+// ── Historial de auditorías ───────────────────────────────────────────────────
+function renderHistorialAuditorias() {
+  const lista = document.getElementById('audit-historial-lista');
+  if (!lista) return;
+
+  if (auditorias.length === 0) {
+    lista.innerHTML = '<p class="historial-vacio" style="padding:1rem 0">Todavía no hay auditorías registradas.</p>';
+    return;
+  }
+
+  lista.innerHTML = [...auditorias].reverse().map(a => {
+    const neto   = a.diferenciaNeta;
+    const signo  = neto > 0 ? '+' : '';
+    const cls    = neto < 0 ? 'audit-net-neg' : neto > 0 ? 'audit-net-pos' : 'audit-net-ok';
+    const netLbl = neto === 0 ? '✅ Neto 0' : `${signo}${neto} u.`;
+    const motivoHtml  = a.motivo ? `<span class="audit-motivo-badge">${a.motivo}</span>` : '';
+    const detalleHtml = a.motivoDetalle
+      ? `<div class="audit-detalle-txt">💬 "${a.motivoDetalle}"</div>` : '';
+
+    const ajustesHtml = a.ajustes.map(aj => {
+      const d   = aj.diff > 0 ? `+${aj.diff}` : String(aj.diff);
+      const dcls = aj.diff < 0 ? 'audit-aj-neg' : 'audit-aj-pos';
+      return `<div class="audit-aj-fila">
+        <span class="audit-aj-desc">${aj.desc}</span>
+        <span class="audit-aj-vals">${aj.anterior} → ${aj.nuevo}</span>
+        <span class="audit-aj-diff ${dcls}">${d}</span>
+      </div>`;
+    }).join('');
+
+    return `<div class="audit-hist-item" data-id="${a.id}">
+      <div class="audit-hist-header" onclick="toggleAuditItem(${a.id})">
+        <div class="audit-hist-meta">
+          <span class="audit-hist-fecha">${a.fecha}</span>
+          <span class="audit-hist-count">${a.ajustes.length} ajuste${a.ajustes.length !== 1 ? 's' : ''}</span>
+          <span class="audit-net ${cls}">${netLbl}</span>
+          ${motivoHtml}
+        </div>
+        <span class="audit-toggle-icon">▼</span>
+      </div>
+      <div class="audit-hist-detalle audit-collapsed">
+        ${ajustesHtml}
+        ${detalleHtml}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+window.toggleAuditItem = function(id) {
+  const item = document.querySelector(`.audit-hist-item[data-id="${id}"]`);
+  if (!item) return;
+  const det  = item.querySelector('.audit-hist-detalle');
+  const ico  = item.querySelector('.audit-toggle-icon');
+  const open = det.classList.toggle('audit-collapsed');
+  ico.textContent = open ? '▼' : '▲';
+};
+
+// Modal motivo
+document.getElementById('motivo-select').addEventListener('change', () => {
+  document.getElementById('motivo-detalle-label').style.display =
+    document.getElementById('motivo-select').value ? 'flex' : 'none';
+  document.getElementById('motivo-error').classList.add('hidden');
+});
+
+document.getElementById('btn-confirmar-motivo').addEventListener('click', () => {
+  const motivo  = document.getElementById('motivo-select').value;
+  const detalle = document.getElementById('motivo-detalle').value.trim();
+  if (!motivo) { document.getElementById('motivo-error').classList.remove('hidden'); return; }
+  document.getElementById('modal-motivo').classList.add('hidden');
+  aplicarAjustesAuditoria(motivo, detalle);
+});
+
+['btn-cancelar-motivo', 'btn-cerrar-motivo'].forEach(id => {
+  document.getElementById(id).addEventListener('click', () => {
+    document.getElementById('modal-motivo').classList.add('hidden');
+    ajustesPendientes = [];
+  });
+});
+
+document.getElementById('modal-motivo').addEventListener('click', e => {
+  if (e.target === document.getElementById('modal-motivo')) {
+    document.getElementById('modal-motivo').classList.add('hidden');
+    ajustesPendientes = [];
+  }
+});
+
+// Modo ciego — oculta los valores del sistema para un conteo sin sesgo
+document.getElementById('audit-modo-ciego').addEventListener('change', function() {
+  document.querySelectorAll('.audit-actual').forEach(el => {
+    el.style.visibility = this.checked ? 'hidden' : '';
+  });
 });
 
 // ── Modal Configuración Sync ──────────────────────────────────────────────────
