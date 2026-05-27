@@ -608,16 +608,6 @@ body:not(.modo-lectura) .btn-lock { border-color: rgba(39,174,96,0.55); }
 .modo-lectura #btn-guardar-auditoria { display: none !important; }
 .modo-lectura .audit-input           { visibility: hidden !important; pointer-events: none; }
 
-/* PIN CONFIG (en modal ☁️) ──────────────────────────────────────────────── */
-.config-divider {
-  border: none;
-  border-top: 1px solid var(--borde);
-  margin: 1.1rem 0 1rem;
-}
-.pin-config-wrap { margin-bottom: 0.5rem; }
-.pin-config-btns { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.6rem; }
-.pin-config-btns button { flex: 1; min-height: 40px; }
-.pin-btn-hidden  { display: none !important; }
 
 /* RESPONSIVE GENERAL ≤ 480px */
 @media (max-width: 480px) {

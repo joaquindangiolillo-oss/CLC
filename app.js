@@ -179,10 +179,9 @@ async function sincronizarDesdeNube() {
   setSincStatus('ok');
 }
 
-// ── Control de acceso (PIN) ───────────────────────────────────────────────────
-const EDIT_PIN_KEY = 'cayo_edit_pin';
-let editPin    = localStorage.getItem(EDIT_PIN_KEY) || '';
-let modoEdicion = false; // siempre inicia bloqueado; se ajusta en init
+// ── Control de acceso (PIN fijo) ──────────────────────────────────────────────
+const EDIT_PIN = '1122';
+let modoEdicion = false;
 
 function setModoEdicion(activo) {
   modoEdicion = activo;
@@ -197,24 +196,17 @@ function setModoEdicion(activo) {
 // Botón 🔒/🔓
 document.getElementById('btn-lock').addEventListener('click', () => {
   if (modoEdicion) {
-    // Desbloqueado → bloquear
     setModoEdicion(false);
     return;
   }
-  // Bloqueado → intentar desbloquear con PIN
   document.getElementById('pin-input').value = '';
   document.getElementById('pin-error').classList.add('hidden');
-  document.getElementById('pin-modal-desc').textContent = editPin
-    ? 'Ingresá el PIN para habilitar la edición.'
-    : '🔒 No hay PIN configurado en este dispositivo. Pedile el PIN al organizador y configuralo en ☁️.';
   document.getElementById('modal-pin').classList.remove('hidden');
-  if (editPin) setTimeout(() => document.getElementById('pin-input').focus(), 80);
+  setTimeout(() => document.getElementById('pin-input').focus(), 80);
 });
 
-// Verificar PIN — si no hay PIN configurado en este dispositivo, nada desbloquea
 function confirmarPin() {
-  const ingresado = document.getElementById('pin-input').value;
-  if (editPin && ingresado === editPin) {
+  if (document.getElementById('pin-input').value === EDIT_PIN) {
     document.getElementById('modal-pin').classList.add('hidden');
     setModoEdicion(true);
   } else {
@@ -237,78 +229,6 @@ document.getElementById('btn-cerrar-pin').addEventListener('click', () => {
 document.getElementById('modal-pin').addEventListener('click', e => {
   if (e.target === document.getElementById('modal-pin'))
     document.getElementById('modal-pin').classList.add('hidden');
-});
-
-// Helpers PIN config (llamado al abrir modal ☁️ y tras cada cambio)
-function actualizarEstadoPinConfig() {
-  const infoEl   = document.getElementById('pin-config-estado-texto');
-  const btnConf  = document.getElementById('btn-pin-configurar');
-  const btnQuit  = document.getElementById('btn-pin-quitar');
-  const btnGuard = document.getElementById('btn-pin-guardar');
-  const btnCanc  = document.getElementById('btn-pin-cancelar');
-  const campos   = document.getElementById('pin-config-campos');
-  const errEl    = document.getElementById('pin-config-error');
-
-  // Reset estado base
-  campos.classList.add('hidden');
-  btnGuard.classList.add('pin-btn-hidden');
-  btnCanc.classList.add('pin-btn-hidden');
-  errEl.classList.add('hidden');
-  btnConf.classList.remove('pin-btn-hidden');
-
-  if (editPin) {
-    infoEl.textContent   = '✅ PIN activo. La app inicia en modo lectura; tocá 🔒 para desbloquear.';
-    btnConf.textContent  = '🔐 Cambiar PIN';
-    btnQuit.classList.remove('pin-btn-hidden');
-  } else {
-    infoEl.textContent   = 'Sin PIN — cualquier visitante puede editar. Configurá un PIN para proteger la app.';
-    btnConf.textContent  = '🔐 Configurar PIN';
-    btnQuit.classList.add('pin-btn-hidden');
-  }
-}
-
-document.getElementById('btn-pin-configurar').addEventListener('click', () => {
-  document.getElementById('pin-nuevo').value    = '';
-  document.getElementById('pin-confirma').value = '';
-  document.getElementById('pin-config-error').classList.add('hidden');
-  document.getElementById('pin-config-campos').classList.remove('hidden');
-  document.getElementById('btn-pin-configurar').classList.add('pin-btn-hidden');
-  document.getElementById('btn-pin-quitar').classList.add('pin-btn-hidden');
-  document.getElementById('btn-pin-guardar').classList.remove('pin-btn-hidden');
-  document.getElementById('btn-pin-cancelar').classList.remove('pin-btn-hidden');
-  setTimeout(() => document.getElementById('pin-nuevo').focus(), 80);
-});
-
-document.getElementById('btn-pin-guardar').addEventListener('click', () => {
-  const nuevo    = document.getElementById('pin-nuevo').value.trim();
-  const confirma = document.getElementById('pin-confirma').value.trim();
-  const errEl    = document.getElementById('pin-config-error');
-  if (!nuevo) {
-    errEl.textContent = 'Ingresá un PIN (puede ser cualquier combinación).';
-    errEl.classList.remove('hidden');
-    return;
-  }
-  if (nuevo !== confirma) {
-    errEl.textContent = 'Los PINs no coinciden. Intentá de nuevo.';
-    errEl.classList.remove('hidden');
-    return;
-  }
-  editPin = nuevo;
-  localStorage.setItem(EDIT_PIN_KEY, editPin);
-  actualizarEstadoPinConfig();
-  if (!modoEdicion) setModoEdicion(true); // desbloquear tras guardar PIN
-});
-
-document.getElementById('btn-pin-cancelar').addEventListener('click', () => {
-  actualizarEstadoPinConfig();
-});
-
-document.getElementById('btn-pin-quitar').addEventListener('click', () => {
-  if (!confirm('¿Quitar el PIN?\n\nCualquier persona podrá editar en este dispositivo.')) return;
-  editPin = '';
-  localStorage.removeItem(EDIT_PIN_KEY);
-  setModoEdicion(true); // sin PIN → siempre desbloqueado
-  actualizarEstadoPinConfig();
 });
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
@@ -1206,7 +1126,6 @@ document.getElementById('btn-sinc').addEventListener('click', () => {
   document.getElementById('config-url').value = gasUrl;
   document.getElementById('config-status').textContent =
     gasUrl ? '✅ URL configurada. Podés cambiarla o desactivarla.' : '';
-  actualizarEstadoPinConfig();
   modalConfig.classList.remove('hidden');
 });
 
