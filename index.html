@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Stock - Cayo la Cabra</title>
-  <link rel="stylesheet" href="style.css?v=15" />
+  <link rel="stylesheet" href="style.css?v=16" />
 </head>
 <body>
   <header>
@@ -42,7 +42,8 @@
         </div>
         <button class="total-item total-item--green total-item--clickable" id="card-recaudado" onclick="irATab('ventas')" title="Ver ventas" style="display:none">
           <span class="total-label">Recaudado 👉</span>
-          <span class="total-valor total-valor--green" id="total-recaudado">$0</span>
+          <span class="recaudado-linea" id="recaudado-ars"></span>
+          <span class="recaudado-linea" id="recaudado-uyu"></span>
         </button>
       </section>
 
@@ -89,9 +90,13 @@
           <span class="vcard-label">📦 Unidades vendidas</span>
           <span class="vcard-valor" id="v-unidades">0</span>
         </div>
-        <div class="vcard vcard--total">
-          <span class="vcard-label">💰 Total recaudado</span>
-          <span class="vcard-valor" id="v-total">$0</span>
+        <div class="vcard vcard--ars">
+          <span class="vcard-label">🇦🇷 Total ARS</span>
+          <span class="vcard-valor" id="v-total-ars">$0</span>
+        </div>
+        <div class="vcard vcard--uyu">
+          <span class="vcard-label">🇺🇾 Total UYU</span>
+          <span class="vcard-valor" id="v-total-uyu">$0</span>
         </div>
         <div class="vcard vcard--efectivo">
           <span class="vcard-label">💵 Efectivo</span>
@@ -212,6 +217,12 @@
         <label>Precio unitario ($)
           <input type="number" id="venta-precio-override" min="0" step="1" placeholder="Precio por defecto" />
         </label>
+        <label>Moneda
+          <div class="pago-opciones">
+            <label class="pago-opcion"><input type="radio" name="moneda-venta" value="UYU" checked /><span>🇺🇾 Pesos URU</span></label>
+            <label class="pago-opcion"><input type="radio" name="moneda-venta" value="ARS" /><span>🇦🇷 Pesos ARG</span></label>
+          </div>
+        </label>
         <label>Método de pago
           <div class="pago-opciones">
             <label class="pago-opcion"><input type="radio" name="pago" value="efectivo" checked /><span>Efectivo</span></label>
@@ -303,6 +314,12 @@
       </label>
       <label>Precio unitario ($)
         <input type="number" id="editar-precio" min="0" step="1" />
+      </label>
+      <label>Moneda
+        <div class="pago-opciones">
+          <label class="pago-opcion"><input type="radio" name="editar-moneda" value="UYU" /><span>🇺🇾 Pesos URU</span></label>
+          <label class="pago-opcion"><input type="radio" name="editar-moneda" value="ARS" /><span>🇦🇷 Pesos ARG</span></label>
+        </div>
       </label>
       <label>Método de pago
         <div class="pago-opciones">
@@ -502,6 +519,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=15"></script>
+  <script src="app.js?v=16"></script>
 </body>
 </html>

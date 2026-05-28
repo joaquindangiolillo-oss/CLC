@@ -735,6 +735,25 @@ body:not(.modo-lectura) .btn-lock { border-color: rgba(39,174,96,0.55); }
   .pago-opcion { font-size: 0.82rem; padding: 0.45rem 0.35rem; }
 }
 
+/* ── MONEDA BADGES ─────────────────────────────────────────────────────────── */
+.moneda-badge {
+  font-size: 0.65rem; font-weight: 700; padding: 0.08rem 0.38rem;
+  border-radius: 4px; white-space: nowrap; letter-spacing: 0.03em;
+}
+.moneda-ars { background: rgba(72,187,120,0.15); color: #48bb78; }
+.moneda-uyu { background: rgba(99,179,237,0.15); color: #63b3ed; }
+
+/* Recaudado card — two currency lines */
+.recaudado-linea {
+  display: block; font-size: 0.82rem; font-weight: 700;
+  color: var(--verde); line-height: 1.4;
+}
+.recaudado-linea:empty { display: none; }
+
+/* Ventas summary — ARS/UYU vcards */
+.vcard--ars { border-color: rgba(72,187,120,0.3) !important; }
+.vcard--uyu { border-color: rgba(99,179,237,0.3) !important; }
+
 /* ── STOCK BADGES (reservas/solicitudes) ───────────────────────────────────── */
 td .stock-reservas { display: flex; flex-wrap: wrap; gap: 0.2rem; justify-content: center; margin-top: 0.2rem; }
 .badge-arm { font-size: 0.62rem; background: rgba(52,152,219,0.18); color: #5dade2; border-radius: 4px; padding: 0.05rem 0.3rem; white-space: nowrap; }
