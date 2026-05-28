@@ -70,6 +70,7 @@ function normalizeHistorial(arr) {
       h.precioUnit = h.descripcion?.startsWith('Tote') ? 16000 : 25000;
       changed = true;
     }
+    if (!h.moneda) { h.moneda = 'ARS'; changed = true; }
   });
   return changed;
 }
@@ -423,12 +424,20 @@ function formatPeso(n) {
 }
 
 function renderRecaudado() {
-  const totalHist = historial.reduce((s, h) => s + (h.ingreso ?? 0), 0);
-  const totalPed  = pedidos.reduce((s, p) => s + (p.pagos || []).reduce((ps, pg) => ps + pg.monto, 0), 0);
-  const total     = totalHist + totalPed;
-  document.getElementById('total-recaudado').textContent = formatPeso(total);
+  const arsHist = historial.filter(h => (h.moneda || 'ARS') === 'ARS').reduce((s, h) => s + (h.ingreso ?? 0), 0);
+  const uyuHist = historial.filter(h => (h.moneda || 'ARS') === 'UYU').reduce((s, h) => s + (h.ingreso ?? 0), 0);
+  // Pedido payments are UYU by default (can be refined if currency added to pedidos later)
+  const uyuPed  = pedidos.reduce((s, p) => s + (p.pagos || []).reduce((ps, pg) => ps + pg.monto, 0), 0);
+  const totalARS = arsHist;
+  const totalUYU = uyuHist + uyuPed;
+
+  const arsEl = document.getElementById('recaudado-ars');
+  const uyuEl = document.getElementById('recaudado-uyu');
+  if (arsEl) arsEl.textContent = totalARS > 0 ? `🇦🇷 ${formatPeso(totalARS)}` : '';
+  if (uyuEl) uyuEl.textContent = totalUYU > 0 ? `🇺🇾 ${formatPeso(totalUYU)}` : '';
+
   const card = document.getElementById('card-recaudado');
-  if (card) card.style.display = total > 0 ? '' : 'none';
+  if (card) card.style.display = (totalARS > 0 || totalUYU > 0) ? '' : 'none';
 }
 
 function renderTodo() {
@@ -444,21 +453,22 @@ function renderTodo() {
 let filtroVentas = 'todos';
 
 function renderVentas() {
-  // Totales globales (siempre sobre todo el historial)
+  // Totales globales separados por moneda
   const totalUnid  = historial.reduce((s, h) => s + h.cantidad, 0);
-  const totalRec   = historial.reduce((s, h) => s + (h.ingreso ?? 0), 0);
+  const totalARS   = historial.filter(h => (h.moneda || 'ARS') === 'ARS').reduce((s, h) => s + (h.ingreso ?? 0), 0);
+  const totalUYU   = historial.filter(h => (h.moneda || 'ARS') === 'UYU').reduce((s, h) => s + (h.ingreso ?? 0), 0);
   const totalEfec  = historial.reduce((s, h) => s + (h.pago === 'efectivo'      ? (h.ingreso ?? 0) : 0), 0);
   const totalTrans = historial.reduce((s, h) => s + (h.pago === 'transferencia' ? (h.ingreso ?? 0) : 0), 0);
   const totalRegU   = historial.reduce((s, h) => h.pago === 'regalo' ? s + h.cantidad : s, 0);
-  const totalAnotaU = historial.reduce((s, h) => h.pago === 'anota'  ? s + h.cantidad : s, 0);
   const totalAnotaM = historial.reduce((s, h) => h.pago === 'anota'  ? s + (h.precioUnit || 0) * h.cantidad : s, 0);
 
-  document.getElementById('v-unidades').textContent = totalUnid;
-  document.getElementById('v-total').textContent    = formatPeso(totalRec);
-  document.getElementById('v-efectivo').textContent = formatPeso(totalEfec);
-  document.getElementById('v-transf').textContent   = formatPeso(totalTrans);
-  document.getElementById('v-regalos').textContent  = `${totalRegU} u.`;
-  document.getElementById('v-anota').textContent    = formatPeso(totalAnotaM);
+  document.getElementById('v-unidades').textContent  = totalUnid;
+  document.getElementById('v-total-ars').textContent = formatPeso(totalARS);
+  document.getElementById('v-total-uyu').textContent = formatPeso(totalUYU);
+  document.getElementById('v-efectivo').textContent  = formatPeso(totalEfec);
+  document.getElementById('v-transf').textContent    = formatPeso(totalTrans);
+  document.getElementById('v-regalos').textContent   = `${totalRegU} u.`;
+  document.getElementById('v-anota').textContent     = formatPeso(totalAnotaM);
 
   const filtrados = filtroVentas === 'todos'
     ? historial
@@ -480,6 +490,9 @@ function renderVentas() {
                     : h.pago === 'regalo'        ? '🎁 Regalo'
                     : h.pago === 'anota'         ? '📝 Anota'
                     : 'Efect.';
+    const monedaBadge = h.moneda === 'UYU'
+      ? '<span class="moneda-badge moneda-uyu">UYU</span>'
+      : '<span class="moneda-badge moneda-ars">ARS</span>';
     const nombreHtml = h.pago === 'anota' && h.nombreAnota
       ? `<span class="anota-nombre">👤 ${h.nombreAnota}</span>` : '';
     const montoHtml = h.pago === 'anota'
@@ -497,6 +510,7 @@ function renderVentas() {
         <span class="venta-cant">-${h.cantidad}</span>
         ${montoHtml}
         <span class="hist-pago hist-pago--${h.pago ?? 'efectivo'}">${pagoLabel}</span>
+        ${monedaBadge}
         <span class="hist-acciones">
           <button class="btn-hist-edit" onclick="abrirEditar(${h.id})" title="Editar">✏️</button>
           <button class="btn-hist-del"  onclick="eliminarRegistro(${h.id})" title="Eliminar">🗑️</button>
@@ -540,14 +554,21 @@ function ocultarCampos() {
   [camposAdulto, camposNino, camposTote].forEach(c => c.classList.add('hidden'));
 }
 
+function getMonedaVenta() {
+  return document.querySelector('input[name="moneda-venta"]:checked')?.value || 'UYU';
+}
+
 function precioBase(cat) {
+  if (getMonedaVenta() === 'UYU') return 0; // UYU requires manual price
   if (cat === 'tote') return PRECIOS.tote;
   return PRECIOS.remera;
 }
 
 function precioEfectivo() {
   const override = parseInt(inputPrecioOverride.value, 10);
-  return (!isNaN(override) && override > 0) ? override : precioBase(selCategoria.value);
+  if (!isNaN(override) && override > 0) return override;
+  const base = precioBase(selCategoria.value);
+  return base > 0 ? base : 0;
 }
 
 function actualizarDisponible() {
@@ -567,11 +588,19 @@ function actualizarDisponible() {
   const pUnit       = document.getElementById('venta-precio-unit');
   const pTotalVenta = document.getElementById('venta-total-venta');
 
+  const moneda = getMonedaVenta();
+  inputPrecioOverride.placeholder = moneda === 'UYU' ? 'Ingresá el precio (UYU)' : 'Precio por defecto (ARS)';
+
   if (disp !== null) {
     pDisponible.textContent = `Disponible: ${disp}`;
     pDisponible.style.color = disp === 0 ? 'var(--acento)' : 'var(--verde)';
-    pUnit.textContent       = `Precio: ${formatPeso(precio)} c/u`;
-    pTotalVenta.textContent = `Total: ${formatPeso(precio * cant)}`;
+    if (precio > 0) {
+      pUnit.textContent       = `Precio: ${formatPeso(precio)} c/u`;
+      pTotalVenta.textContent = `Total: ${formatPeso(precio * cant)}`;
+    } else {
+      pUnit.textContent       = moneda === 'UYU' ? '⚠️ Ingresá el precio en UYU' : '';
+      pTotalVenta.textContent = '';
+    }
   } else {
     pDisponible.textContent = '';
     pUnit.textContent       = '';
@@ -603,6 +632,10 @@ document.querySelectorAll('input[name="pago"]').forEach(r => {
   });
 });
 
+document.querySelectorAll('input[name="moneda-venta"]').forEach(r =>
+  r.addEventListener('change', actualizarDisponible)
+);
+
 document.getElementById('btn-venta').addEventListener('click', () => {
   selCategoria.value = '';
   ocultarCampos();
@@ -614,6 +647,10 @@ document.getElementById('btn-venta').addEventListener('click', () => {
   pError.classList.add('hidden');
   document.getElementById('venta-precio-unit').textContent  = '';
   document.getElementById('venta-total-venta').textContent  = '';
+  // Default UYU for new sales
+  const uyu = document.querySelector('input[name="moneda-venta"][value="UYU"]');
+  if (uyu) uyu.checked = true;
+  inputPrecioOverride.placeholder = 'Ingresá el precio (UYU)';
   modalVenta.classList.remove('hidden');
 });
 
@@ -665,7 +702,12 @@ document.getElementById('form-venta').addEventListener('submit', e => {
 
   // Precio final: override manual o precio por defecto
   const precioFinal = precioEfectivo();
-  const pago        = document.querySelector('input[name="pago"]:checked').value;
+  const moneda      = getMonedaVenta();
+  if (!precioFinal || precioFinal <= 0) {
+    mostrarError(moneda === 'UYU' ? 'Ingresá el precio en pesos uruguayos.' : 'Ingresá un precio válido.');
+    return;
+  }
+  const pago = document.querySelector('input[name="pago"]:checked').value;
 
   // Validar nombre si es Anota
   let nombreAnota = '';
@@ -680,9 +722,10 @@ document.getElementById('form-venta').addEventListener('submit', e => {
     id: Date.now(),
     fecha: new Date().toLocaleString('es-AR'),
     descripcion,
-    cantidad: cant,
+    cantidad:  cant,
     ingreso,
     pago,
+    moneda,
     precioUnit: precioFinal,
     _stock,
   };
@@ -903,6 +946,9 @@ window.abrirEditar = function(id) {
   document.querySelectorAll('input[name="editar-pago"]').forEach(r => {
     r.checked = r.value === (h.pago ?? 'efectivo');
   });
+  document.querySelectorAll('input[name="editar-moneda"]').forEach(r => {
+    r.checked = r.value === (h.moneda ?? 'ARS');
+  });
 
   const isAnota = (h.pago === 'anota');
   document.getElementById('editar-campos-anota-nombre').classList.toggle('hidden', !isAnota);
@@ -1035,6 +1081,7 @@ document.getElementById('btn-confirmar-editar').addEventListener('click', () => 
   h.precioUnit   = nuevoPrecio;
   h.ingreso      = (nuevoPago === 'regalo' || nuevoPago === 'anota') ? 0 : nuevoPrecio * nuevaCant;
   h._stock       = nuevo_stock;
+  h.moneda       = document.querySelector('input[name="editar-moneda"]:checked')?.value || 'ARS';
   if (nuevoPago === 'anota') h.nombreAnota = nuevoNombreAnota;
   else delete h.nombreAnota;
 
