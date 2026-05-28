@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Stock - Cayo la Cabra</title>
-  <link rel="stylesheet" href="style.css?v=14" />
+  <link rel="stylesheet" href="style.css?v=15" />
 </head>
 <body>
   <header>
@@ -20,6 +20,7 @@
   <nav class="tabs">
     <button class="tab-btn active" data-tab="stock">📦 Stock</button>
     <button class="tab-btn" data-tab="ventas">💰 Ventas</button>
+    <button class="tab-btn" data-tab="pedidos">📋 Pedidos</button>
     <button class="tab-btn" data-tab="auditoria">✅ Auditoría</button>
   </nav>
 
@@ -121,6 +122,20 @@
 
       <!-- Lista -->
       <div id="ventas-lista"></div>
+    </div>
+
+    <!-- ── TAB PEDIDOS ── -->
+    <div id="tab-pedidos" class="tab-content hidden">
+      <div class="pedidos-topbar">
+        <button id="btn-nueva-solicitud" class="btn-primary">+ Nueva solicitud</button>
+        <div id="pedidos-saldo-summary" class="pedidos-saldo-summary hidden"></div>
+      </div>
+      <div class="pedidos-subtabs">
+        <button class="pedidos-subtab active" data-estado="activos">Activos</button>
+        <button class="pedidos-subtab" data-estado="entregados">Entregados</button>
+        <button class="pedidos-subtab" data-estado="cancelados">Cancelados</button>
+      </div>
+      <div id="pedidos-contenido"></div>
     </div>
 
     <!-- ── TAB AUDITORÍA ── -->
@@ -375,6 +390,98 @@
     </div>
   </div>
 
+  <!-- ── MODAL NUEVA SOLICITUD ── -->
+  <div id="modal-solicitud" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>📋 Nueva solicitud</h2>
+        <button class="modal-cerrar" id="btn-cerrar-solicitud" aria-label="Cerrar">✕</button>
+      </div>
+      <label class="config-label">Para quién
+        <input type="text" id="sol-para" class="config-input" placeholder="Nombre y apellido..." maxlength="80" />
+      </label>
+      <label class="config-label">Categoría
+        <select id="sol-categoria" class="config-input">
+          <option value="">— Seleccioná —</option>
+          <option value="adulto">Remera Adulto</option>
+          <option value="nino">Remera Niñx</option>
+          <option value="tote">Tote Bag</option>
+        </select>
+      </label>
+      <div id="sol-campos-adulto" class="campos hidden">
+        <label class="config-label">Diseño
+          <select id="sol-variante" class="config-input">
+            <option value="veredaRoja">Vereda Roja</option>
+            <option value="veredaNegra">Vereda Negra</option>
+            <option value="reposeraRoja">Reposera Roja</option>
+            <option value="reposeraNegra">Reposera Negra</option>
+            <option value="blanca">Blanca</option>
+          </select>
+        </label>
+        <label class="config-label">Talle
+          <select id="sol-talle-adulto" class="config-input">
+            <option value="S">S</option><option value="M">M</option><option value="L">L</option><option value="XL">XL</option><option value="XXL">XXL</option>
+          </select>
+        </label>
+      </div>
+      <div id="sol-campos-nino" class="campos hidden">
+        <label class="config-label">Talle
+          <select id="sol-talle-nino" class="config-input">
+            <option value="2">2</option><option value="4">4</option><option value="6">6</option><option value="8">8</option><option value="10">10</option><option value="12">12</option><option value="16">16</option>
+          </select>
+        </label>
+      </div>
+      <div id="sol-campos-tote" class="campos hidden">
+        <label class="config-label">Modelo
+          <select id="sol-modelo" class="config-input">
+            <option value="silla">Reposera</option>
+            <option value="vereda">Vereda</option>
+          </select>
+        </label>
+      </div>
+      <label class="config-label">Cantidad
+        <input type="number" id="sol-cantidad" class="config-input" min="1" value="1" />
+      </label>
+      <label class="config-label">Precio total ($)
+        <input type="number" id="sol-precio" class="config-input" min="0" step="1" placeholder="0" />
+      </label>
+      <label class="config-label">Notas (opcional)
+        <input type="text" id="sol-notas" class="config-input" maxlength="200" placeholder="Ej: urgente para el domingo..." />
+      </label>
+      <div id="sol-stock-info" class="sol-stock-info"></div>
+      <p id="sol-error" class="error hidden"></p>
+      <div class="modal-actions">
+        <button id="btn-confirmar-solicitud" class="btn-primary">Crear solicitud</button>
+        <button id="btn-cancelar-solicitud" class="btn-secondary">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODAL PAGO PEDIDO ── -->
+  <div id="modal-pago-pedido" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>💰 Registrar pago</h2>
+        <button class="modal-cerrar" id="btn-cerrar-pago-pedido" aria-label="Cerrar">✕</button>
+      </div>
+      <div id="pago-pedido-info" class="pago-pedido-info-box"></div>
+      <label class="config-label" style="margin-top:0.5rem">Monto ($)
+        <input type="number" id="pago-pedido-monto" class="config-input" min="1" step="1" />
+      </label>
+      <label class="config-label">Método
+        <select id="pago-pedido-metodo" class="config-input">
+          <option value="efectivo">💵 Efectivo</option>
+          <option value="transferencia">📲 Transferencia</option>
+        </select>
+      </label>
+      <p id="pago-pedido-error" class="error hidden">Ingresá un monto válido.</p>
+      <div class="modal-actions">
+        <button id="btn-confirmar-pago-pedido" class="btn-primary">Confirmar pago</button>
+        <button id="btn-cancelar-pago-pedido" class="btn-secondary">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ── MODAL PIN ── -->
   <div id="modal-pin" class="modal hidden">
     <div class="modal-content">
@@ -395,6 +502,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=14"></script>
+  <script src="app.js?v=15"></script>
 </body>
 </html>

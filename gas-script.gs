@@ -25,10 +25,14 @@ function doGet(e) {
       const histRaw  = histSheet  ? histSheet.getRange('A1').getValue()  : '';
       const auditRaw = auditSheet ? auditSheet.getRange('A1').getValue() : '';
 
+      const pedidosSheet = ss.getSheetByName('Pedidos');
+      const pedidosRaw   = pedidosSheet ? pedidosSheet.getRange('A1').getValue() : '';
+
       const result = {
-        stock:      stockRaw ? JSON.parse(stockRaw) : null,
-        historial:  histRaw  ? JSON.parse(histRaw)  : null,
-        auditorias: auditRaw ? JSON.parse(auditRaw) : null,
+        stock:      stockRaw    ? JSON.parse(stockRaw)    : null,
+        historial:  histRaw     ? JSON.parse(histRaw)     : null,
+        auditorias: auditRaw    ? JSON.parse(auditRaw)    : null,
+        pedidos:    pedidosRaw  ? JSON.parse(pedidosRaw)  : null,
       };
 
       return ContentService
@@ -72,6 +76,13 @@ function doPost(e) {
       if (!sheet) sheet = ss.insertSheet('Auditorias');
       sheet.getRange('A1').setValue(JSON.stringify(body.auditorias));
       actualizarHojaAuditorias(ss, body.auditorias);
+    }
+
+    if (body.pedidos !== undefined) {
+      let sheet = ss.getSheetByName('Pedidos');
+      if (!sheet) sheet = ss.insertSheet('Pedidos');
+      sheet.getRange('A1').setValue(JSON.stringify(body.pedidos));
+      actualizarHojaPedidos(ss, body.pedidos);
     }
 
     // Actualizar resumen con los datos más recientes
@@ -411,4 +422,87 @@ function actualizarResumen(ss, stock, historial) {
   });
 
   sheet.autoResizeColumns(1, 2);
+}
+
+// ── Hoja "📋 Pedidos" — tabla legible de pedidos ──────────────────────────────
+function actualizarHojaPedidos(ss, pedidos) {
+  let sheet = ss.getSheetByName('📋 Pedidos');
+  if (!sheet) {
+    sheet = ss.insertSheet('📋 Pedidos');
+    ss.setActiveSheet(sheet);
+    ss.moveActiveSheet(2);
+  }
+  sheet.clearContents();
+  sheet.clearFormats();
+
+  const headers = [
+    'Fecha solicitud', 'Para quién', 'Ítem', 'Cant.',
+    'Precio total ($)', 'Cobrado ($)', 'Saldo ($)',
+    'Estado físico', 'Estado pago', 'Fecha entrega', 'Notas'
+  ];
+  const hRange = sheet.getRange(1, 1, 1, headers.length);
+  hRange.setValues([headers]);
+  estilizarEncabezado(hRange);
+
+  if (!pedidos || pedidos.length === 0) {
+    sheet.autoResizeColumns(1, headers.length);
+    return;
+  }
+
+  const estadoPagoLabel = (p) => {
+    const pagado = (p.pagos || []).reduce((s, pg) => s + pg.monto, 0);
+    const saldo  = (p.precioTotal || 0) - pagado;
+    if (saldo <= 0) return 'Pagado';
+    if (pagado > 0) return 'Seña parcial';
+    return 'Sin pago';
+  };
+
+  const itemDesc = (p) => {
+    if (p.tipo === 'adulto') return (p.variante || '') + ' talle ' + (p.talle || '');
+    if (p.tipo === 'tote')   return 'Tote Bag ' + (p.modelo === 'silla' ? 'Reposera' : 'Vereda');
+    if (p.tipo === 'nino')   return 'Remera Niñx talle ' + (p.talle || '');
+    return '';
+  };
+
+  const estadoLabel = { solicitud: 'Solicitud', armado: 'Armado', entregado: 'Entregado', cancelado: 'Cancelado' };
+
+  const rows = [...pedidos].reverse().map(p => {
+    const pagado = (p.pagos || []).reduce((s, pg) => s + pg.monto, 0);
+    const saldo  = (p.precioTotal || 0) - pagado;
+    return [
+      p.fecha        || '',
+      p.para         || '',
+      itemDesc(p),
+      p.cantidad     || 1,
+      p.precioTotal  || 0,
+      pagado,
+      saldo,
+      estadoLabel[p.estadoFisico] || p.estadoFisico || '',
+      estadoPagoLabel(p),
+      p.fechaEntrega || '',
+      p.notas        || '',
+    ];
+  });
+
+  if (rows.length > 0) {
+    const dRange = sheet.getRange(2, 1, rows.length, headers.length);
+    dRange.setValues(rows);
+    // Color rows by estado
+    rows.forEach((row, i) => {
+      const estado = pedidos[pedidos.length - 1 - i]?.estadoFisico;
+      const bg = estado === 'entregado' ? '#1a2e1a'
+               : estado === 'armado'    ? '#1a2233'
+               : estado === 'cancelado' ? '#2a2020'
+               :                          (i % 2 === 0 ? '#2a2a2a' : '#1c1c1c');
+      sheet.getRange(i + 2, 1, 1, headers.length).setBackground(bg).setFontColor('#e8e8e8');
+    });
+    // Format money columns
+    sheet.getRange(2, 5, rows.length, 3).setNumberFormat('$#,##0');
+    // Highlight saldo > 0 in red
+    rows.forEach((row, i) => {
+      if (row[6] > 0) sheet.getRange(i + 2, 7).setFontColor('#e74c3c').setFontWeight('bold');
+    });
+  }
+
+  sheet.autoResizeColumns(1, headers.length);
 }
