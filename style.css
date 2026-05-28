@@ -734,3 +734,139 @@ body:not(.modo-lectura) .btn-lock { border-color: rgba(39,174,96,0.55); }
   .pago-opciones { gap: 0.3rem; }
   .pago-opcion { font-size: 0.82rem; padding: 0.45rem 0.35rem; }
 }
+
+/* ── STOCK BADGES (reservas/solicitudes) ───────────────────────────────────── */
+td .stock-reservas { display: flex; flex-wrap: wrap; gap: 0.2rem; justify-content: center; margin-top: 0.2rem; }
+.badge-arm { font-size: 0.62rem; background: rgba(52,152,219,0.18); color: #5dade2; border-radius: 4px; padding: 0.05rem 0.3rem; white-space: nowrap; }
+.badge-sol { font-size: 0.62rem; background: rgba(243,156,18,0.18); color: #f5a623; border-radius: 4px; padding: 0.05rem 0.3rem; white-space: nowrap; }
+
+/* ── TAB PEDIDOS ───────────────────────────────────────────────────────────── */
+.pedidos-topbar {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.85rem;
+}
+.pedidos-saldo-summary {
+  background: rgba(231,76,60,0.08); border: 1px solid rgba(231,76,60,0.25);
+  border-radius: 10px; padding: 0.65rem 1rem; font-size: 0.83rem; flex: 1; min-width: 180px;
+}
+.pedidos-saldo-summary.hidden { display: none; }
+.saldo-total-row { display: flex; justify-content: space-between; font-weight: 600; margin-bottom: 0.4rem; }
+.saldo-personas { display: flex; flex-direction: column; gap: 0.2rem; }
+.saldo-persona-row { display: flex; justify-content: space-between; font-size: 0.78rem; color: var(--texto-tenue); }
+
+.pedidos-subtabs {
+  display: flex; gap: 0.4rem; margin-bottom: 1rem;
+  border-bottom: 1px solid var(--borde); padding-bottom: 0.6rem;
+}
+.pedidos-subtab {
+  background: none; border: 1px solid var(--borde); border-radius: 20px;
+  color: var(--texto-tenue); cursor: pointer; font-size: 0.83rem;
+  padding: 0.3rem 0.9rem; transition: all 0.15s;
+}
+.pedidos-subtab.active { background: var(--acento); border-color: var(--acento); color: #fff; font-weight: 600; }
+.pedidos-subtab:hover:not(.active) { border-color: #555; color: var(--texto); }
+
+.pedidos-grupo { margin-bottom: 1.25rem; }
+.pedidos-grupo-titulo {
+  font-size: 0.82rem; font-weight: 700; margin-bottom: 0.6rem;
+  padding: 0.3rem 0.75rem; border-radius: 6px; display: inline-block;
+}
+.pedidos-grupo--sol { background: rgba(243,156,18,0.12); color: #f5a623; }
+.pedidos-grupo--arm { background: rgba(52,152,219,0.12); color: #5dade2; }
+
+/* Pedido card */
+.pedido-card {
+  background: var(--fondo-card); border: 1px solid var(--borde);
+  border-radius: 12px; padding: 0.85rem 1rem; margin-bottom: 0.65rem;
+}
+.pedido-card-top {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 0.5rem; margin-bottom: 0.4rem;
+}
+.pedido-card-quien { display: flex; flex-direction: column; gap: 0.1rem; }
+.pedido-para { font-weight: 700; font-size: 0.95rem; }
+.pedido-item-desc { font-size: 0.82rem; color: var(--texto-tenue); }
+.pedido-card-badges { display: flex; flex-wrap: wrap; gap: 0.3rem; justify-content: flex-end; align-items: center; }
+
+/* Estado badges */
+.pedido-estado-badge, .pedido-pago-badge {
+  font-size: 0.7rem; font-weight: 700; padding: 0.15rem 0.55rem;
+  border-radius: 12px; white-space: nowrap;
+}
+.est-solicitud { background: rgba(243,156,18,0.15); color: #f5a623; }
+.est-armado    { background: rgba(52,152,219,0.15); color: #5dade2; }
+.est-entregado { background: rgba(39,174,96,0.15);  color: #27ae60; }
+.est-cancelado { background: rgba(136,136,136,0.12); color: var(--texto-tenue); }
+.pago-sin      { background: rgba(231,76,60,0.12);  color: var(--acento); }
+.pago-parcial  { background: rgba(243,156,18,0.15); color: #f5a623; }
+.pago-ok       { background: rgba(39,174,96,0.15);  color: #27ae60; }
+
+.pedido-stock-warn {
+  font-size: 0.78rem; color: var(--acento);
+  background: rgba(231,76,60,0.08); border-radius: 6px;
+  padding: 0.25rem 0.6rem; margin-bottom: 0.4rem;
+}
+.pedido-notas {
+  font-size: 0.78rem; color: var(--texto-tenue); font-style: italic;
+  margin-bottom: 0.4rem;
+}
+.pedido-pagos-resumen {
+  display: flex; flex-wrap: wrap; gap: 0.3rem 1rem;
+  font-size: 0.82rem; margin-bottom: 0.4rem;
+}
+.pp-total  { color: var(--texto); }
+.pp-cobrado{ color: #27ae60; }
+.pp-saldo  { color: var(--acento); }
+
+.pedido-pagos-hist {
+  border-top: 1px solid var(--borde); padding-top: 0.4rem;
+  margin-bottom: 0.4rem; display: flex; flex-direction: column; gap: 0.2rem;
+}
+.pago-hist-fila {
+  display: flex; justify-content: space-between;
+  font-size: 0.75rem; color: var(--texto-tenue);
+}
+
+.pedido-acciones {
+  display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.5rem;
+}
+.btn-pedido {
+  border: none; border-radius: 8px; cursor: pointer; font-size: 0.8rem;
+  font-weight: 600; padding: 0.4rem 0.85rem; transition: opacity 0.15s;
+}
+.btn-pedido:hover { opacity: 0.82; }
+.btn-armar    { background: rgba(52,152,219,0.2);  color: #5dade2; }
+.btn-entregar { background: rgba(39,174,96,0.2);   color: #27ae60; }
+.btn-pago     { background: rgba(243,156,18,0.18); color: #f5a623; }
+.btn-cancel-p { background: rgba(136,136,136,0.12); color: var(--texto-tenue); }
+
+.pedido-fecha-meta {
+  font-size: 0.7rem; color: var(--texto-tenue); margin-top: 0.35rem;
+}
+
+/* Modal solicitud — stock info */
+.sol-stock-info { margin-top: 0.4rem; margin-bottom: 0.25rem; }
+.sol-stock-grid {
+  display: flex; flex-wrap: wrap; gap: 0.4rem 1rem;
+  background: rgba(255,255,255,0.03); border-radius: 8px;
+  padding: 0.6rem 0.75rem; margin-bottom: 0.35rem;
+}
+.sol-stock-item { display: flex; flex-direction: column; align-items: center; gap: 0.1rem; }
+.sol-stock-item span { font-size: 0.68rem; color: var(--texto-tenue); }
+.sol-stock-item strong { font-size: 0.95rem; }
+.sol-warn-msg {
+  font-size: 0.78rem; color: var(--acento);
+  background: rgba(231,76,60,0.08); border-radius: 6px;
+  padding: 0.3rem 0.6rem;
+}
+
+/* Pago pedido info box */
+.pago-pedido-info-box {
+  background: rgba(255,255,255,0.04); border: 1px solid var(--borde);
+  border-radius: 8px; padding: 0.7rem 0.9rem; font-size: 0.85rem;
+  line-height: 1.6; margin-bottom: 0.25rem;
+}
+
+/* Modo lectura — ocultar botones de pedidos */
+.modo-lectura #btn-nueva-solicitud { display: none !important; }
+.modo-lectura .pedido-acciones     { display: none !important; }

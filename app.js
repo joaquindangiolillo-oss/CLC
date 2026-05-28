@@ -120,8 +120,67 @@ function cargarAuditorias() {
     return raw ? JSON.parse(raw) : [];
   } catch (_) { return []; }
 }
-let auditorias      = cargarAuditorias();
+let auditorias       = cargarAuditorias();
 let auditComparacion = null; // { ajustes, coincidencias, sinContar, diferenciaNeta }
+
+function cargarPedidos() {
+  try { return JSON.parse(localStorage.getItem('cayo_pedidos') || '[]'); }
+  catch (_) { return []; }
+}
+let pedidos = cargarPedidos();
+let pedidoPagoActualId = null;
+
+function guardarPedidos() {
+  localStorage.setItem('cayo_pedidos', JSON.stringify(pedidos));
+}
+
+// ── Helpers de stock con pedidos ─────────────────────────────────────────────
+function _pedidoMatchOpts(p, tipo, opts) {
+  if (tipo === 'adulto') return p.talle === opts.talle && p.variante === opts.variante;
+  if (tipo === 'tote')   return p.modelo === opts.modelo;
+  if (tipo === 'nino')   return String(p.talle) === String(opts.talle);
+  return false;
+}
+function countArmados(tipo, opts) {
+  return pedidos
+    .filter(p => p.estadoFisico === 'armado' && p.tipo === tipo && _pedidoMatchOpts(p, tipo, opts))
+    .reduce((s, p) => s + (p.cantidad || 1), 0);
+}
+function countSolicitudes(tipo, opts) {
+  return pedidos
+    .filter(p => p.estadoFisico === 'solicitud' && p.tipo === tipo && _pedidoMatchOpts(p, tipo, opts))
+    .reduce((s, p) => s + (p.cantidad || 1), 0);
+}
+function getRawStock(tipo, opts) {
+  if (tipo === 'adulto') return estado.adultos[opts.talle]?.[opts.variante] ?? 0;
+  if (tipo === 'tote')   return estado.totes[opts.modelo] ?? 0;
+  if (tipo === 'nino')   return estado.ninos[opts.talle] ?? 0;
+  return 0;
+}
+function stockDisponible(tipo, opts) {
+  return getRawStock(tipo, opts) - countArmados(tipo, opts);
+}
+
+// ── Helpers de pedido ────────────────────────────────────────────────────────
+function pedidoTotalPagado(p) {
+  return (p.pagos || []).reduce((s, pg) => s + pg.monto, 0);
+}
+function pedidoSaldo(p) {
+  return (p.precioTotal || 0) - pedidoTotalPagado(p);
+}
+function pedidoEstadoPago(p) {
+  const saldo = pedidoSaldo(p);
+  const pagado = pedidoTotalPagado(p);
+  if (saldo <= 0) return 'pagado';
+  if (pagado > 0) return 'parcial';
+  return 'sin_pago';
+}
+function pedidoDescItem(p) {
+  if (p.tipo === 'adulto') return `${LABEL_VARIANTE[p.variante] || p.variante} talle ${p.talle}`;
+  if (p.tipo === 'tote')   return `Tote Bag ${p.modelo === 'silla' ? 'Reposera' : 'Vereda'}`;
+  if (p.tipo === 'nino')   return `Remera Niñx talle ${p.talle}`;
+  return 'ítem';
+}
 
 // ── Sincronización con Google Sheets ─────────────────────────────────────────
 const GAS_URL_KEY = 'cayo_gas_url';
@@ -143,7 +202,7 @@ async function pushToCloud() {
       method: 'POST',
       mode: 'no-cors',
       headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-      body: JSON.stringify({ stock: estado, historial, auditorias }),
+      body: JSON.stringify({ stock: estado, historial, auditorias, pedidos }),
     });
     setSincStatus('ok');
   } catch (err) {
@@ -188,6 +247,11 @@ async function sincronizarDesdeNube() {
   if (Array.isArray(data.auditorias)) {
     auditorias = data.auditorias;
     localStorage.setItem('cayo_auditorias', JSON.stringify(auditorias));
+    changed = true;
+  }
+  if (Array.isArray(data.pedidos)) {
+    pedidos = data.pedidos;
+    localStorage.setItem('cayo_pedidos', JSON.stringify(pedidos));
     changed = true;
   }
   if (changed) renderTodo();
@@ -255,6 +319,7 @@ window.irATab = function(tab) {
   document.getElementById('tab-' + tab).classList.remove('hidden');
   if (tab === 'auditoria') { renderAuditoria(); renderHistorialAuditorias(); }
   if (tab === 'ventas')    renderVentas();
+  if (tab === 'pedidos')   renderPedidos();
 };
 
 document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -286,11 +351,24 @@ function renderAdultos() {
       return `<tr class="fila-variante">
         ${celdaGrupo}
         <td class="color-label color-${color.toLowerCase()}">${color}</td>
-        ${TALLES_ADULTO.map(t => `<td class="${claseStock(estado.adultos[t][v])}">${estado.adultos[t][v]}</td>`).join('')}
+        ${TALLES_ADULTO.map(t => {
+          const disp = stockDisponible('adulto', { talle: t, variante: v });
+          const arm  = countArmados('adulto', { talle: t, variante: v });
+          const sol  = countSolicitudes('adulto', { talle: t, variante: v });
+          const badges = (arm > 0 || sol > 0)
+            ? `<div class="stock-reservas">${arm > 0 ? `<span class="badge-arm">${arm} arm.</span>` : ''}${sol > 0 ? `<span class="badge-sol">${sol} sol.</span>` : ''}</div>`
+            : '';
+          return `<td class="${claseStock(disp)}">${disp}${badges}</td>`;
+        }).join('')}
         <td class="subtotal-col">${sub}</td>
       </tr>`;
     }).join('')
   ).join('');
+
+  // Totals use disponible (raw − armados)
+  VARIANTES.forEach(v => TALLES_ADULTO.forEach(t => {
+    totalesPorTalle[t] -= countArmados('adulto', { talle: t, variante: v });
+  }));
 
   const totalGeneral = TALLES_ADULTO.reduce((s, t) => s + totalesPorTalle[t], 0);
   tfoot.innerHTML = `<tr>
@@ -304,12 +382,21 @@ function renderAdultos() {
 function renderTotes() {
   const tbody = document.getElementById('tbody-totes');
   const t = estado.totes;
+  const dispSilla  = stockDisponible('tote', { modelo: 'silla' });
+  const dispVereda = stockDisponible('tote', { modelo: 'vereda' });
+  const mkBadge = (modelo) => {
+    const arm = countArmados('tote', { modelo });
+    const sol = countSolicitudes('tote', { modelo });
+    return (arm > 0 || sol > 0)
+      ? `<div class="stock-reservas">${arm > 0 ? `<span class="badge-arm">${arm} arm.</span>` : ''}${sol > 0 ? `<span class="badge-sol">${sol} sol.</span>` : ''}</div>`
+      : '';
+  };
   tbody.innerHTML = `
-    <tr><td>Reposera</td><td class="${claseStock(t.silla)}">${t.silla}</td></tr>
-    <tr><td>Vereda</td><td class="${claseStock(t.vereda)}">${t.vereda}</td></tr>
-    <tr><td style="font-weight:700">Total</td><td style="font-weight:700;color:var(--acento)">${t.silla + t.vereda}</td></tr>
+    <tr><td>Reposera</td><td class="${claseStock(dispSilla)}">${dispSilla}${mkBadge('silla')}</td></tr>
+    <tr><td>Vereda</td><td class="${claseStock(dispVereda)}">${dispVereda}${mkBadge('vereda')}</td></tr>
+    <tr><td style="font-weight:700">Total</td><td style="font-weight:700;color:var(--acento)">${dispSilla + dispVereda}</td></tr>
   `;
-  document.getElementById('total-totes').textContent = t.silla + t.vereda;
+  document.getElementById('total-totes').textContent = dispSilla + dispVereda;
 }
 
 function renderNinos() {
@@ -318,9 +405,14 @@ function renderNinos() {
   const n = estado.ninos;
   let total = 0;
   tbody.innerHTML = TALLES_NINO.map(t => {
-    const v = n[t] ?? 0;
-    total += v;
-    return `<tr><td class="talle-label">${t}</td><td class="${claseStock(v)}">${v}</td></tr>`;
+    const disp = stockDisponible('nino', { talle: t });
+    const arm  = countArmados('nino', { talle: t });
+    const sol  = countSolicitudes('nino', { talle: t });
+    total += disp;
+    const badges = (arm > 0 || sol > 0)
+      ? `<div class="stock-reservas">${arm > 0 ? `<span class="badge-arm">${arm} arm.</span>` : ''}${sol > 0 ? `<span class="badge-sol">${sol} sol.</span>` : ''}</div>`
+      : '';
+    return `<tr><td class="talle-label">${t}</td><td class="${claseStock(disp)}">${disp}${badges}</td></tr>`;
   }).join('');
   tfoot.innerHTML = `<tr><td>Total</td><td style="color:var(--acento);font-weight:700">${total}</td></tr>`;
   document.getElementById('total-ninos').textContent = total;
@@ -331,8 +423,12 @@ function formatPeso(n) {
 }
 
 function renderRecaudado() {
-  const total = historial.reduce((s, h) => s + (h.ingreso ?? 0), 0);
+  const totalHist = historial.reduce((s, h) => s + (h.ingreso ?? 0), 0);
+  const totalPed  = pedidos.reduce((s, p) => s + (p.pagos || []).reduce((ps, pg) => ps + pg.monto, 0), 0);
+  const total     = totalHist + totalPed;
   document.getElementById('total-recaudado').textContent = formatPeso(total);
+  const card = document.getElementById('card-recaudado');
+  if (card) card.style.display = total > 0 ? '' : 'none';
 }
 
 function renderTodo() {
@@ -340,8 +436,8 @@ function renderTodo() {
   renderTotes();
   renderNinos();
   renderRecaudado();
-  // Refrescar ventas si la pestaña está activa
-  if (!document.getElementById('tab-ventas').classList.contains('hidden')) renderVentas();
+  if (!document.getElementById('tab-ventas').classList.contains('hidden'))  renderVentas();
+  if (!document.getElementById('tab-pedidos').classList.contains('hidden')) renderPedidos();
 }
 
 // ── Tab Ventas ────────────────────────────────────────────────────────────────
@@ -459,11 +555,11 @@ function actualizarDisponible() {
   let disp    = null;
 
   if (cat === 'adulto') {
-    disp = estado.adultos[selTalleAdulto.value]?.[selVarianteAdulto.value] ?? 0;
+    disp = stockDisponible('adulto', { talle: selTalleAdulto.value, variante: selVarianteAdulto.value });
   } else if (cat === 'nino') {
-    disp = estado.ninos[selTalleNino.value] ?? 0;
+    disp = stockDisponible('nino', { talle: selTalleNino.value });
   } else if (cat === 'tote') {
-    disp = estado.totes[selTote.value] ?? 0;
+    disp = stockDisponible('tote', { modelo: selTote.value });
   }
 
   const cant        = parseInt(inputCantidad.value, 10) || 1;
@@ -541,7 +637,7 @@ document.getElementById('form-venta').addEventListener('submit', e => {
   if (cat === 'adulto') {
     const talle    = selTalleAdulto.value;
     const variante = selVarianteAdulto.value;
-    disponible = estado.adultos[talle][variante];
+    disponible = stockDisponible('adulto', { talle, variante });
     if (cant > disponible) { mostrarError(`Stock insuficiente. Disponible: ${disponible}`); return; }
     estado.adultos[talle][variante] -= cant;
     descripcion = `Remera ${LABEL_VARIANTE[variante]} talle ${talle}`;
@@ -550,7 +646,7 @@ document.getElementById('form-venta').addEventListener('submit', e => {
 
   } else if (cat === 'nino') {
     const talle = selTalleNino.value;
-    disponible  = estado.ninos[talle] ?? 0;
+    disponible  = stockDisponible('nino', { talle });
     if (cant > disponible) { mostrarError(`Stock insuficiente. Disponible: ${disponible}`); return; }
     estado.ninos[talle] -= cant;
     descripcion = `Remera Niñx Reposera Roja talle ${talle}`;
@@ -559,7 +655,7 @@ document.getElementById('form-venta').addEventListener('submit', e => {
 
   } else if (cat === 'tote') {
     const modelo = selTote.value;
-    disponible   = estado.totes[modelo];
+    disponible   = stockDisponible('tote', { modelo });
     if (cant > disponible) { mostrarError(`Stock insuficiente. Disponible: ${disponible}`); return; }
     estado.totes[modelo] -= cant;
     descripcion = `Tote Bag ${modelo === 'silla' ? 'Reposera' : 'Vereda'}`;
@@ -1359,6 +1455,377 @@ document.getElementById('modal-resultado-auditoria').addEventListener('click', e
 document.getElementById('audit-modo-ciego').addEventListener('change', function() {
   document.querySelectorAll('.audit-actual').forEach(el => {
     el.style.visibility = this.checked ? 'hidden' : '';
+  });
+});
+
+// ── Tab Pedidos ───────────────────────────────────────────────────────────────
+let pedidosSubtab = 'activos';
+
+function renderPedidos() {
+  const contenedor = document.getElementById('pedidos-contenido');
+  if (!contenedor) return;
+
+  // ── Saldo pendiente summary ──
+  const conSaldo = pedidos.filter(p => p.estadoFisico !== 'cancelado' && pedidoSaldo(p) > 0);
+  const totalSaldo = conSaldo.reduce((s, p) => s + pedidoSaldo(p), 0);
+  const saldoEl = document.getElementById('pedidos-saldo-summary');
+
+  if (conSaldo.length > 0) {
+    const porPersona = {};
+    conSaldo.forEach(p => { porPersona[p.para] = (porPersona[p.para] || 0) + pedidoSaldo(p); });
+    saldoEl.innerHTML = `
+      <div class="saldo-total-row">
+        <span>💳 Saldo adeudado</span>
+        <strong>${formatPeso(totalSaldo)}</strong>
+      </div>
+      <div class="saldo-personas">
+        ${Object.entries(porPersona).map(([n, s]) =>
+          `<div class="saldo-persona-row"><span>${n}</span><span>${formatPeso(s)}</span></div>`
+        ).join('')}
+      </div>`;
+    saldoEl.classList.remove('hidden');
+  } else {
+    saldoEl.innerHTML = '';
+    saldoEl.classList.add('hidden');
+  }
+
+  // ── Filtrar por subtab ──
+  let filtrados;
+  if (pedidosSubtab === 'activos') {
+    filtrados = pedidos.filter(p => p.estadoFisico === 'solicitud' || p.estadoFisico === 'armado');
+  } else if (pedidosSubtab === 'entregados') {
+    filtrados = pedidos.filter(p => p.estadoFisico === 'entregado');
+  } else {
+    filtrados = pedidos.filter(p => p.estadoFisico === 'cancelado');
+  }
+
+  if (filtrados.length === 0) {
+    contenedor.innerHTML = '<p class="historial-vacio" style="padding:2rem 0">No hay pedidos en esta sección.</p>';
+    return;
+  }
+
+  if (pedidosSubtab === 'activos') {
+    const solicitudes = filtrados.filter(p => p.estadoFisico === 'solicitud');
+    const armados     = filtrados.filter(p => p.estadoFisico === 'armado');
+    let html = '';
+    if (solicitudes.length > 0) {
+      html += `<div class="pedidos-grupo">
+        <h3 class="pedidos-grupo-titulo pedidos-grupo--sol">📝 Solicitudes (${solicitudes.length})</h3>
+        ${solicitudes.map(p => renderPedidoCard(p)).join('')}
+      </div>`;
+    }
+    if (armados.length > 0) {
+      html += `<div class="pedidos-grupo">
+        <h3 class="pedidos-grupo-titulo pedidos-grupo--arm">📦 Armados — listos para entregar (${armados.length})</h3>
+        ${armados.map(p => renderPedidoCard(p)).join('')}
+      </div>`;
+    }
+    contenedor.innerHTML = html;
+  } else {
+    contenedor.innerHTML = filtrados.map(p => renderPedidoCard(p)).join('');
+  }
+}
+
+function renderPedidoCard(p) {
+  const pagado = pedidoTotalPagado(p);
+  const saldo  = pedidoSaldo(p);
+  const epago  = pedidoEstadoPago(p);
+
+  const pagoBadge = {
+    sin_pago: '<span class="pedido-pago-badge pago-sin">Sin pago</span>',
+    parcial:  '<span class="pedido-pago-badge pago-parcial">Seña parcial</span>',
+    pagado:   '<span class="pedido-pago-badge pago-ok">✅ Pagado</span>',
+  }[epago] || '';
+
+  const estadoBadge = {
+    solicitud: '<span class="pedido-estado-badge est-solicitud">Solicitud</span>',
+    armado:    '<span class="pedido-estado-badge est-armado">📦 Armado</span>',
+    entregado: '<span class="pedido-estado-badge est-entregado">🚚 Entregado</span>',
+    cancelado: '<span class="pedido-estado-badge est-cancelado">✕ Cancelado</span>',
+  }[p.estadoFisico] || '';
+
+  let stockWarn = '';
+  if (p.estadoFisico === 'solicitud') {
+    const disp = stockDisponible(p.tipo, p);
+    if (disp < p.cantidad) {
+      stockWarn = `<div class="pedido-stock-warn">⚠️ Stock insuficiente — ${disp} disponible${disp !== 1 ? 's' : ''}</div>`;
+    }
+  }
+
+  const precioHtml = `
+    <div class="pedido-pagos-resumen">
+      <span class="pp-total">Total: <strong>${formatPeso(p.precioTotal || 0)}</strong></span>
+      ${pagado > 0 ? `<span class="pp-cobrado">Cobrado: ${formatPeso(pagado)}</span>` : ''}
+      ${saldo > 0  ? `<span class="pp-saldo">Debe: <strong>${formatPeso(saldo)}</strong></span>` : ''}
+    </div>`;
+
+  const pagosHistHtml = (p.pagos || []).length > 0
+    ? `<div class="pedido-pagos-hist">
+        ${p.pagos.map(pg => `<div class="pago-hist-fila">
+          <span class="pago-hist-fecha">${pg.fecha}</span>
+          <span class="pago-hist-monto">${pg.metodo === 'efectivo' ? '💵' : '📲'} ${formatPeso(pg.monto)}</span>
+        </div>`).join('')}
+      </div>` : '';
+
+  let acciones = '';
+  if (p.estadoFisico === 'solicitud') {
+    acciones = `
+      <button class="btn-pedido btn-armar"   onclick="armarPedido(${p.id})">📦 Armar</button>
+      ${saldo > 0 ? `<button class="btn-pedido btn-pago"    onclick="abrirPagoPedido(${p.id})">💰 Cobrar</button>` : ''}
+      <button class="btn-pedido btn-cancel-p" onclick="cancelarPedido(${p.id})">✕</button>`;
+  } else if (p.estadoFisico === 'armado') {
+    acciones = `
+      <button class="btn-pedido btn-entregar" onclick="entregarPedido(${p.id})">🚚 Entregar</button>
+      ${saldo > 0 ? `<button class="btn-pedido btn-pago"    onclick="abrirPagoPedido(${p.id})">💰 Cobrar</button>` : ''}
+      <button class="btn-pedido btn-cancel-p" onclick="cancelarPedido(${p.id})">✕</button>`;
+  } else if (p.estadoFisico === 'entregado' && saldo > 0) {
+    acciones = `<button class="btn-pedido btn-pago" onclick="abrirPagoPedido(${p.id})">💰 Cobrar saldo</button>`;
+  }
+
+  return `<div class="pedido-card pedido-estado-${p.estadoFisico}">
+    <div class="pedido-card-top">
+      <div class="pedido-card-quien">
+        <span class="pedido-para">${p.para}</span>
+        <span class="pedido-item-desc">${pedidoDescItem(p)}${p.cantidad > 1 ? ` ×${p.cantidad}` : ''}</span>
+      </div>
+      <div class="pedido-card-badges">${estadoBadge}${pagoBadge}</div>
+    </div>
+    ${stockWarn}
+    ${p.notas ? `<div class="pedido-notas">💬 ${p.notas}</div>` : ''}
+    ${precioHtml}
+    ${pagosHistHtml}
+    ${acciones ? `<div class="pedido-acciones">${acciones}</div>` : ''}
+    <div class="pedido-fecha-meta">${p.fecha}${p.fechaEntrega ? ` · Entregado: ${p.fechaEntrega}` : ''}</div>
+  </div>`;
+}
+
+// Sub-tabs de pedidos
+document.querySelectorAll('.pedidos-subtab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.pedidos-subtab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    pedidosSubtab = btn.dataset.estado;
+    renderPedidos();
+  });
+});
+
+// ── Acciones de pedidos ───────────────────────────────────────────────────────
+window.armarPedido = function(id) {
+  const p = pedidos.find(x => x.id === id);
+  if (!p || p.estadoFisico !== 'solicitud') return;
+  const disp = stockDisponible(p.tipo, p);
+  if (disp < p.cantidad) {
+    if (!confirm(`⚠️ Stock insuficiente.\nDisponible: ${disp} · Necesario: ${p.cantidad}\n¿Marcar como armado de todas formas?`)) return;
+  }
+  p.estadoFisico = 'armado';
+  guardarPedidos();
+  renderTodo();
+  renderPedidos();
+  pushToCloud();
+};
+
+window.entregarPedido = function(id) {
+  const p = pedidos.find(x => x.id === id);
+  if (!p || p.estadoFisico !== 'armado') return;
+  if (!confirm(`¿Marcar como entregado a ${p.para}?\nEsto descuenta el stock permanentemente.`)) return;
+  // Decrement raw stock
+  if (p.tipo === 'adulto') {
+    estado.adultos[p.talle][p.variante] = Math.max(0, (estado.adultos[p.talle][p.variante] || 0) - p.cantidad);
+  } else if (p.tipo === 'tote') {
+    estado.totes[p.modelo] = Math.max(0, (estado.totes[p.modelo] || 0) - p.cantidad);
+  } else if (p.tipo === 'nino') {
+    estado.ninos[p.talle] = Math.max(0, (estado.ninos[p.talle] ?? 0) - p.cantidad);
+  }
+  p.estadoFisico = 'entregado';
+  p.fechaEntrega = new Date().toLocaleString('es-AR');
+  guardarPedidos();
+  guardar();
+  renderTodo();
+  renderPedidos();
+  pushToCloud();
+};
+
+window.cancelarPedido = function(id) {
+  const p = pedidos.find(x => x.id === id);
+  if (!p) return;
+  if (!confirm(`¿Cancelar el pedido de ${p.para}?`)) return;
+  p.estadoFisico = 'cancelado';
+  guardarPedidos();
+  renderTodo();
+  renderPedidos();
+  pushToCloud();
+};
+
+window.abrirPagoPedido = function(id) {
+  const p = pedidos.find(x => x.id === id);
+  if (!p) return;
+  pedidoPagoActualId = id;
+  const pagado = pedidoTotalPagado(p);
+  const saldo  = pedidoSaldo(p);
+  document.getElementById('pago-pedido-info').innerHTML =
+    `<strong>${p.para}</strong><br>${pedidoDescItem(p)}${p.cantidad > 1 ? ` ×${p.cantidad}` : ''}<br>
+     Total: ${formatPeso(p.precioTotal || 0)} &nbsp;·&nbsp;
+     Cobrado: ${formatPeso(pagado)} &nbsp;·&nbsp;
+     <strong>Saldo: ${formatPeso(saldo)}</strong>`;
+  document.getElementById('pago-pedido-monto').value = saldo > 0 ? saldo : '';
+  document.getElementById('pago-pedido-metodo').value = 'efectivo';
+  document.getElementById('pago-pedido-error').classList.add('hidden');
+  document.getElementById('modal-pago-pedido').classList.remove('hidden');
+};
+
+document.getElementById('btn-confirmar-pago-pedido').addEventListener('click', () => {
+  const p = pedidos.find(x => x.id === pedidoPagoActualId);
+  if (!p) return;
+  const monto  = parseFloat(document.getElementById('pago-pedido-monto').value);
+  const metodo = document.getElementById('pago-pedido-metodo').value;
+  if (!monto || monto <= 0) {
+    document.getElementById('pago-pedido-error').classList.remove('hidden');
+    return;
+  }
+  p.pagos = p.pagos || [];
+  p.pagos.push({ id: Date.now(), fecha: new Date().toLocaleString('es-AR'), monto, metodo });
+  pedidoPagoActualId = null;
+  document.getElementById('modal-pago-pedido').classList.add('hidden');
+  guardarPedidos();
+  renderPedidos();
+  renderRecaudado();
+  pushToCloud();
+});
+
+['btn-cancelar-pago-pedido', 'btn-cerrar-pago-pedido'].forEach(id => {
+  document.getElementById(id).addEventListener('click', () => {
+    document.getElementById('modal-pago-pedido').classList.add('hidden');
+    pedidoPagoActualId = null;
+  });
+});
+
+// ── Modal Nueva Solicitud ─────────────────────────────────────────────────────
+document.getElementById('btn-nueva-solicitud').addEventListener('click', () => {
+  document.getElementById('sol-para').value      = '';
+  document.getElementById('sol-categoria').value = '';
+  document.getElementById('sol-cantidad').value  = 1;
+  document.getElementById('sol-precio').value    = '';
+  document.getElementById('sol-notas').value     = '';
+  document.getElementById('sol-error').classList.add('hidden');
+  document.getElementById('sol-stock-info').innerHTML = '';
+  ['sol-campos-adulto','sol-campos-nino','sol-campos-tote'].forEach(id =>
+    document.getElementById(id).classList.add('hidden'));
+  document.getElementById('modal-solicitud').classList.remove('hidden');
+  setTimeout(() => document.getElementById('sol-para').focus(), 80);
+});
+
+function actualizarStockInfoSolicitud() {
+  const cat   = document.getElementById('sol-categoria').value;
+  const infoEl = document.getElementById('sol-stock-info');
+  if (!cat) { infoEl.innerHTML = ''; return; }
+  let tipo, opts, precioBase;
+  if (cat === 'adulto') {
+    tipo = 'adulto';
+    opts = { talle: document.getElementById('sol-talle-adulto').value, variante: document.getElementById('sol-variante').value };
+    precioBase = PRECIOS.remera;
+  } else if (cat === 'nino') {
+    tipo = 'nino';
+    opts = { talle: document.getElementById('sol-talle-nino').value };
+    precioBase = PRECIOS.remera;
+  } else {
+    tipo = 'tote';
+    opts = { modelo: document.getElementById('sol-modelo').value };
+    precioBase = PRECIOS.tote;
+  }
+  const cant = parseInt(document.getElementById('sol-cantidad').value, 10) || 1;
+  const disp = stockDisponible(tipo, opts);
+  const arm  = countArmados(tipo, opts);
+  const sol  = countSolicitudes(tipo, opts);
+  const raw  = getRawStock(tipo, opts);
+  const ok   = disp >= cant;
+  infoEl.innerHTML = `
+    <div class="sol-stock-grid">
+      <div class="sol-stock-item${ok ? '' : ' sol-stock-warn-item'}">
+        <span>Disponible</span>
+        <strong style="color:${ok ? 'var(--verde)' : 'var(--acento)'}">${disp}</strong>
+      </div>
+      ${arm > 0 ? `<div class="sol-stock-item"><span>Armados</span><strong>${arm}</strong></div>` : ''}
+      ${sol > 0 ? `<div class="sol-stock-item"><span>En solicitudes</span><strong>${sol}</strong></div>` : ''}
+      <div class="sol-stock-item"><span>Total depósito</span><strong>${raw}</strong></div>
+    </div>
+    ${!ok ? `<div class="sol-warn-msg">⚠️ Stock insuficiente. Podés crear la solicitud igual.</div>` : ''}
+  `;
+  // Autocompletar precio si está vacío
+  const precioEl = document.getElementById('sol-precio');
+  if (!precioEl.value || precioEl.dataset.autoset === 'true') {
+    precioEl.value = precioBase * cant;
+    precioEl.dataset.autoset = 'true';
+  }
+}
+
+document.getElementById('sol-categoria').addEventListener('change', () => {
+  const cat = document.getElementById('sol-categoria').value;
+  ['sol-campos-adulto','sol-campos-nino','sol-campos-tote'].forEach(id =>
+    document.getElementById(id).classList.add('hidden'));
+  if (cat === 'adulto')      document.getElementById('sol-campos-adulto').classList.remove('hidden');
+  else if (cat === 'nino')   document.getElementById('sol-campos-nino').classList.remove('hidden');
+  else if (cat === 'tote')   document.getElementById('sol-campos-tote').classList.remove('hidden');
+  document.getElementById('sol-precio').dataset.autoset = 'true';
+  actualizarStockInfoSolicitud();
+});
+
+['sol-talle-adulto','sol-variante','sol-talle-nino','sol-modelo'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('change', actualizarStockInfoSolicitud);
+});
+document.getElementById('sol-cantidad').addEventListener('input', () => {
+  document.getElementById('sol-precio').dataset.autoset = 'true';
+  actualizarStockInfoSolicitud();
+});
+document.getElementById('sol-precio').addEventListener('input', () => {
+  document.getElementById('sol-precio').dataset.autoset = 'false';
+});
+
+document.getElementById('btn-confirmar-solicitud').addEventListener('click', () => {
+  const para   = document.getElementById('sol-para').value.trim();
+  const cat    = document.getElementById('sol-categoria').value;
+  const cant   = parseInt(document.getElementById('sol-cantidad').value, 10);
+  const precio = parseFloat(document.getElementById('sol-precio').value);
+  const notas  = document.getElementById('sol-notas').value.trim();
+  const errEl  = document.getElementById('sol-error');
+
+  if (!para)            { errEl.textContent = 'Ingresá el nombre.';           errEl.classList.remove('hidden'); return; }
+  if (!cat)             { errEl.textContent = 'Seleccioná una categoría.';    errEl.classList.remove('hidden'); return; }
+  if (!cant || cant < 1){ errEl.textContent = 'Ingresá una cantidad válida.'; errEl.classList.remove('hidden'); return; }
+  if (isNaN(precio) || precio < 0) { errEl.textContent = 'Ingresá un precio válido.'; errEl.classList.remove('hidden'); return; }
+  errEl.classList.add('hidden');
+
+  const pedido = {
+    id:           Date.now(),
+    fecha:        new Date().toLocaleString('es-AR'),
+    para,
+    tipo:         cat,
+    cantidad:     cant,
+    precioTotal:  precio,
+    estadoFisico: 'solicitud',
+    pagos:        [],
+    notas,
+  };
+  if (cat === 'adulto') {
+    pedido.talle   = document.getElementById('sol-talle-adulto').value;
+    pedido.variante = document.getElementById('sol-variante').value;
+  } else if (cat === 'nino') {
+    pedido.talle = document.getElementById('sol-talle-nino').value;
+  } else {
+    pedido.modelo = document.getElementById('sol-modelo').value;
+  }
+
+  pedidos.push(pedido);
+  guardarPedidos();
+  document.getElementById('modal-solicitud').classList.add('hidden');
+  renderTodo();
+  renderPedidos();
+  pushToCloud();
+});
+
+['btn-cancelar-solicitud','btn-cerrar-solicitud'].forEach(id => {
+  document.getElementById(id).addEventListener('click', () => {
+    document.getElementById('modal-solicitud').classList.add('hidden');
   });
 });
 
