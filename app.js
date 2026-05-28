@@ -1878,46 +1878,6 @@ document.getElementById('btn-nueva-solicitud').addEventListener('click', () => {
   setTimeout(() => document.getElementById('sol-para').focus(), 80);
 });
 
-function precioBaseSol(tipo, moneda) {
-  if (moneda === 'UYU') {
-    if (tipo === 'tote') return PRECIOS.tote_uyu;
-    if (tipo === 'nino') return PRECIOS.nino_uyu;
-    return PRECIOS.remera_uyu;
-  }
-  if (tipo === 'tote') return PRECIOS.tote;
-  return PRECIOS.remera;
-}
-
-function recalcSolPrecio() {
-  const precioEl = document.getElementById('sol-precio');
-  if (!precioEl || precioEl.dataset.autoset === 'false') return;
-  const moneda = document.querySelector('input[name="moneda-sol"]:checked')?.value || 'UYU';
-  const cat  = document.getElementById('sol-categoria')?.value;
-  const cant = parseInt(document.getElementById('sol-cantidad')?.value, 10) || 1;
-  let total = solItemsTemp.reduce((s, it) => s + precioBaseSol(it.tipo, moneda) * it.cantidad, 0);
-  if (cat) total += precioBaseSol(cat, moneda) * cant;
-  precioEl.value = total > 0 ? total : '';
-  precioEl.dataset.autoset = 'true';
-}
-
-function renderSolItemsChips() {
-  const el = document.getElementById('sol-items-agregados');
-  if (!el) return;
-  if (solItemsTemp.length === 0) { el.innerHTML = ''; return; }
-  el.innerHTML = solItemsTemp.map((it, i) => `
-    <span class="sol-item-chip">
-      ${(it.cantidad > 1 ? `${it.cantidad}× ` : '') + _itemDesc(it)}
-      <button type="button" class="sol-chip-rm" onclick="remSolItem(${i})">✕</button>
-    </span>
-  `).join('');
-}
-
-window.remSolItem = function(i) {
-  solItemsTemp.splice(i, 1);
-  renderSolItemsChips();
-  recalcSolPrecio();
-};
-
 function actualizarStockInfoSolicitud() {
   const cat    = document.getElementById('sol-categoria').value;
   const infoEl = document.getElementById('sol-stock-info');
