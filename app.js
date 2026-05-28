@@ -17,7 +17,7 @@ const VARIANTES      = ['reposeraRoja', 'reposeraNegra', 'blanca', 'veredaRoja',
 const TALLES_ADULTO  = ['S', 'M', 'L', 'XL', 'XXL'];
 const TALLES_NINO    = [2, 4, 6, 8, 10, 12, 16];
 
-const PRECIOS = { remera: 25000, tote: 16000 };
+const PRECIOS = { remera: 25000, tote: 16000, remera_uyu: 650, tote_uyu: 400, nino_uyu: 500 };
 
 const LABEL_VARIANTE = {
   veredaRoja:    'Vereda Roja',
@@ -129,28 +129,57 @@ function cargarPedidos() {
   catch (_) { return []; }
 }
 let pedidos = cargarPedidos();
+function normalizePedidos() {
+  let changed = false;
+  pedidos.forEach(p => {
+    if (!p.items) {
+      p.items = [{ tipo: p.tipo, talle: p.talle, variante: p.variante, modelo: p.modelo, cantidad: p.cantidad || 1 }];
+      changed = true;
+    }
+  });
+  if (changed) guardarPedidos();
+}
+normalizePedidos();
 let pedidoPagoActualId = null;
+let solItemsTemp = [];
+
+function renderSolItemsChips() {
+  const el = document.getElementById('sol-items-agregados');
+  if (!el) return;
+  if (solItemsTemp.length === 0) { el.innerHTML = ''; return; }
+  el.innerHTML = solItemsTemp.map((it, i) => `
+    <span class="sol-item-chip">
+      ${(it.cantidad > 1 ? `${it.cantidad}× ` : '') + _itemDesc(it)}
+      <button type="button" class="sol-chip-rm" onclick="remSolItem(${i})">✕</button>
+    </span>
+  `).join('');
+}
+window.remSolItem = function(i) {
+  solItemsTemp.splice(i, 1);
+  renderSolItemsChips();
+  recalcSolPrecio();
+};
 
 function guardarPedidos() {
   localStorage.setItem('cayo_pedidos', JSON.stringify(pedidos));
 }
 
 // ── Helpers de stock con pedidos ─────────────────────────────────────────────
-function _pedidoMatchOpts(p, tipo, opts) {
-  if (tipo === 'adulto') return p.talle === opts.talle && p.variante === opts.variante;
-  if (tipo === 'tote')   return p.modelo === opts.modelo;
-  if (tipo === 'nino')   return String(p.talle) === String(opts.talle);
+function _itemMatchOpts(it, tipo, opts) {
+  if (tipo === 'adulto') return it.talle === opts.talle && it.variante === opts.variante;
+  if (tipo === 'tote')   return it.modelo === opts.modelo;
+  if (tipo === 'nino')   return String(it.talle) === String(opts.talle);
   return false;
 }
 function countArmados(tipo, opts) {
   return pedidos
-    .filter(p => p.estadoFisico === 'armado' && p.tipo === tipo && _pedidoMatchOpts(p, tipo, opts))
-    .reduce((s, p) => s + (p.cantidad || 1), 0);
+    .filter(p => p.estadoFisico === 'armado')
+    .reduce((s, p) => s + (p.items || []).filter(it => it.tipo === tipo && _itemMatchOpts(it, tipo, opts)).reduce((is, it) => is + (it.cantidad || 1), 0), 0);
 }
 function countSolicitudes(tipo, opts) {
   return pedidos
-    .filter(p => p.estadoFisico === 'solicitud' && p.tipo === tipo && _pedidoMatchOpts(p, tipo, opts))
-    .reduce((s, p) => s + (p.cantidad || 1), 0);
+    .filter(p => p.estadoFisico === 'solicitud')
+    .reduce((s, p) => s + (p.items || []).filter(it => it.tipo === tipo && _itemMatchOpts(it, tipo, opts)).reduce((is, it) => is + (it.cantidad || 1), 0), 0);
 }
 function getRawStock(tipo, opts) {
   if (tipo === 'adulto') return estado.adultos[opts.talle]?.[opts.variante] ?? 0;
@@ -176,11 +205,16 @@ function pedidoEstadoPago(p) {
   if (pagado > 0) return 'parcial';
   return 'sin_pago';
 }
-function pedidoDescItem(p) {
-  if (p.tipo === 'adulto') return `${LABEL_VARIANTE[p.variante] || p.variante} talle ${p.talle}`;
-  if (p.tipo === 'tote')   return `Tote Bag ${p.modelo === 'silla' ? 'Reposera' : 'Vereda'}`;
-  if (p.tipo === 'nino')   return `Remera Niñx talle ${p.talle}`;
+function _itemDesc(it) {
+  if (it.tipo === 'adulto') return `${LABEL_VARIANTE[it.variante] || it.variante} talle ${it.talle}`;
+  if (it.tipo === 'tote')   return `Tote ${it.modelo === 'silla' ? 'Reposera' : 'Vereda'}`;
+  if (it.tipo === 'nino')   return `Niñx talle ${it.talle}`;
   return 'ítem';
+}
+function pedidoDescItem(p) {
+  const items = p.items || [];
+  if (!items.length) return 'ítem';
+  return items.map(it => (it.cantidad > 1 ? `${it.cantidad}× ` : '') + _itemDesc(it)).join(' · ');
 }
 
 // ── Sincronización con Google Sheets ─────────────────────────────────────────
@@ -454,7 +488,11 @@ let filtroVentas = 'todos';
 
 function renderVentas() {
   // Totales globales separados por moneda
-  const totalUnid  = historial.reduce((s, h) => s + h.cantidad, 0);
+  const cobradas   = historial.filter(h => h.pago === 'efectivo' || h.pago === 'transferencia');
+  const totalUnid  = cobradas.reduce((s, h) => s + h.cantidad, 0);
+  const unidRemera = cobradas.filter(h => h._stock?.tipo === 'adulto').reduce((s, h) => s + h.cantidad, 0);
+  const unidTote   = cobradas.filter(h => h._stock?.tipo === 'tote').reduce((s, h) => s + h.cantidad, 0);
+  const unidNino   = cobradas.filter(h => h._stock?.tipo === 'nino').reduce((s, h) => s + h.cantidad, 0);
   const totalARS   = historial.filter(h => (h.moneda || 'ARS') === 'ARS').reduce((s, h) => s + (h.ingreso ?? 0), 0);
   const totalUYU   = historial.filter(h => (h.moneda || 'ARS') === 'UYU').reduce((s, h) => s + (h.ingreso ?? 0), 0);
   const totalEfec  = historial.reduce((s, h) => s + (h.pago === 'efectivo'      ? (h.ingreso ?? 0) : 0), 0);
@@ -463,12 +501,45 @@ function renderVentas() {
   const totalAnotaM = historial.reduce((s, h) => h.pago === 'anota'  ? s + (h.precioUnit || 0) * h.cantidad : s, 0);
 
   document.getElementById('v-unidades').textContent  = totalUnid;
+  const desglEl = document.getElementById('v-unidades-desglose');
+  if (desglEl) {
+    const parts = [];
+    if (unidRemera) parts.push(`👕 ${unidRemera} remera${unidRemera !== 1 ? 's' : ''}`);
+    if (unidTote)   parts.push(`👜 ${unidTote} tote${unidTote !== 1 ? 's' : ''}`);
+    if (unidNino)   parts.push(`👶 ${unidNino} niñx`);
+    desglEl.textContent = parts.join(' · ');
+  }
   document.getElementById('v-total-ars').textContent = formatPeso(totalARS);
   document.getElementById('v-total-uyu').textContent = formatPeso(totalUYU);
   document.getElementById('v-efectivo').textContent  = formatPeso(totalEfec);
   document.getElementById('v-transf').textContent    = formatPeso(totalTrans);
   document.getElementById('v-regalos').textContent   = `${totalRegU} u.`;
   document.getElementById('v-anota').textContent     = formatPeso(totalAnotaM);
+
+  // Anotados panel
+  const anotadosEl = document.getElementById('anotados-panel');
+  const anotadosEntradas = historial.filter(h => h.pago === 'anota');
+  if (anotadosEl) {
+    if (anotadosEntradas.length === 0) {
+      anotadosEl.classList.add('hidden');
+    } else {
+      const porPersona = {};
+      anotadosEntradas.forEach(h => {
+        const n = h.nombreAnota || '(sin nombre)';
+        if (!porPersona[n]) porPersona[n] = { items: [], total: 0 };
+        porPersona[n].items.push(h);
+        porPersona[n].total += (h.precioUnit || 0) * h.cantidad;
+      });
+      anotadosEl.innerHTML = `<h4 class="anotados-titulo">📝 Anotados — cuentas pendientes</h4>
+        ${Object.entries(porPersona).map(([nombre, data]) => `
+          <div class="anotados-row">
+            <span class="anotados-nombre">👤 ${nombre}</span>
+            <span class="anotados-detalle">${data.items.map(h => `${h.descripcion}${h.cantidad > 1 ? ` ×${h.cantidad}` : ''}`).join(', ')}</span>
+            <span class="anotados-monto">Debe ${formatPeso(data.total)}</span>
+          </div>`).join('')}`;
+      anotadosEl.classList.remove('hidden');
+    }
+  }
 
   const filtrados = filtroVentas === 'todos'
     ? historial
@@ -559,9 +630,36 @@ function getMonedaVenta() {
 }
 
 function precioBase(cat) {
-  if (getMonedaVenta() === 'UYU') return 0; // UYU requires manual price
+  const moneda = getMonedaVenta();
+  if (moneda === 'UYU') {
+    if (cat === 'tote') return PRECIOS.tote_uyu;
+    if (cat === 'nino') return PRECIOS.nino_uyu;
+    return PRECIOS.remera_uyu;
+  }
   if (cat === 'tote') return PRECIOS.tote;
   return PRECIOS.remera;
+}
+
+function precioBaseSol(tipo, moneda) {
+  if (moneda === 'UYU') {
+    if (tipo === 'tote') return PRECIOS.tote_uyu;
+    if (tipo === 'nino') return PRECIOS.nino_uyu;
+    return PRECIOS.remera_uyu;
+  }
+  if (tipo === 'tote') return PRECIOS.tote;
+  return PRECIOS.remera;
+}
+
+function recalcSolPrecio() {
+  const precioEl = document.getElementById('sol-precio');
+  if (!precioEl || precioEl.dataset.autoset === 'false') return;
+  const moneda = document.querySelector('input[name="moneda-sol"]:checked')?.value || 'UYU';
+  const cat  = document.getElementById('sol-categoria')?.value;
+  const cant = parseInt(document.getElementById('sol-cantidad')?.value, 10) || 1;
+  let total = solItemsTemp.reduce((s, it) => s + precioBaseSol(it.tipo, moneda) * it.cantidad, 0);
+  if (cat) total += precioBaseSol(cat, moneda) * cant;
+  precioEl.value = total > 0 ? total : '';
+  precioEl.dataset.autoset = 'true';
 }
 
 function precioEfectivo() {
@@ -628,6 +726,11 @@ document.querySelectorAll('input[name="pago"]').forEach(r => {
   r.addEventListener('change', () => {
     const isAnota = document.querySelector('input[name="pago"]:checked')?.value === 'anota';
     document.getElementById('campos-anota-nombre').classList.toggle('hidden', !isAnota);
+    if (isAnota) {
+      const dl = document.getElementById('anota-nombres-list');
+      const nombres = [...new Set(pedidos.filter(p => p.estadoFisico !== 'cancelado').map(p => p.para).filter(Boolean))];
+      dl.innerHTML = nombres.map(n => `<option value="${n.replace(/"/g, '&quot;')}"></option>`).join('');
+    }
     actualizarDisponible();
   });
 });
@@ -704,7 +807,7 @@ document.getElementById('form-venta').addEventListener('submit', e => {
   const precioFinal = precioEfectivo();
   const moneda      = getMonedaVenta();
   if (!precioFinal || precioFinal <= 0) {
-    mostrarError(moneda === 'UYU' ? 'Ingresá el precio en pesos uruguayos.' : 'Ingresá un precio válido.');
+    mostrarError('Ingresá un precio válido.');
     return;
   }
   const pago = document.querySelector('input[name="pago"]:checked').value;
@@ -1597,9 +1700,11 @@ function renderPedidoCard(p) {
 
   let stockWarn = '';
   if (p.estadoFisico === 'solicitud') {
-    const disp = stockDisponible(p.tipo, p);
-    if (disp < p.cantidad) {
-      stockWarn = `<div class="pedido-stock-warn">⚠️ Stock insuficiente — ${disp} disponible${disp !== 1 ? 's' : ''}</div>`;
+    const warns = (p.items || [])
+      .filter(it => stockDisponible(it.tipo, it) < it.cantidad)
+      .map(it => `${_itemDesc(it)}: ${stockDisponible(it.tipo, it)} disp.`);
+    if (warns.length > 0) {
+      stockWarn = `<div class="pedido-stock-warn">⚠️ Stock insuficiente — ${warns.join(', ')}</div>`;
     }
   }
 
@@ -1637,7 +1742,7 @@ function renderPedidoCard(p) {
     <div class="pedido-card-top">
       <div class="pedido-card-quien">
         <span class="pedido-para">${p.para}</span>
-        <span class="pedido-item-desc">${pedidoDescItem(p)}${p.cantidad > 1 ? ` ×${p.cantidad}` : ''}</span>
+        <span class="pedido-item-desc">${pedidoDescItem(p)}</span>
       </div>
       <div class="pedido-card-badges">${estadoBadge}${pagoBadge}${monedaBadgePed}</div>
     </div>
@@ -1664,9 +1769,11 @@ document.querySelectorAll('.pedidos-subtab').forEach(btn => {
 window.armarPedido = function(id) {
   const p = pedidos.find(x => x.id === id);
   if (!p || p.estadoFisico !== 'solicitud') return;
-  const disp = stockDisponible(p.tipo, p);
-  if (disp < p.cantidad) {
-    if (!confirm(`⚠️ Stock insuficiente.\nDisponible: ${disp} · Necesario: ${p.cantidad}\n¿Marcar como armado de todas formas?`)) return;
+  const items = p.items || [];
+  const faltantes = items.filter(it => stockDisponible(it.tipo, it) < it.cantidad);
+  if (faltantes.length > 0) {
+    const msg = faltantes.map(it => `${_itemDesc(it)}: disponible ${stockDisponible(it.tipo, it)}`).join('\n');
+    if (!confirm(`⚠️ Stock insuficiente:\n${msg}\n\n¿Marcar como armado de todas formas?`)) return;
   }
   p.estadoFisico = 'armado';
   guardarPedidos();
@@ -1679,14 +1786,15 @@ window.entregarPedido = function(id) {
   const p = pedidos.find(x => x.id === id);
   if (!p || p.estadoFisico !== 'armado') return;
   if (!confirm(`¿Marcar como entregado a ${p.para}?\nEsto descuenta el stock permanentemente.`)) return;
-  // Decrement raw stock
-  if (p.tipo === 'adulto') {
-    estado.adultos[p.talle][p.variante] = Math.max(0, (estado.adultos[p.talle][p.variante] || 0) - p.cantidad);
-  } else if (p.tipo === 'tote') {
-    estado.totes[p.modelo] = Math.max(0, (estado.totes[p.modelo] || 0) - p.cantidad);
-  } else if (p.tipo === 'nino') {
-    estado.ninos[p.talle] = Math.max(0, (estado.ninos[p.talle] ?? 0) - p.cantidad);
-  }
+  (p.items || []).forEach(it => {
+    if (it.tipo === 'adulto' && estado.adultos[it.talle]) {
+      estado.adultos[it.talle][it.variante] = Math.max(0, (estado.adultos[it.talle][it.variante] || 0) - it.cantidad);
+    } else if (it.tipo === 'tote') {
+      estado.totes[it.modelo] = Math.max(0, (estado.totes[it.modelo] || 0) - it.cantidad);
+    } else if (it.tipo === 'nino') {
+      estado.ninos[it.talle] = Math.max(0, (estado.ninos[it.talle] ?? 0) - it.cantidad);
+    }
+  });
   p.estadoFisico = 'entregado';
   p.fechaEntrega = new Date().toLocaleString('es-AR');
   guardarPedidos();
@@ -1714,7 +1822,7 @@ window.abrirPagoPedido = function(id) {
   const pagado = pedidoTotalPagado(p);
   const saldo  = pedidoSaldo(p);
   document.getElementById('pago-pedido-info').innerHTML =
-    `<strong>${p.para}</strong><br>${pedidoDescItem(p)}${p.cantidad > 1 ? ` ×${p.cantidad}` : ''}<br>
+    `<strong>${p.para}</strong><br>${pedidoDescItem(p)}<br>
      Total: ${formatPeso(p.precioTotal || 0)} &nbsp;·&nbsp;
      Cobrado: ${formatPeso(pagado)} &nbsp;·&nbsp;
      <strong>Saldo: ${formatPeso(saldo)}</strong>`;
@@ -1752,10 +1860,13 @@ document.getElementById('btn-confirmar-pago-pedido').addEventListener('click', (
 
 // ── Modal Nueva Solicitud ─────────────────────────────────────────────────────
 document.getElementById('btn-nueva-solicitud').addEventListener('click', () => {
+  solItemsTemp = [];
+  renderSolItemsChips();
   document.getElementById('sol-para').value      = '';
   document.getElementById('sol-categoria').value = '';
   document.getElementById('sol-cantidad').value  = 1;
   document.getElementById('sol-precio').value    = '';
+  document.getElementById('sol-precio').dataset.autoset = 'true';
   document.getElementById('sol-notas').value     = '';
   document.getElementById('sol-error').classList.add('hidden');
   document.getElementById('sol-stock-info').innerHTML = '';
@@ -1768,22 +1879,19 @@ document.getElementById('btn-nueva-solicitud').addEventListener('click', () => {
 });
 
 function actualizarStockInfoSolicitud() {
-  const cat   = document.getElementById('sol-categoria').value;
+  const cat    = document.getElementById('sol-categoria').value;
   const infoEl = document.getElementById('sol-stock-info');
-  if (!cat) { infoEl.innerHTML = ''; return; }
-  let tipo, opts, precioBase;
+  if (!cat) { infoEl.innerHTML = ''; recalcSolPrecio(); return; }
+  let tipo, opts;
   if (cat === 'adulto') {
     tipo = 'adulto';
     opts = { talle: document.getElementById('sol-talle-adulto').value, variante: document.getElementById('sol-variante').value };
-    precioBase = PRECIOS.remera;
   } else if (cat === 'nino') {
     tipo = 'nino';
     opts = { talle: document.getElementById('sol-talle-nino').value };
-    precioBase = PRECIOS.remera;
   } else {
     tipo = 'tote';
     opts = { modelo: document.getElementById('sol-modelo').value };
-    precioBase = PRECIOS.tote;
   }
   const cant = parseInt(document.getElementById('sol-cantidad').value, 10) || 1;
   const disp = stockDisponible(tipo, opts);
@@ -1801,14 +1909,9 @@ function actualizarStockInfoSolicitud() {
       ${sol > 0 ? `<div class="sol-stock-item"><span>En solicitudes</span><strong>${sol}</strong></div>` : ''}
       <div class="sol-stock-item"><span>Total depósito</span><strong>${raw}</strong></div>
     </div>
-    ${!ok ? `<div class="sol-warn-msg">⚠️ Stock insuficiente. Podés crear la solicitud igual.</div>` : ''}
+    ${!ok ? `<div class="sol-warn-msg">⚠️ Stock insuficiente. Podés agregar igual.</div>` : ''}
   `;
-  // Autocompletar precio si está vacío
-  const precioEl = document.getElementById('sol-precio');
-  if (!precioEl.value || precioEl.dataset.autoset === 'true') {
-    precioEl.value = precioBase * cant;
-    precioEl.dataset.autoset = 'true';
-  }
+  recalcSolPrecio();
 }
 
 document.getElementById('sol-categoria').addEventListener('change', () => {
@@ -1818,7 +1921,6 @@ document.getElementById('sol-categoria').addEventListener('change', () => {
   if (cat === 'adulto')      document.getElementById('sol-campos-adulto').classList.remove('hidden');
   else if (cat === 'nino')   document.getElementById('sol-campos-nino').classList.remove('hidden');
   else if (cat === 'tote')   document.getElementById('sol-campos-tote').classList.remove('hidden');
-  document.getElementById('sol-precio').dataset.autoset = 'true';
   actualizarStockInfoSolicitud();
 });
 
@@ -1834,18 +1936,76 @@ document.getElementById('sol-precio').addEventListener('input', () => {
   document.getElementById('sol-precio').dataset.autoset = 'false';
 });
 
+document.getElementById('btn-agregar-item-sol').addEventListener('click', () => {
+  const cat   = document.getElementById('sol-categoria').value;
+  const errEl = document.getElementById('sol-error');
+  if (!cat) {
+    errEl.textContent = 'Seleccioná una categoría para el ítem.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+  errEl.classList.add('hidden');
+  const cant = parseInt(document.getElementById('sol-cantidad').value, 10) || 1;
+  const item = { tipo: cat, cantidad: cant };
+  if (cat === 'adulto') {
+    item.talle    = document.getElementById('sol-talle-adulto').value;
+    item.variante = document.getElementById('sol-variante').value;
+  } else if (cat === 'nino') {
+    item.talle = document.getElementById('sol-talle-nino').value;
+  } else {
+    item.modelo = document.getElementById('sol-modelo').value;
+  }
+  solItemsTemp.push(item);
+  renderSolItemsChips();
+  document.getElementById('sol-categoria').value = '';
+  ['sol-campos-adulto','sol-campos-nino','sol-campos-tote'].forEach(id =>
+    document.getElementById(id).classList.add('hidden'));
+  document.getElementById('sol-cantidad').value = 1;
+  document.getElementById('sol-stock-info').innerHTML = '';
+  recalcSolPrecio();
+});
+
+document.querySelectorAll('input[name="moneda-sol"]').forEach(r =>
+  r.addEventListener('change', () => {
+    document.getElementById('sol-precio').dataset.autoset = 'true';
+    recalcSolPrecio();
+  })
+);
+
 document.getElementById('btn-confirmar-solicitud').addEventListener('click', () => {
   const para   = document.getElementById('sol-para').value.trim();
-  const cat    = document.getElementById('sol-categoria').value;
-  const cant   = parseInt(document.getElementById('sol-cantidad').value, 10);
   const precio = parseFloat(document.getElementById('sol-precio').value);
   const notas  = document.getElementById('sol-notas').value.trim();
   const errEl  = document.getElementById('sol-error');
 
-  if (!para)            { errEl.textContent = 'Ingresá el nombre.';           errEl.classList.remove('hidden'); return; }
-  if (!cat)             { errEl.textContent = 'Seleccioná una categoría.';    errEl.classList.remove('hidden'); return; }
-  if (!cant || cant < 1){ errEl.textContent = 'Ingresá una cantidad válida.'; errEl.classList.remove('hidden'); return; }
-  if (isNaN(precio) || precio < 0) { errEl.textContent = 'Ingresá un precio válido.'; errEl.classList.remove('hidden'); return; }
+  if (!para) { errEl.textContent = 'Ingresá el nombre.'; errEl.classList.remove('hidden'); return; }
+
+  const cat  = document.getElementById('sol-categoria').value;
+  const allItems = [...solItemsTemp];
+  if (cat) {
+    const cant = parseInt(document.getElementById('sol-cantidad').value, 10) || 1;
+    const item = { tipo: cat, cantidad: cant };
+    if (cat === 'adulto') {
+      item.talle    = document.getElementById('sol-talle-adulto').value;
+      item.variante = document.getElementById('sol-variante').value;
+    } else if (cat === 'nino') {
+      item.talle = document.getElementById('sol-talle-nino').value;
+    } else {
+      item.modelo = document.getElementById('sol-modelo').value;
+    }
+    allItems.push(item);
+  }
+
+  if (allItems.length === 0) {
+    errEl.textContent = 'Agregá al menos un ítem a la solicitud.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+  if (isNaN(precio) || precio < 0) {
+    errEl.textContent = 'Ingresá un precio válido.';
+    errEl.classList.remove('hidden');
+    return;
+  }
   errEl.classList.add('hidden');
 
   const monedaSol = document.querySelector('input[name="moneda-sol"]:checked')?.value || 'UYU';
@@ -1853,25 +2013,17 @@ document.getElementById('btn-confirmar-solicitud').addEventListener('click', () 
     id:           Date.now(),
     fecha:        new Date().toLocaleString('es-AR'),
     para,
-    tipo:         cat,
-    cantidad:     cant,
+    items:        allItems,
     precioTotal:  precio,
     moneda:       monedaSol,
     estadoFisico: 'solicitud',
     pagos:        [],
     notas,
   };
-  if (cat === 'adulto') {
-    pedido.talle   = document.getElementById('sol-talle-adulto').value;
-    pedido.variante = document.getElementById('sol-variante').value;
-  } else if (cat === 'nino') {
-    pedido.talle = document.getElementById('sol-talle-nino').value;
-  } else {
-    pedido.modelo = document.getElementById('sol-modelo').value;
-  }
 
   pedidos.push(pedido);
   guardarPedidos();
+  solItemsTemp = [];
   document.getElementById('modal-solicitud').classList.add('hidden');
   renderTodo();
   renderPedidos();

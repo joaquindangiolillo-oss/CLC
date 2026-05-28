@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Stock - Cayo la Cabra</title>
-  <link rel="stylesheet" href="style.css?v=17" />
+  <link rel="stylesheet" href="style.css?v=20" />
 </head>
 <body>
   <header>
@@ -87,8 +87,9 @@
       <!-- Resumen -->
       <section class="ventas-resumen-cards">
         <div class="vcard vcard--vendido">
-          <span class="vcard-label">📦 Unidades vendidas</span>
+          <span class="vcard-label">📦 Vendidas (cobradas)</span>
           <span class="vcard-valor" id="v-unidades">0</span>
+          <span class="vcard-desglose" id="v-unidades-desglose"></span>
         </div>
         <div class="vcard vcard--ars">
           <span class="vcard-label">🇦🇷 Total ARS</span>
@@ -115,6 +116,9 @@
           <span class="vcard-valor" id="v-anota">$0</span>
         </div>
       </section>
+
+      <!-- Anotados panel -->
+      <div id="anotados-panel" class="anotados-panel hidden"></div>
 
       <!-- Filtros -->
       <div class="ventas-filtros">
@@ -233,7 +237,8 @@
         </label>
         <div id="campos-anota-nombre" class="campos hidden">
           <label>Nombre (quién anota)
-            <input type="text" id="venta-nombre-anota" maxlength="60" placeholder="Ej: Juan García..." />
+            <input type="text" id="venta-nombre-anota" maxlength="60" placeholder="Ej: Juan García..." list="anota-nombres-list" autocomplete="off" />
+            <datalist id="anota-nombres-list"></datalist>
           </label>
         </div>
         <div class="venta-resumen">
@@ -417,61 +422,67 @@
       <label class="config-label">Para quién
         <input type="text" id="sol-para" class="config-input" placeholder="Nombre y apellido..." maxlength="80" />
       </label>
-      <label class="config-label">Categoría
-        <select id="sol-categoria" class="config-input">
-          <option value="">— Seleccioná —</option>
-          <option value="adulto">Remera Adulto</option>
-          <option value="nino">Remera Niñx</option>
-          <option value="tote">Tote Bag</option>
-        </select>
-      </label>
-      <div id="sol-campos-adulto" class="campos hidden">
-        <label class="config-label">Diseño
-          <select id="sol-variante" class="config-input">
-            <option value="veredaRoja">Vereda Roja</option>
-            <option value="veredaNegra">Vereda Negra</option>
-            <option value="reposeraRoja">Reposera Roja</option>
-            <option value="reposeraNegra">Reposera Negra</option>
-            <option value="blanca">Blanca</option>
-          </select>
-        </label>
-        <label class="config-label">Talle
-          <select id="sol-talle-adulto" class="config-input">
-            <option value="S">S</option><option value="M">M</option><option value="L">L</option><option value="XL">XL</option><option value="XXL">XXL</option>
-          </select>
-        </label>
-      </div>
-      <div id="sol-campos-nino" class="campos hidden">
-        <label class="config-label">Talle
-          <select id="sol-talle-nino" class="config-input">
-            <option value="2">2</option><option value="4">4</option><option value="6">6</option><option value="8">8</option><option value="10">10</option><option value="12">12</option><option value="16">16</option>
-          </select>
-        </label>
-      </div>
-      <div id="sol-campos-tote" class="campos hidden">
-        <label class="config-label">Modelo
-          <select id="sol-modelo" class="config-input">
-            <option value="silla">Reposera</option>
-            <option value="vereda">Vereda</option>
-          </select>
-        </label>
-      </div>
-      <label class="config-label">Cantidad
-        <input type="number" id="sol-cantidad" class="config-input" min="1" value="1" />
-      </label>
-      <label class="config-label">Precio total ($)
-        <input type="number" id="sol-precio" class="config-input" min="0" step="1" placeholder="0" />
-      </label>
       <label class="config-label">Moneda
         <div class="pago-opciones">
           <label class="pago-opcion"><input type="radio" name="moneda-sol" value="UYU" checked /><span>🇺🇾 Pesos URU</span></label>
           <label class="pago-opcion"><input type="radio" name="moneda-sol" value="ARS" /><span>🇦🇷 Pesos ARG</span></label>
         </div>
       </label>
+
+      <div class="sol-seccion-items">
+        <div id="sol-items-agregados" class="sol-items-agregados"></div>
+        <label class="config-label">Categoría
+          <select id="sol-categoria" class="config-input">
+            <option value="">— Seleccioná —</option>
+            <option value="adulto">Remera Adulto</option>
+            <option value="nino">Remera Niñx</option>
+            <option value="tote">Tote Bag</option>
+          </select>
+        </label>
+        <div id="sol-campos-adulto" class="campos hidden">
+          <label class="config-label">Diseño
+            <select id="sol-variante" class="config-input">
+              <option value="veredaRoja">Vereda Roja</option>
+              <option value="veredaNegra">Vereda Negra</option>
+              <option value="reposeraRoja">Reposera Roja</option>
+              <option value="reposeraNegra">Reposera Negra</option>
+              <option value="blanca">Blanca</option>
+            </select>
+          </label>
+          <label class="config-label">Talle
+            <select id="sol-talle-adulto" class="config-input">
+              <option value="S">S</option><option value="M">M</option><option value="L">L</option><option value="XL">XL</option><option value="XXL">XXL</option>
+            </select>
+          </label>
+        </div>
+        <div id="sol-campos-nino" class="campos hidden">
+          <label class="config-label">Talle
+            <select id="sol-talle-nino" class="config-input">
+              <option value="2">2</option><option value="4">4</option><option value="6">6</option><option value="8">8</option><option value="10">10</option><option value="12">12</option><option value="16">16</option>
+            </select>
+          </label>
+        </div>
+        <div id="sol-campos-tote" class="campos hidden">
+          <label class="config-label">Modelo
+            <select id="sol-modelo" class="config-input">
+              <option value="silla">Reposera</option>
+              <option value="vereda">Vereda</option>
+            </select>
+          </label>
+        </div>
+        <label class="config-label">Cantidad
+          <input type="number" id="sol-cantidad" class="config-input" min="1" value="1" />
+        </label>
+        <button type="button" id="btn-agregar-item-sol" class="btn-agregar-item">＋ Agregar ítem a la solicitud</button>
+        <div id="sol-stock-info" class="sol-stock-info"></div>
+      </div>
+
+      <label class="config-label">Precio total ($)
+        <input type="number" id="sol-precio" class="config-input" min="0" step="1" placeholder="0" data-autoset="true" />
+      </label>
       <label class="config-label">Notas (opcional)
         <input type="text" id="sol-notas" class="config-input" maxlength="200" placeholder="Ej: urgente para el domingo..." />
       </label>
-      <div id="sol-stock-info" class="sol-stock-info"></div>
       <p id="sol-error" class="error hidden"></p>
       <div class="modal-actions">
         <button id="btn-confirmar-solicitud" class="btn-primary">Crear solicitud</button>
@@ -525,6 +536,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=17"></script>
+  <script src="app.js?v=20"></script>
 </body>
 </html>
