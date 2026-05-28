@@ -628,6 +628,11 @@ document.querySelectorAll('input[name="pago"]').forEach(r => {
   r.addEventListener('change', () => {
     const isAnota = document.querySelector('input[name="pago"]:checked')?.value === 'anota';
     document.getElementById('campos-anota-nombre').classList.toggle('hidden', !isAnota);
+    if (isAnota) {
+      const dl = document.getElementById('anota-nombres-list');
+      const nombres = [...new Set(pedidos.filter(p => p.estadoFisico !== 'cancelado').map(p => p.para).filter(Boolean))];
+      dl.innerHTML = nombres.map(n => `<option value="${n.replace(/"/g, '&quot;')}"></option>`).join('');
+    }
     actualizarDisponible();
   });
 });

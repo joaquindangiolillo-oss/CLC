@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Stock - Cayo la Cabra</title>
-  <link rel="stylesheet" href="style.css?v=17" />
+  <link rel="stylesheet" href="style.css?v=18" />
 </head>
 <body>
   <header>
@@ -233,7 +233,8 @@
         </label>
         <div id="campos-anota-nombre" class="campos hidden">
           <label>Nombre (quién anota)
-            <input type="text" id="venta-nombre-anota" maxlength="60" placeholder="Ej: Juan García..." />
+            <input type="text" id="venta-nombre-anota" maxlength="60" placeholder="Ej: Juan García..." list="anota-nombres-list" autocomplete="off" />
+            <datalist id="anota-nombres-list"></datalist>
           </label>
         </div>
         <div class="venta-resumen">
@@ -525,6 +526,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=17"></script>
+  <script src="app.js?v=18"></script>
 </body>
 </html>
