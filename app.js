@@ -426,9 +426,9 @@ function formatPeso(n) {
 function renderRecaudado() {
   const arsHist = historial.filter(h => (h.moneda || 'ARS') === 'ARS').reduce((s, h) => s + (h.ingreso ?? 0), 0);
   const uyuHist = historial.filter(h => (h.moneda || 'ARS') === 'UYU').reduce((s, h) => s + (h.ingreso ?? 0), 0);
-  // Pedido payments are UYU by default (can be refined if currency added to pedidos later)
-  const uyuPed  = pedidos.reduce((s, p) => s + (p.pagos || []).reduce((ps, pg) => ps + pg.monto, 0), 0);
-  const totalARS = arsHist;
+  const arsPed  = pedidos.filter(p => (p.moneda || 'UYU') === 'ARS').reduce((s, p) => s + (p.pagos || []).reduce((ps, pg) => ps + pg.monto, 0), 0);
+  const uyuPed  = pedidos.filter(p => (p.moneda || 'UYU') === 'UYU').reduce((s, p) => s + (p.pagos || []).reduce((ps, pg) => ps + pg.monto, 0), 0);
+  const totalARS = arsHist + arsPed;
   const totalUYU = uyuHist + uyuPed;
 
   const arsEl = document.getElementById('recaudado-ars');
@@ -1584,6 +1584,10 @@ function renderPedidoCard(p) {
     pagado:   '<span class="pedido-pago-badge pago-ok">✅ Pagado</span>',
   }[epago] || '';
 
+  const monedaBadgePed = p.moneda === 'ARS'
+    ? '<span class="moneda-badge moneda-ars">ARS</span>'
+    : '<span class="moneda-badge moneda-uyu">UYU</span>';
+
   const estadoBadge = {
     solicitud: '<span class="pedido-estado-badge est-solicitud">Solicitud</span>',
     armado:    '<span class="pedido-estado-badge est-armado">📦 Armado</span>',
@@ -1635,7 +1639,7 @@ function renderPedidoCard(p) {
         <span class="pedido-para">${p.para}</span>
         <span class="pedido-item-desc">${pedidoDescItem(p)}${p.cantidad > 1 ? ` ×${p.cantidad}` : ''}</span>
       </div>
-      <div class="pedido-card-badges">${estadoBadge}${pagoBadge}</div>
+      <div class="pedido-card-badges">${estadoBadge}${pagoBadge}${monedaBadgePed}</div>
     </div>
     ${stockWarn}
     ${p.notas ? `<div class="pedido-notas">💬 ${p.notas}</div>` : ''}
@@ -1757,6 +1761,8 @@ document.getElementById('btn-nueva-solicitud').addEventListener('click', () => {
   document.getElementById('sol-stock-info').innerHTML = '';
   ['sol-campos-adulto','sol-campos-nino','sol-campos-tote'].forEach(id =>
     document.getElementById(id).classList.add('hidden'));
+  const uyuRadio = document.querySelector('input[name="moneda-sol"][value="UYU"]');
+  if (uyuRadio) uyuRadio.checked = true;
   document.getElementById('modal-solicitud').classList.remove('hidden');
   setTimeout(() => document.getElementById('sol-para').focus(), 80);
 });
@@ -1842,6 +1848,7 @@ document.getElementById('btn-confirmar-solicitud').addEventListener('click', () 
   if (isNaN(precio) || precio < 0) { errEl.textContent = 'Ingresá un precio válido.'; errEl.classList.remove('hidden'); return; }
   errEl.classList.add('hidden');
 
+  const monedaSol = document.querySelector('input[name="moneda-sol"]:checked')?.value || 'UYU';
   const pedido = {
     id:           Date.now(),
     fecha:        new Date().toLocaleString('es-AR'),
@@ -1849,6 +1856,7 @@ document.getElementById('btn-confirmar-solicitud').addEventListener('click', () 
     tipo:         cat,
     cantidad:     cant,
     precioTotal:  precio,
+    moneda:       monedaSol,
     estadoFisico: 'solicitud',
     pagos:        [],
     notas,

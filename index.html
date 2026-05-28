@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Stock - Cayo la Cabra</title>
-  <link rel="stylesheet" href="style.css?v=16" />
+  <link rel="stylesheet" href="style.css?v=17" />
 </head>
 <body>
   <header>
@@ -462,6 +462,12 @@
       <label class="config-label">Precio total ($)
         <input type="number" id="sol-precio" class="config-input" min="0" step="1" placeholder="0" />
       </label>
+      <label class="config-label">Moneda
+        <div class="pago-opciones">
+          <label class="pago-opcion"><input type="radio" name="moneda-sol" value="UYU" checked /><span>🇺🇾 Pesos URU</span></label>
+          <label class="pago-opcion"><input type="radio" name="moneda-sol" value="ARS" /><span>🇦🇷 Pesos ARG</span></label>
+        </div>
+      </label>
       <label class="config-label">Notas (opcional)
         <input type="text" id="sol-notas" class="config-input" maxlength="200" placeholder="Ej: urgente para el domingo..." />
       </label>
@@ -519,6 +525,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=16"></script>
+  <script src="app.js?v=17"></script>
 </body>
 </html>
