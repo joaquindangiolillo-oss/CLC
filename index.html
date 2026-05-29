@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Stock - Cayo la Cabra</title>
-  <link rel="stylesheet" href="style.css?v=20" />
+  <link rel="stylesheet" href="style.css?v=21" />
 </head>
 <body>
   <header>
@@ -380,6 +380,23 @@
     </div>
   </div>
 
+  <!-- ── MODAL BLOQUEO AUDITORÍA ── -->
+  <div id="modal-audit-bloqueo" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>⚠️ Saldo neto con diferencias</h2>
+        <button class="modal-cerrar" id="btn-cerrar-audit-bloqueo" aria-label="Cerrar">✕</button>
+      </div>
+      <p class="audit-bloqueo-desc">El conteo tiene diferencias que no cierran dentro de cada categoría. Para guardar, el saldo neto de remeras adultos, totes y niñxs debe ser <strong>cero</strong> por separado.</p>
+      <div id="audit-bloqueo-netos" class="audit-bloqueo-netos"></div>
+      <p class="audit-bloqueo-hint">¿Qué querés hacer?</p>
+      <div class="modal-actions">
+        <button id="btn-bloqueo-editar" class="btn-primary">✏️ Editar saldos</button>
+        <button id="btn-bloqueo-ventas" class="btn-secondary">💰 Ingresar ventas</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ── MODAL RESULTADO AUDITORÍA ── -->
   <div id="modal-resultado-auditoria" class="modal hidden">
     <div class="modal-content modal-wide">
@@ -536,6 +553,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20"></script>
+  <script src="app.js?v=21"></script>
 </body>
 </html>
