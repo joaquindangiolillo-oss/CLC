@@ -2284,7 +2284,17 @@ function generarStockPDF() {
   // Sección último control
   let auditSection = '';
   if (ultimaAudit) {
-    let snapTables = '<p class="no-snap">Sin detalle disponible para este control.</p>';
+    // Fallback: mostrar ajustes si no hay snapshot completo
+    let snapTables;
+    const ajustesList = ultimaAudit.ajustes || [];
+    if (ajustesList.length > 0) {
+      const filas = ajustesList.map(a => `<tr><td>${a.desc}</td><td>${a.anterior}</td><td>${a.nuevo}</td><td>${a.diff > 0 ? '+' : ''}${a.diff}</td></tr>`).join('');
+      snapTables = `<p class="no-snap" style="margin-bottom:8px">Este control no tiene foto completa del stock. Se muestran los ajustes registrados:</p>
+        <table><thead><tr><th>Artículo</th><th>Antes</th><th>Después</th><th>Diferencia</th></tr></thead>
+        <tbody>${filas}</tbody></table>`;
+    } else {
+      snapTables = '<p class="no-snap">Control sin diferencias registradas — stock coincidió con el conteo.</p>';
+    }
     if (ultimaAudit.stockSnapshot) {
       const ss = ultimaAudit.stockSnapshot;
       const snapAdultRows = VARIANTES.map(v => {
