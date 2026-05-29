@@ -2433,6 +2433,134 @@ function exportarStockWhatsApp() {
   window.open(`https://wa.me/?text=${encodeURIComponent(lines.join('\n'))}`, '_blank');
 }
 
+// ── Exportar ventas ───────────────────────────────────────────────────────────
+function _ventasRango() {
+  const desdeEl = document.getElementById('export-desde');
+  const hastaEl = document.getElementById('export-hasta');
+  const desde = desdeEl?.value ? new Date(desdeEl.value + 'T00:00:00').getTime() : 0;
+  const hasta = hastaEl?.value ? new Date(hastaEl.value + 'T23:59:59').getTime() : Infinity;
+  const ventas = historial.filter(h => h.id >= desde && h.id <= hasta);
+  const desdeTxt = desdeEl?.value ? new Date(desdeEl.value + 'T00:00:00').toLocaleDateString('es-AR') : null;
+  const hastaTxt = hastaEl?.value ? new Date(hastaEl.value + 'T00:00:00').toLocaleDateString('es-AR') : null;
+  const label = (desdeTxt || hastaTxt)
+    ? `${desdeTxt || '...'} → ${hastaTxt || '...'}`
+    : 'Todas las fechas';
+  return { ventas, label };
+}
+
+function _ventasTotales(ventas) {
+  const totalARS = ventas.filter(h => (h.moneda||'ARS')==='ARS').reduce((s,h)=>s+(h.ingreso??0),0);
+  const totalUYU = ventas.filter(h => (h.moneda||'ARS')==='UYU').reduce((s,h)=>s+(h.ingreso??0),0);
+  const totEfec  = ventas.reduce((s,h)=>s+(h.pago==='efectivo'?(h.ingreso??0):0),0);
+  const totTrans = ventas.reduce((s,h)=>s+(h.pago==='transferencia'?(h.ingreso??0):0),0);
+  const totReg   = ventas.reduce((s,h)=>h.pago==='regalo'?s+h.cantidad:s,0);
+  const totAnota = ventas.reduce((s,h)=>h.pago==='anota'?s+(h.precioUnit||0)*h.cantidad:s,0);
+  const cobradas = ventas.filter(h=>h.pago==='efectivo'||h.pago==='transferencia');
+  const unidRem  = cobradas.filter(h=>h._stock?.tipo==='adulto').reduce((s,h)=>s+h.cantidad,0);
+  const unidTote = cobradas.filter(h=>h._stock?.tipo==='tote').reduce((s,h)=>s+h.cantidad,0);
+  const unidNino = cobradas.filter(h=>h._stock?.tipo==='nino').reduce((s,h)=>s+h.cantidad,0);
+  return { totalARS, totalUYU, totEfec, totTrans, totReg, totAnota, unidRem, unidTote, unidNino };
+}
+
+function exportarVentasPDF() {
+  const { ventas, label } = _ventasRango();
+  const ahora = new Date().toLocaleString('es-AR');
+  const { totalARS, totalUYU, totEfec, totTrans, totReg, totAnota, unidRem, unidTote, unidNino } = _ventasTotales(ventas);
+  const fmtP = n => '$' + n.toLocaleString('es-AR');
+  const pagoLabel = p => ({efectivo:'Efectivo',transferencia:'Transf.',regalo:'Regalo',anota:'Anota'}[p]||p);
+
+  const rows = [...ventas].sort((a,b)=>a.id-b.id).map(h => {
+    const mon = (h.moneda||'ARS')==='UYU' ? ' UYU' : '';
+    const pagoColor = h.pago==='regalo'?'#27ae60':h.pago==='anota'?'#e67e22':'#333';
+    const totalTxt = h.pago==='regalo' ? 'Regalo'
+      : h.pago==='anota' ? `Adeuda ${fmtP((h.precioUnit||0)*h.cantidad)}${mon}`
+      : fmtP(h.ingreso??0)+mon;
+    return `<tr>
+      <td class="col-fecha">${h.fecha}</td>
+      <td>${h.descripcion}${h.nombreAnota?`<br><small>👤 ${h.nombreAnota}</small>`:''}</td>
+      <td class="col-c">${h.cantidad}</td>
+      <td class="col-r">${h.precioUnit?fmtP(h.precioUnit)+mon:'-'}</td>
+      <td class="col-r bold">${totalTxt}</td>
+      <td class="col-c" style="color:${pagoColor}">${pagoLabel(h.pago)}</td>
+    </tr>`;
+  }).join('');
+
+  const css = `
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Arial,sans-serif;font-size:10px;color:#111;padding:20px;max-width:900px;margin:0 auto}
+    .enc{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #111;padding-bottom:8px;margin-bottom:12px}
+    .enc h1{font-size:15px}.enc .meta{color:#666;font-size:9px;text-align:right}
+    .res{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px}
+    .rb{background:#f4f4f4;border:1px solid #ddd;border-radius:5px;padding:6px 10px;text-align:center;min-width:75px}
+    .rb.dark{background:#111;color:#fff;border-color:#111}
+    .rn{font-size:14px;font-weight:700}.rl{font-size:8px;text-transform:uppercase;letter-spacing:.05em;color:#666}
+    .rb.dark .rl{color:#aaa}
+    table{border-collapse:collapse;width:100%}
+    th{background:#222;color:#fff;border:1px solid #333;padding:4px 6px;font-size:9px;text-align:left}
+    td{border:1px solid #ddd;padding:3px 5px;font-size:9px;vertical-align:top}
+    tr:nth-child(even) td{background:#fafafa}
+    .col-fecha{white-space:nowrap;color:#555}.col-c{text-align:center}.col-r{text-align:right}
+    .bold{font-weight:700}small{color:#888;font-size:8px}
+    .footer{margin-top:10px;color:#bbb;font-size:8px;border-top:1px solid #eee;padding-top:5px}
+    @media print{body{padding:4px}}`;
+
+  const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+  <title>Ventas — Cayo la Cabra</title><style>${css}</style></head><body>
+  <div class="enc">
+    <div><h1>🐐 Cayo la Cabra — Ventas</h1>
+    <div style="color:#666;font-size:9px;margin-top:2px">Período: ${label}</div></div>
+    <div class="meta">Generado: ${ahora}<br>${ventas.length} venta${ventas.length!==1?'s':''}</div>
+  </div>
+  <div class="res">
+    <div class="rb dark"><div class="rn">${unidRem+unidTote+unidNino}</div><div class="rl">Unidades cobradas</div></div>
+    <div class="rb"><div class="rn">${fmtP(totalARS)}</div><div class="rl">Total ARS</div></div>
+    ${totalUYU>0?`<div class="rb"><div class="rn">${fmtP(totalUYU)} UYU</div><div class="rl">Total UYU</div></div>`:''}
+    <div class="rb"><div class="rn">${fmtP(totEfec)}</div><div class="rl">Efectivo</div></div>
+    <div class="rb"><div class="rn">${fmtP(totTrans)}</div><div class="rl">Transferencia</div></div>
+    ${totReg>0?`<div class="rb"><div class="rn">${totReg} u.</div><div class="rl">Regalos</div></div>`:''}
+    ${totAnota>0?`<div class="rb"><div class="rn">${fmtP(totAnota)}</div><div class="rl">Anotados (deben)</div></div>`:''}
+  </div>
+  <table>
+    <thead><tr><th>Fecha</th><th>Artículo</th><th>Cant.</th><th>Precio u.</th><th>Total</th><th>Pago</th></tr></thead>
+    <tbody>${rows.length ? rows : '<tr><td colspan="6" style="text-align:center;padding:12px;color:#999">Sin ventas en este período</td></tr>'}</tbody>
+  </table>
+  <p class="footer">Generado desde la app de stock · Cayo la Cabra</p>
+  <script>window.onload=()=>window.print()<\/script></body></html>`;
+
+  const w = window.open('', '_blank');
+  if (w) { w.document.write(html); w.document.close(); }
+}
+
+function exportarVentasWhatsApp() {
+  const { ventas, label } = _ventasRango();
+  const ahora = new Date().toLocaleString('es-AR');
+  const { totalARS, totalUYU, totEfec, totTrans, totReg, totAnota, unidRem, unidTote, unidNino } = _ventasTotales(ventas);
+  const fmtP = n => '$' + n.toLocaleString('es-AR');
+
+  const lines = [
+    '*🐐 Cayo la Cabra — Ventas*',
+    `📅 Período: ${label}`,
+    `${ventas.length} venta${ventas.length!==1?'s':''}`,
+    '',
+    '💰 *Totales*',
+    `  ARS: ${fmtP(totalARS)}`,
+    ...(totalUYU>0?[`  UYU: ${fmtP(totalUYU)}`]:[]),
+    `  Efectivo: ${fmtP(totEfec)}`,
+    `  Transferencia: ${fmtP(totTrans)}`,
+    ...(totReg>0?[`  Regalos: ${totReg} u.`]:[]),
+    ...(totAnota>0?[`  Anotados (deben): ${fmtP(totAnota)}`]:[]),
+    '',
+    `📦 *Unidades cobradas: ${unidRem+unidTote+unidNino}*`,
+    ...(unidRem>0?[`  Remeras adultos: ${unidRem}`]:[]),
+    ...(unidTote>0?[`  Tote bags: ${unidTote}`]:[]),
+    ...(unidNino>0?[`  Remeras niñxs: ${unidNino}`]:[]),
+    '',
+    `_Generado ${ahora}_`,
+  ];
+
+  window.open(`https://wa.me/?text=${encodeURIComponent(lines.join('\n'))}`, '_blank');
+}
+
 // ── Descargar PDF de auditoría ────────────────────────────────────────────────
 window.descargarAuditoriaPDF = function(id) {
   const a = auditorias.find(x => x.id === id);

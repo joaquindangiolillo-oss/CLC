@@ -1022,6 +1022,48 @@ td .stock-reservas { display: flex; flex-wrap: wrap; gap: 0.2rem; justify-conten
   opacity: 0.6;
 }
 
+/* ── Ventas export bar ── */
+.ventas-export-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin: 0.6rem 0 0.2rem;
+  padding: 0.6rem 0.8rem;
+  background: var(--bg-card);
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+}
+.ventas-export-fechas {
+  display: flex;
+  gap: 0.5rem;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.export-fecha-lbl {
+  font-size: 0.78rem;
+  color: var(--texto-tenue);
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  white-space: nowrap;
+}
+.export-fecha-input {
+  border: 1px solid var(--borde);
+  border-radius: 6px;
+  padding: 0.25rem 0.45rem;
+  font-size: 0.8rem;
+  background: var(--bg-main);
+  color: var(--texto);
+  min-height: 32px;
+}
+.ventas-export-btns {
+  display: flex;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
 /* ── Stock export buttons ── */
 .stock-export-bar {
   display: flex;

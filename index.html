@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Stock - Cayo la Cabra</title>
-  <link rel="stylesheet" href="style.css?v=24" />
+  <link rel="stylesheet" href="style.css?v=25" />
 </head>
 <body>
   <header>
@@ -132,6 +132,18 @@
         <button class="filtro-btn" data-filtro="transferencia">Transferencia</button>
         <button class="filtro-btn" data-filtro="regalo">Regalos</button>
         <button class="filtro-btn" data-filtro="anota">📝 Anotados</button>
+      </div>
+
+      <!-- Exportar ventas -->
+      <div class="ventas-export-bar">
+        <div class="ventas-export-fechas">
+          <label class="export-fecha-lbl">Desde <input type="date" id="export-desde" class="export-fecha-input"></label>
+          <label class="export-fecha-lbl">Hasta <input type="date" id="export-hasta" class="export-fecha-input"></label>
+        </div>
+        <div class="ventas-export-btns">
+          <button class="btn-exportar-pdf" onclick="exportarVentasPDF()">📄 PDF</button>
+          <button class="btn-exportar-wa"  onclick="exportarVentasWhatsApp()">📤 WhatsApp</button>
+        </div>
       </div>
 
       <!-- Lista -->
@@ -558,6 +570,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=24"></script>
+  <script src="app.js?v=25"></script>
 </body>
 </html>
