@@ -1022,12 +1022,26 @@ td .stock-reservas { display: flex; flex-wrap: wrap; gap: 0.2rem; justify-conten
   opacity: 0.6;
 }
 
-/* ── WhatsApp export button ── */
+/* ── Stock export buttons ── */
 .stock-export-bar {
   display: flex;
   justify-content: flex-end;
+  gap: 0.5rem;
   margin-bottom: 1rem;
 }
+.btn-exportar-pdf {
+  background: #4a7fc1;
+  color: #fff;
+  border: none;
+  border-radius: 20px;
+  padding: 0.45rem 1rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  min-height: 36px;
+  letter-spacing: 0.01em;
+}
+.btn-exportar-pdf:active { opacity: 0.8; }
 .btn-exportar-wa {
   background: #25d366;
   color: #fff;

@@ -2257,45 +2257,168 @@ if (gasUrl) {
   sincronizarDesdeNube(); // al abrir la app, traer datos frescos de la nube
 }
 
+// ── Helpers comunes para exportar stock ──────────────────────────────────────
+function _stockResumen() {
+  const totsTalle = TALLES_ADULTO.map(t =>
+    VARIANTES.reduce((s, v) => s + (estado.adultos[t]?.[v] ?? 0), 0));
+  const totAdultos = totsTalle.reduce((s, q) => s + q, 0);
+  const totTotes   = (estado.totes.silla || 0) + (estado.totes.vereda || 0);
+  const totNinos   = TALLES_NINO.reduce((s, t) => s + (estado.ninos[t] ?? 0), 0);
+  const ultimaAudit = auditorias.length > 0
+    ? [...auditorias].sort((a, b) => b.id - a.id)[0] : null;
+  return { totsTalle, totAdultos, totTotes, totNinos, ultimaAudit };
+}
+
+// ── PDF del stock actual ──────────────────────────────────────────────────────
+function generarStockPDF() {
+  const ahora = new Date().toLocaleString('es-AR');
+  const { totsTalle, totAdultos, totTotes, totNinos, ultimaAudit } = _stockResumen();
+  const totGeneral = totAdultos + totTotes + totNinos;
+
+  const adultRows = VARIANTES.map(v => {
+    const cells = TALLES_ADULTO.map(t => `<td>${estado.adultos[t]?.[v] ?? 0}</td>`).join('');
+    const sub = TALLES_ADULTO.reduce((s, t) => s + (estado.adultos[t]?.[v] ?? 0), 0);
+    return `<tr><td>${LABEL_VARIANTE[v]}</td>${cells}<td><strong>${sub}</strong></td></tr>`;
+  }).join('');
+
+  // Sección último control
+  let auditSection = '';
+  if (ultimaAudit) {
+    let snapTables = '<p class="no-snap">Sin detalle disponible para este control.</p>';
+    if (ultimaAudit.stockSnapshot) {
+      const ss = ultimaAudit.stockSnapshot;
+      const snapAdultRows = VARIANTES.map(v => {
+        const cells = TALLES_ADULTO.map(t => `<td>${ss.adultos[t]?.[v] ?? 0}</td>`).join('');
+        const sub = TALLES_ADULTO.reduce((s, t) => s + (ss.adultos[t]?.[v] ?? 0), 0);
+        return `<tr><td>${LABEL_VARIANTE[v]}</td>${cells}<td><strong>${sub}</strong></td></tr>`;
+      }).join('');
+      const snapTots  = TALLES_ADULTO.map(t => VARIANTES.reduce((s, v) => s + (ss.adultos[t]?.[v] ?? 0), 0));
+      const snapTotA  = snapTots.reduce((s, q) => s + q, 0);
+      const snapTotT  = (ss.totes.silla || 0) + (ss.totes.vereda || 0);
+      const snapTotN  = TALLES_NINO.reduce((s, t) => s + (ss.ninos?.[t] ?? 0), 0);
+      snapTables = `
+        <h4>👕 Remeras adultos</h4>
+        <table><thead><tr><th>Diseño</th>${TALLES_ADULTO.map(t=>`<th>${t}</th>`).join('')}<th>Sub</th></tr></thead>
+        <tbody>${snapAdultRows}</tbody>
+        <tfoot><tr><td>Total</td>${snapTots.map(q=>`<td>${q}</td>`).join('')}<td><strong>${snapTotA}</strong></td></tr></tfoot></table>
+        <h4>👜 Tote Bags</h4>
+        <table class="tbl-sm"><thead><tr><th>Modelo</th><th>Cant.</th></tr></thead>
+        <tbody><tr><td>Reposera</td><td>${ss.totes.silla||0}</td></tr><tr><td>Vereda</td><td>${ss.totes.vereda||0}</td></tr></tbody>
+        <tfoot><tr><td>Total</td><td><strong>${snapTotT}</strong></td></tr></tfoot></table>
+        <h4>👶 Remeras niñxs</h4>
+        <table><thead><tr>${TALLES_NINO.map(t=>`<th>T${t}</th>`).join('')}<th>Total</th></tr></thead>
+        <tbody><tr>${TALLES_NINO.map(t=>`<td>${ss.ninos?.[t]??0}</td>`).join('')}<td><strong>${snapTotN}</strong></td></tr></tbody></table>`;
+    }
+    auditSection = `
+      <div class="page-break"></div>
+      <h3>📋 Último control de stock — ${ultimaAudit.fecha}</h3>
+      ${ultimaAudit.motivo ? `<p class="audit-meta">Motivo registrado: <em>${ultimaAudit.motivo}${ultimaAudit.motivoDetalle ? ' — '+ultimaAudit.motivoDetalle : ''}</em></p>` : ''}
+      ${snapTables}`;
+  }
+
+  const css = `
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Arial,sans-serif;font-size:11px;color:#111;padding:24px;max-width:920px;margin:0 auto}
+    .encabezado{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #111;padding-bottom:8px;margin-bottom:16px}
+    .encabezado h1{font-size:18px}
+    .encabezado .fecha{color:#666;font-size:10px}
+    .resumen{display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap}
+    .res-box{background:#f4f4f4;border:1px solid #ddd;border-radius:6px;padding:8px 14px;text-align:center;min-width:90px}
+    .res-box.total{background:#111;color:#fff;border-color:#111}
+    .res-num{font-size:22px;font-weight:700}
+    .res-lbl{font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:#666}
+    .res-box.total .res-lbl{color:#aaa}
+    h3{font-size:12px;text-transform:uppercase;letter-spacing:.06em;border-bottom:1.5px solid #111;padding-bottom:4px;margin:20px 0 10px}
+    h4{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:#555;margin:12px 0 5px}
+    table{border-collapse:collapse;margin-bottom:12px;width:100%}
+    table.tbl-sm{max-width:240px}
+    th{background:#222;color:#fff;border:1px solid #333;padding:5px 7px;font-size:10px;text-align:center}
+    th:first-child{text-align:left}
+    td{border:1px solid #ddd;padding:4px 7px;font-size:11px;text-align:center}
+    td:first-child{text-align:left;font-weight:600}
+    tfoot td{background:#f0f0f0;font-weight:700}
+    .audit-meta{font-size:10px;color:#555;margin-bottom:8px;font-style:italic}
+    .no-snap{color:#999;font-style:italic;font-size:10px;margin-bottom:8px}
+    .page-break{border-top:2px solid #111;margin:24px 0 0}
+    .footer{margin-top:20px;color:#bbb;font-size:9px;border-top:1px solid #eee;padding-top:6px}
+    @media print{body{padding:4px}.page-break{page-break-before:always;border:none;margin:0}}`;
+
+  const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+  <title>Stock Cayo la Cabra — ${ahora}</title>
+  <style>${css}</style></head><body>
+  <div class="encabezado"><h1>🐐 Cayo la Cabra — Stock</h1><span class="fecha">Generado: ${ahora}</span></div>
+  <div class="resumen">
+    <div class="res-box"><div class="res-num">${totAdultos}</div><div class="res-lbl">Remeras adultos</div></div>
+    <div class="res-box"><div class="res-num">${totTotes}</div><div class="res-lbl">Tote Bags</div></div>
+    <div class="res-box"><div class="res-num">${totNinos}</div><div class="res-lbl">Remeras niñxs</div></div>
+    <div class="res-box total"><div class="res-num">${totGeneral}</div><div class="res-lbl">Total general</div></div>
+  </div>
+  <h3>👕 Remeras Adultos</h3>
+  <table><thead><tr><th>Diseño</th>${TALLES_ADULTO.map(t=>`<th>${t}</th>`).join('')}<th>Subtotal</th></tr></thead>
+  <tbody>${adultRows}</tbody>
+  <tfoot><tr><td>Total</td>${totsTalle.map(q=>`<td>${q}</td>`).join('')}<td>${totAdultos}</td></tr></tfoot></table>
+  <h3>👜 Tote Bags</h3>
+  <table class="tbl-sm"><thead><tr><th>Modelo</th><th>Cantidad</th></tr></thead>
+  <tbody><tr><td>Reposera</td><td>${estado.totes.silla||0}</td></tr><tr><td>Vereda</td><td>${estado.totes.vereda||0}</td></tr></tbody>
+  <tfoot><tr><td>Total</td><td>${totTotes}</td></tr></tfoot></table>
+  <h3>👶 Remeras Niñxs</h3>
+  <table><thead><tr>${TALLES_NINO.map(t=>`<th>T${t}</th>`).join('')}<th>Total</th></tr></thead>
+  <tbody><tr>${TALLES_NINO.map(t=>`<td>${estado.ninos[t]??0}</td>`).join('')}<td><strong>${totNinos}</strong></td></tr></tbody></table>
+  ${auditSection}
+  <p class="footer">Generado desde la app de stock · Cayo la Cabra</p>
+  <script>window.onload=()=>window.print()<\/script></body></html>`;
+
+  const w = window.open('', '_blank');
+  if (w) { w.document.write(html); w.document.close(); }
+}
+
 // ── Exportar stock por WhatsApp ───────────────────────────────────────────────
 function exportarStockWhatsApp() {
-  const ultimaAudit = auditorias.length > 0
-    ? [...auditorias].sort((a, b) => b.id - a.id)[0]
-    : null;
+  const ahora = new Date().toLocaleString('es-AR');
+  const { totsTalle, totAdultos, totTotes, totNinos, ultimaAudit } = _stockResumen();
+  const totGeneral = totAdultos + totTotes + totNinos;
 
-  const lines = ['🐐 *Cayo la Cabra — Stock*'];
-  lines.push(ultimaAudit
-    ? `📅 Último control de stock: ${ultimaAudit.fecha}`
-    : '📅 Sin controles de stock registrados');
-  lines.push('');
+  // Tabla monoespaciada (se muestra como código en WhatsApp con ```)
+  const rp = (s, n) => String(s).padStart(n);
+  const lp = (s, n) => String(s).padEnd(n);
+  const lW = 15, nW = 4;
+  const sep = '─'.repeat(lW + nW * TALLES_ADULTO.length + nW + 1);
 
-  // Adultos
-  lines.push('*👕 REMERAS ADULTOS*');
-  VARIANTES.forEach(v => {
-    const talles = TALLES_ADULTO.map(t => `${t}:${estado.adultos[t]?.[v] ?? 0}`).join(' ');
-    lines.push(`${LABEL_VARIANTE[v]}: ${talles}`);
-  });
-  const totAdultos = VARIANTES.reduce((s, v) =>
-    s + TALLES_ADULTO.reduce((ts, t) => ts + (estado.adultos[t]?.[v] ?? 0), 0), 0);
-  lines.push(`_Total: ${totAdultos} u._`);
-  lines.push('');
+  const bloque = [
+    'REMERAS ADULTOS',
+    lp('', lW) + TALLES_ADULTO.map(t => rp(t, nW)).join('') + rp('Total', nW + 1),
+    sep,
+    ...VARIANTES.map(v => {
+      const sub = TALLES_ADULTO.reduce((s, t) => s + (estado.adultos[t]?.[v] ?? 0), 0);
+      return lp(LABEL_VARIANTE[v], lW)
+        + TALLES_ADULTO.map(t => rp(estado.adultos[t]?.[v] ?? 0, nW)).join('')
+        + rp(sub, nW + 1);
+    }),
+    sep,
+    lp('TOTAL', lW) + totsTalle.map(q => rp(q, nW)).join('') + rp(totAdultos, nW + 1),
+    '',
+    'TOTE BAGS',
+    `Reposera: ${rp(estado.totes.silla || 0, 2)}   Vereda: ${rp(estado.totes.vereda || 0, 2)}   Total: ${totTotes}`,
+    '',
+    'REMERAS NIÑXS',
+    TALLES_NINO.map(t => rp('T' + t, nW)).join('') + rp('Total', nW + 1),
+    TALLES_NINO.map(t => rp(estado.ninos[t] ?? 0, nW)).join('') + rp(totNinos, nW + 1),
+    '',
+    `TOTAL GENERAL: ${totGeneral} unidades`,
+  ].join('\n');
 
-  // Totes
-  lines.push('*👜 TOTE BAGS*');
-  lines.push(`Reposera: ${estado.totes.silla || 0}`);
-  lines.push(`Vereda: ${estado.totes.vereda || 0}`);
-  lines.push(`_Total: ${(estado.totes.silla || 0) + (estado.totes.vereda || 0)} u._`);
-  lines.push('');
-
-  // Niños
-  lines.push('*👶 REMERAS NIÑXS*');
-  lines.push(TALLES_NINO.map(t => `T${t}:${estado.ninos[t] ?? 0}`).join(' '));
-  const totNinos = TALLES_NINO.reduce((s, t) => s + (estado.ninos[t] ?? 0), 0);
-  lines.push(`_Total: ${totNinos} u._`);
-  lines.push('');
-
-  const totGeneral = totAdultos + (estado.totes.silla || 0) + (estado.totes.vereda || 0) + totNinos;
-  lines.push(`📦 *Total general: ${totGeneral} unidades*`);
+  const lines = [
+    '*🐐 Cayo la Cabra — Stock*',
+    `📅 ${ahora}`,
+    '',
+    '```',
+    bloque,
+    '```',
+    '',
+    ultimaAudit
+      ? `_📋 Último control de stock: ${ultimaAudit.fecha}_`
+      : '_Sin controles de stock registrados_',
+  ];
 
   window.open(`https://wa.me/?text=${encodeURIComponent(lines.join('\n'))}`, '_blank');
 }
