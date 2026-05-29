@@ -1548,7 +1548,10 @@ function renderHistorialAuditorias() {
           <span class="audit-net ${cls}">${netLbl}</span>
           ${motivoHtml}
         </div>
-        <span class="audit-toggle-icon">▼</span>
+        <div class="audit-hist-acciones">
+          <button class="btn-audit-pdf" onclick="event.stopPropagation();descargarAuditoriaPDF(${a.id})" title="Descargar PDF">📄 PDF</button>
+          <span class="audit-toggle-icon">▼</span>
+        </div>
       </div>
       <div class="audit-hist-detalle audit-collapsed">
         ${ajustesHtml}
@@ -2253,3 +2256,141 @@ if (gasUrl) {
   setSincStatus('syncing');
   sincronizarDesdeNube(); // al abrir la app, traer datos frescos de la nube
 }
+
+// ── Exportar stock por WhatsApp ───────────────────────────────────────────────
+function exportarStockWhatsApp() {
+  const ultimaAudit = auditorias.length > 0
+    ? [...auditorias].sort((a, b) => b.id - a.id)[0]
+    : null;
+
+  const lines = ['🐐 *Cayo la Cabra — Stock*'];
+  lines.push(ultimaAudit
+    ? `📅 Último control de stock: ${ultimaAudit.fecha}`
+    : '📅 Sin controles de stock registrados');
+  lines.push('');
+
+  // Adultos
+  lines.push('*👕 REMERAS ADULTOS*');
+  VARIANTES.forEach(v => {
+    const talles = TALLES_ADULTO.map(t => `${t}:${estado.adultos[t]?.[v] ?? 0}`).join(' ');
+    lines.push(`${LABEL_VARIANTE[v]}: ${talles}`);
+  });
+  const totAdultos = VARIANTES.reduce((s, v) =>
+    s + TALLES_ADULTO.reduce((ts, t) => ts + (estado.adultos[t]?.[v] ?? 0), 0), 0);
+  lines.push(`_Total: ${totAdultos} u._`);
+  lines.push('');
+
+  // Totes
+  lines.push('*👜 TOTE BAGS*');
+  lines.push(`Reposera: ${estado.totes.silla || 0}`);
+  lines.push(`Vereda: ${estado.totes.vereda || 0}`);
+  lines.push(`_Total: ${(estado.totes.silla || 0) + (estado.totes.vereda || 0)} u._`);
+  lines.push('');
+
+  // Niños
+  lines.push('*👶 REMERAS NIÑXS*');
+  lines.push(TALLES_NINO.map(t => `T${t}:${estado.ninos[t] ?? 0}`).join(' '));
+  const totNinos = TALLES_NINO.reduce((s, t) => s + (estado.ninos[t] ?? 0), 0);
+  lines.push(`_Total: ${totNinos} u._`);
+  lines.push('');
+
+  const totGeneral = totAdultos + (estado.totes.silla || 0) + (estado.totes.vereda || 0) + totNinos;
+  lines.push(`📦 *Total general: ${totGeneral} unidades*`);
+
+  window.open(`https://wa.me/?text=${encodeURIComponent(lines.join('\n'))}`, '_blank');
+}
+
+// ── Descargar PDF de auditoría ────────────────────────────────────────────────
+window.descargarAuditoriaPDF = function(id) {
+  const a = auditorias.find(x => x.id === id);
+  if (!a) return;
+
+  // Ajustes
+  const ajustesRows = a.ajustes.map(aj => {
+    const d = aj.diff > 0 ? `+${aj.diff}` : String(aj.diff);
+    const c = aj.diff < 0 ? '#c0392b' : '#27ae60';
+    return `<tr><td>${aj.desc}</td><td>${aj.anterior}</td><td>${aj.nuevo}</td>
+            <td style="color:${c};font-weight:700;text-align:center">${d}</td></tr>`;
+  }).join('');
+
+  const ajustesSection = a.ajustes.length > 0 ? `
+    <h3>Ajustes aplicados (${a.ajustes.length})</h3>
+    <table>
+      <thead><tr><th>Ítem</th><th>Anterior</th><th>Contado</th><th>Diferencia</th></tr></thead>
+      <tbody>${ajustesRows}</tbody>
+    </table>` : `<p class="ok-msg">✅ Sin diferencias — todo lo contado coincidió con el sistema.</p>`;
+
+  const motivoSection = a.motivo
+    ? `<p><strong>Motivo:</strong> ${a.motivo}${a.motivoDetalle ? ` — ${a.motivoDetalle}` : ''}</p>` : '';
+
+  // Stock snapshot
+  let snapshotSection = '';
+  if (a.stockSnapshot) {
+    const ss = a.stockSnapshot;
+    const adultRows = VARIANTES.map(v => {
+      const cells = TALLES_ADULTO.map(t => `<td>${ss.adultos[t]?.[v] ?? 0}</td>`).join('');
+      const sub = TALLES_ADULTO.reduce((s, t) => s + (ss.adultos[t]?.[v] ?? 0), 0);
+      return `<tr><td>${LABEL_VARIANTE[v]}</td>${cells}<td><strong>${sub}</strong></td></tr>`;
+    }).join('');
+    const totsPorTalle = TALLES_ADULTO.map(t =>
+      VARIANTES.reduce((s, v) => s + (ss.adultos[t]?.[v] ?? 0), 0));
+    const totAdulto = totsPorTalle.reduce((s, q) => s + q, 0);
+    const totTotes  = (ss.totes.silla || 0) + (ss.totes.vereda || 0);
+    const totNinos  = TALLES_NINO.reduce((s, t) => s + (ss.ninos?.[t] ?? 0), 0);
+
+    snapshotSection = `
+      <h3>Stock verificado en este control</h3>
+      <h4>👕 Remeras Adultos</h4>
+      <table>
+        <thead><tr><th>Diseño</th>${TALLES_ADULTO.map(t=>`<th>${t}</th>`).join('')}<th>Sub</th></tr></thead>
+        <tbody>${adultRows}</tbody>
+        <tfoot><tr><td><strong>Total</strong></td>${totsPorTalle.map(q=>`<td><strong>${q}</strong></td>`).join('')}<td><strong>${totAdulto}</strong></td></tr></tfoot>
+      </table>
+      <h4>👜 Tote Bags</h4>
+      <table>
+        <thead><tr><th>Modelo</th><th>Cantidad</th></tr></thead>
+        <tbody>
+          <tr><td>Reposera</td><td>${ss.totes.silla || 0}</td></tr>
+          <tr><td>Vereda</td><td>${ss.totes.vereda || 0}</td></tr>
+        </tbody>
+        <tfoot><tr><td><strong>Total</strong></td><td><strong>${totTotes}</strong></td></tr></tfoot>
+      </table>
+      <h4>👶 Remeras Niñxs</h4>
+      <table>
+        <thead><tr>${TALLES_NINO.map(t=>`<th>T${t}</th>`).join('')}<th>Total</th></tr></thead>
+        <tbody><tr>${TALLES_NINO.map(t=>`<td>${ss.ninos?.[t]??0}</td>`).join('')}<td><strong>${totNinos}</strong></td></tr></tbody>
+      </table>`;
+  }
+
+  const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+  <title>Control de Stock — ${a.fecha}</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Arial,sans-serif;font-size:12px;color:#222;padding:24px;max-width:900px;margin:0 auto}
+    h1{font-size:17px;margin-bottom:4px}
+    h2{font-size:12px;color:#666;margin-bottom:16px;font-weight:normal}
+    h3{font-size:13px;margin:18px 0 8px;border-bottom:2px solid #222;padding-bottom:4px;text-transform:uppercase;letter-spacing:.04em}
+    h4{font-size:11px;margin:12px 0 6px;color:#555;text-transform:uppercase}
+    table{width:100%;border-collapse:collapse;margin-bottom:10px}
+    th{background:#f0f0f0;border:1px solid #ccc;padding:4px 7px;font-size:10px;text-align:center}
+    th:first-child{text-align:left}
+    td{border:1px solid #ddd;padding:4px 7px;font-size:10px;text-align:center}
+    td:first-child{text-align:left}
+    tfoot td{background:#f9f9f9}
+    p{margin:6px 0;font-size:11px}
+    .ok-msg{color:#27ae60;font-weight:700;margin:12px 0}
+    .footer{margin-top:24px;color:#aaa;font-size:9px}
+    @media print{body{padding:0}}
+  </style></head><body>
+  <h1>🐐 Cayo la Cabra — Control de Stock</h1>
+  <h2>📅 ${a.fecha}</h2>
+  ${motivoSection}
+  ${ajustesSection}
+  ${snapshotSection}
+  <p class="footer">Generado desde la app de stock · Cayo la Cabra</p>
+  <script>window.onload=()=>window.print()<\/script>
+  </body></html>`;
+
+  const w = window.open('', '_blank');
+  if (w) { w.document.write(html); w.document.close(); }
+};
