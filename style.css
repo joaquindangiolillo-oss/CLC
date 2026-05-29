@@ -951,6 +951,77 @@ td .stock-reservas { display: flex; flex-wrap: wrap; gap: 0.2rem; justify-conten
 .modo-lectura #btn-nueva-solicitud { display: none !important; }
 .modo-lectura .pedido-acciones     { display: none !important; }
 
+/* ── Modal bloqueo auditoría ── */
+.audit-bloqueo-desc {
+  color: var(--texto-tenue);
+  font-size: 0.88rem;
+  line-height: 1.5;
+  margin-bottom: 1rem;
+}
+.audit-bloqueo-netos {
+  background: rgba(231,76,60,0.08);
+  border: 1px solid rgba(231,76,60,0.22);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 10px;
+}
+.audit-bloqueo-fila {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 0;
+  font-size: 0.88rem;
+}
+.audit-bloqueo-fila:not(:last-child) { border-bottom: 1px solid var(--borde); }
+.audit-bloqueo-hint {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--texto);
+  margin-bottom: 0.5rem;
+}
+
+/* ── Snapshot de stock en auditoría ── */
+.audit-snapshot {
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
+  border-top: 1px dashed var(--borde);
+}
+.audit-snapshot-titulo {
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--texto-tenue);
+  margin-bottom: 0.6rem;
+}
+.audit-snapshot-fila {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.8rem;
+}
+.snap-cat {
+  font-weight: 700;
+  color: var(--texto);
+  min-width: 110px;
+  flex-shrink: 0;
+  padding-top: 1px;
+}
+.snap-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.5rem;
+}
+.snap-item {
+  color: var(--texto-tenue);
+  white-space: nowrap;
+}
+.snap-cero {
+  font-style: italic;
+  opacity: 0.6;
+}
+
 /* ── Multi-item solicitud ── */
 .sol-seccion-items {
   border: 1px solid var(--borde);

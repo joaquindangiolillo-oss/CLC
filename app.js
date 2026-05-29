@@ -1388,8 +1388,29 @@ document.getElementById('btn-guardar-auditoria').addEventListener('click', () =>
     return;
   }
 
-  const diferenciaNeta = ajustes.reduce((s, a) => s + a.diff, 0);
-  mostrarResultadoAuditoria({ ajustes, coincidencias, sinContar, diferenciaNeta });
+  // Validación: saldo neto por categoría debe ser 0
+  const netoAdulto = ajustes.filter(a => a.tipo === 'adulto').reduce((s, a) => s + a.diff, 0);
+  const netoTote   = ajustes.filter(a => a.tipo === 'tote').reduce((s, a) => s + a.diff, 0);
+  const netoNino   = ajustes.filter(a => a.tipo === 'nino').reduce((s, a) => s + a.diff, 0);
+
+  if (netoAdulto !== 0 || netoTote !== 0 || netoNino !== 0) {
+    const fmtNeto = n => {
+      if (n === 0) return '<span class="audit-net-ok">✅ 0</span>';
+      const s = n > 0 ? `+${n}` : String(n);
+      return `<span class="${n < 0 ? 'audit-net-neg' : 'audit-net-pos'}">${s} u.</span>`;
+    };
+    document.getElementById('audit-bloqueo-netos').innerHTML = `
+      <div class="audit-bloqueo-fila"><span>👕 Remeras adultos</span>${fmtNeto(netoAdulto)}</div>
+      <div class="audit-bloqueo-fila"><span>👜 Tote Bags</span>${fmtNeto(netoTote)}</div>
+      <div class="audit-bloqueo-fila"><span>👶 Remeras niñxs</span>${fmtNeto(netoNino)}</div>
+    `;
+    // Guardamos la comparación por si vuelven a editar
+    auditComparacion = { ajustes, coincidencias, sinContar, diferenciaNeta: netoAdulto + netoTote + netoNino };
+    document.getElementById('modal-audit-bloqueo').classList.remove('hidden');
+    return;
+  }
+
+  mostrarResultadoAuditoria({ ajustes, coincidencias, sinContar, diferenciaNeta: 0 });
 });
 
 function aplicarAjustesAuditoria(motivo, motivoDetalle) {
@@ -1401,6 +1422,13 @@ function aplicarAjustesAuditoria(motivo, motivoDetalle) {
     else if (aj.tipo === 'nino') estado.ninos[aj.talle]                = aj.nuevo;
   });
 
+  // Snapshot del stock verificado (después de aplicar ajustes)
+  const stockSnapshot = {
+    adultos: JSON.parse(JSON.stringify(estado.adultos)),
+    totes:   JSON.parse(JSON.stringify(estado.totes)),
+    ninos:   JSON.parse(JSON.stringify(estado.ninos)),
+  };
+
   const entrada = {
     id:            Date.now(),
     fecha:         new Date().toLocaleString('es-AR'),
@@ -1408,6 +1436,7 @@ function aplicarAjustesAuditoria(motivo, motivoDetalle) {
     diferenciaNeta,
     motivo:        motivo || null,
     motivoDetalle: motivoDetalle || '',
+    stockSnapshot,
   };
 
   auditorias.push(entrada);
@@ -1464,6 +1493,53 @@ function renderHistorialAuditorias() {
           </div>`;
         }).join('');
 
+    // Snapshot del stock en esa auditoría
+    let snapshotHtml = '';
+    if (a.stockSnapshot) {
+      const ss = a.stockSnapshot;
+      // Adultos: total + desglose por variante
+      const totAdulto = TALLES_ADULTO.reduce((s, t) =>
+        s + Object.values(ss.adultos[t] || {}).reduce((a, b) => a + b, 0), 0);
+      const adultRows = GRUPOS_ADULTO.flatMap(g => g.variantes).map(v => {
+        const tot = TALLES_ADULTO.reduce((s, t) => s + (ss.adultos[t]?.[v] ?? 0), 0);
+        if (tot === 0) return '';
+        const talleDetalle = TALLES_ADULTO.map(t => {
+          const q = ss.adultos[t]?.[v] ?? 0;
+          return q > 0 ? `${t}:${q}` : '';
+        }).filter(Boolean).join(' ');
+        return `<span class="snap-item"><strong>${LABEL_VARIANTE[v]}</strong> ${tot} (${talleDetalle})</span>`;
+      }).filter(Boolean).join('');
+
+      // Totes
+      const totTotes = (ss.totes.silla || 0) + (ss.totes.vereda || 0);
+      const totesRow = totTotes > 0
+        ? `<span class="snap-item">Reposera: ${ss.totes.silla || 0}</span><span class="snap-item">Vereda: ${ss.totes.vereda || 0}</span>`
+        : '<span class="snap-item snap-cero">sin stock</span>';
+
+      // Niñxs
+      const ninoEntries = Object.entries(ss.ninos || {}).filter(([,q]) => q > 0);
+      const ninosRow = ninoEntries.length > 0
+        ? ninoEntries.map(([t, q]) => `<span class="snap-item">T${t}:${q}</span>`).join('')
+        : '<span class="snap-item snap-cero">sin stock</span>';
+
+      snapshotHtml = `
+        <div class="audit-snapshot">
+          <div class="audit-snapshot-titulo">📦 Stock verificado en esta auditoría</div>
+          <div class="audit-snapshot-fila">
+            <span class="snap-cat">👕 Adultos (${totAdulto} u.)</span>
+            <div class="snap-items">${adultRows || '<span class="snap-cero">sin stock</span>'}</div>
+          </div>
+          <div class="audit-snapshot-fila">
+            <span class="snap-cat">👜 Totes (${totTotes} u.)</span>
+            <div class="snap-items">${totesRow}</div>
+          </div>
+          <div class="audit-snapshot-fila">
+            <span class="snap-cat">👶 Niñxs (${ninoEntries.reduce((s,[,q])=>s+q,0)} u.)</span>
+            <div class="snap-items">${ninosRow}</div>
+          </div>
+        </div>`;
+    }
+
     return `<div class="audit-hist-item" data-id="${a.id}">
       <div class="audit-hist-header" onclick="toggleAuditItem(${a.id})">
         <div class="audit-hist-meta">
@@ -1477,6 +1553,7 @@ function renderHistorialAuditorias() {
       <div class="audit-hist-detalle audit-collapsed">
         ${ajustesHtml}
         ${detalleHtml}
+        ${snapshotHtml}
       </div>
     </div>`;
   }).join('');
@@ -1592,6 +1669,20 @@ document.getElementById('btn-confirmar-resultado').addEventListener('click', () 
     document.getElementById('modal-resultado-auditoria').classList.add('hidden');
     auditComparacion = null;
   });
+});
+
+// ── Modal bloqueo auditoría ───────────────────────────────────────────────────
+['btn-cerrar-audit-bloqueo', 'btn-bloqueo-editar'].forEach(id => {
+  document.getElementById(id).addEventListener('click', () => {
+    document.getElementById('modal-audit-bloqueo').classList.add('hidden');
+    auditComparacion = null;
+  });
+});
+
+document.getElementById('btn-bloqueo-ventas').addEventListener('click', () => {
+  document.getElementById('modal-audit-bloqueo').classList.add('hidden');
+  auditComparacion = null;
+  irATab('ventas');
 });
 
 document.getElementById('modal-resultado-auditoria').addEventListener('click', e => {
