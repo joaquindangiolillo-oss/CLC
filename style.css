@@ -584,6 +584,8 @@ button.total-item {
 .hist-pago--anota   { background: rgba(243,156,18,0.15); color: #f39c12; }
 .vcard--anota       { border-color: rgba(243,156,18,0.3); }
 .vcard--anota .vcard-valor { color: #f39c12; }
+.vcard--pegotines       { border-color: rgba(155,89,182,0.3); }
+.vcard--pegotines .vcard-valor { color: #9b59b6; }
 .anota-nombre       { display: inline-block; font-size: 0.78rem; color: #f39c12;
                       background: rgba(243,156,18,0.1); border-radius: 4px;
                       padding: 0.1rem 0.4rem; margin-left: 0.4rem; font-weight: 600; }
