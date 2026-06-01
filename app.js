@@ -488,17 +488,21 @@ let filtroVentas = 'todos';
 
 function renderVentas() {
   // Totales globales separados por moneda
-  const cobradas   = historial.filter(h => h.pago === 'efectivo' || h.pago === 'transferencia');
-  const totalUnid  = cobradas.reduce((s, h) => s + h.cantidad, 0);
-  const unidRemera = cobradas.filter(h => h._stock?.tipo === 'adulto').reduce((s, h) => s + h.cantidad, 0);
-  const unidTote   = cobradas.filter(h => h._stock?.tipo === 'tote').reduce((s, h) => s + h.cantidad, 0);
-  const unidNino   = cobradas.filter(h => h._stock?.tipo === 'nino').reduce((s, h) => s + h.cantidad, 0);
-  const totalARS   = historial.filter(h => (h.moneda || 'ARS') === 'ARS').reduce((s, h) => s + (h.ingreso ?? 0), 0);
-  const totalUYU   = historial.filter(h => (h.moneda || 'ARS') === 'UYU').reduce((s, h) => s + (h.ingreso ?? 0), 0);
-  const totalEfec  = historial.reduce((s, h) => s + (h.pago === 'efectivo'      ? (h.ingreso ?? 0) : 0), 0);
-  const totalTrans = historial.reduce((s, h) => s + (h.pago === 'transferencia' ? (h.ingreso ?? 0) : 0), 0);
-  const totalRegU   = historial.reduce((s, h) => h.pago === 'regalo' ? s + h.cantidad : s, 0);
-  const totalAnotaM = historial.reduce((s, h) => h.pago === 'anota'  ? s + (h.precioUnit || 0) * h.cantidad : s, 0);
+  const cobradas     = historial.filter(h => h.pago === 'efectivo' || h.pago === 'transferencia');
+  const unidRemera   = cobradas.filter(h => h._stock?.tipo === 'adulto').reduce((s, h) => s + h.cantidad, 0);
+  const unidTote     = cobradas.filter(h => h._stock?.tipo === 'tote').reduce((s, h) => s + h.cantidad, 0);
+  const unidNino     = cobradas.filter(h => h._stock?.tipo === 'nino').reduce((s, h) => s + h.cantidad, 0);
+  const pegEntradas  = historial.filter(h => h._stock?.tipo === 'pegotines');
+  const unidPeg      = pegEntradas.reduce((s, h) => s + h.cantidad, 0);
+  const totalPegARS  = pegEntradas.filter(h => (h.moneda||'ARS')==='ARS').reduce((s, h) => s + (h.ingreso ?? 0), 0);
+  const totalPegUYU  = pegEntradas.filter(h => (h.moneda||'ARS')==='UYU').reduce((s, h) => s + (h.ingreso ?? 0), 0);
+  const totalUnid    = unidRemera + unidTote + unidNino;
+  const totalARS     = historial.filter(h => (h.moneda || 'ARS') === 'ARS').reduce((s, h) => s + (h.ingreso ?? 0), 0);
+  const totalUYU     = historial.filter(h => (h.moneda || 'ARS') === 'UYU').reduce((s, h) => s + (h.ingreso ?? 0), 0);
+  const totalEfec    = historial.reduce((s, h) => s + (h.pago === 'efectivo'      ? (h.ingreso ?? 0) : 0), 0);
+  const totalTrans   = historial.reduce((s, h) => s + (h.pago === 'transferencia' ? (h.ingreso ?? 0) : 0), 0);
+  const totalRegU    = historial.reduce((s, h) => h.pago === 'regalo' ? s + h.cantidad : s, 0);
+  const totalAnotaM  = historial.reduce((s, h) => h.pago === 'anota'  ? s + (h.precioUnit || 0) * h.cantidad : s, 0);
 
   document.getElementById('v-unidades').textContent  = totalUnid;
   const desglEl = document.getElementById('v-unidades-desglose');
@@ -515,6 +519,21 @@ function renderVentas() {
   document.getElementById('v-transf').textContent    = formatPeso(totalTrans);
   document.getElementById('v-regalos').textContent   = `${totalRegU} u.`;
   document.getElementById('v-anota').textContent     = formatPeso(totalAnotaM);
+
+  // Card pegotines — solo visible si hay entradas
+  const vcardPeg = document.getElementById('vcard-pegotines');
+  if (vcardPeg) {
+    if (unidPeg > 0) {
+      vcardPeg.classList.remove('hidden');
+      document.getElementById('v-pegotines-unid').textContent = `${unidPeg} u.`;
+      const plataParts = [];
+      if (totalPegARS > 0) plataParts.push(formatPeso(totalPegARS));
+      if (totalPegUYU > 0) plataParts.push(formatPeso(totalPegUYU) + ' UYU');
+      document.getElementById('v-pegotines-plata').textContent = plataParts.join(' · ');
+    } else {
+      vcardPeg.classList.add('hidden');
+    }
+  }
 
   // Anotados panel
   const anotadosEl = document.getElementById('anotados-panel');
@@ -2470,19 +2489,23 @@ function _ventasTotales(ventas) {
   const totalUYU = ventas.filter(h => (h.moneda||'ARS')==='UYU').reduce((s,h)=>s+(h.ingreso??0),0);
   const totEfec  = ventas.reduce((s,h)=>s+(h.pago==='efectivo'?(h.ingreso??0):0),0);
   const totTrans = ventas.reduce((s,h)=>s+(h.pago==='transferencia'?(h.ingreso??0):0),0);
-  const totReg   = ventas.reduce((s,h)=>h.pago==='regalo'?s+h.cantidad:s,0);
-  const totAnota = ventas.reduce((s,h)=>h.pago==='anota'?s+(h.precioUnit||0)*h.cantidad:s,0);
-  const cobradas = ventas.filter(h=>h.pago==='efectivo'||h.pago==='transferencia');
-  const unidRem  = cobradas.filter(h=>h._stock?.tipo==='adulto').reduce((s,h)=>s+h.cantidad,0);
-  const unidTote = cobradas.filter(h=>h._stock?.tipo==='tote').reduce((s,h)=>s+h.cantidad,0);
-  const unidNino = cobradas.filter(h=>h._stock?.tipo==='nino').reduce((s,h)=>s+h.cantidad,0);
-  return { totalARS, totalUYU, totEfec, totTrans, totReg, totAnota, unidRem, unidTote, unidNino };
+  const totReg    = ventas.reduce((s,h)=>h.pago==='regalo'?s+h.cantidad:s,0);
+  const totAnota  = ventas.reduce((s,h)=>h.pago==='anota'?s+(h.precioUnit||0)*h.cantidad:s,0);
+  const cobradas  = ventas.filter(h=>h.pago==='efectivo'||h.pago==='transferencia');
+  const unidRem   = cobradas.filter(h=>h._stock?.tipo==='adulto').reduce((s,h)=>s+h.cantidad,0);
+  const unidTote  = cobradas.filter(h=>h._stock?.tipo==='tote').reduce((s,h)=>s+h.cantidad,0);
+  const unidNino  = cobradas.filter(h=>h._stock?.tipo==='nino').reduce((s,h)=>s+h.cantidad,0);
+  const pegEntradas = ventas.filter(h=>h._stock?.tipo==='pegotines');
+  const unidPeg   = pegEntradas.reduce((s,h)=>s+h.cantidad,0);
+  const totPegARS = pegEntradas.filter(h=>(h.moneda||'ARS')==='ARS').reduce((s,h)=>s+(h.ingreso??0),0);
+  const totPegUYU = pegEntradas.filter(h=>(h.moneda||'ARS')==='UYU').reduce((s,h)=>s+(h.ingreso??0),0);
+  return { totalARS, totalUYU, totEfec, totTrans, totReg, totAnota, unidRem, unidTote, unidNino, unidPeg, totPegARS, totPegUYU };
 }
 
 function exportarVentasPDF() {
   const { ventas, label } = _ventasRango();
   const ahora = new Date().toLocaleString('es-AR');
-  const { totalARS, totalUYU, totEfec, totTrans, totReg, totAnota, unidRem, unidTote, unidNino } = _ventasTotales(ventas);
+  const { totalARS, totalUYU, totEfec, totTrans, totReg, totAnota, unidRem, unidTote, unidNino, unidPeg, totPegARS, totPegUYU } = _ventasTotales(ventas);
   const fmtP = n => '$' + n.toLocaleString('es-AR');
   const pagoLabel = p => ({efectivo:'Efectivo',transferencia:'Transf.',regalo:'Regalo',anota:'Anota'}[p]||p);
 
@@ -2536,6 +2559,7 @@ function exportarVentasPDF() {
     <div class="rb"><div class="rn">${fmtP(totTrans)}</div><div class="rl">Transferencia</div></div>
     ${totReg>0?`<div class="rb"><div class="rn">${totReg} u.</div><div class="rl">Regalos</div></div>`:''}
     ${totAnota>0?`<div class="rb"><div class="rn">${fmtP(totAnota)}</div><div class="rl">Anotados (deben)</div></div>`:''}
+    ${unidPeg>0?`<div class="rb" style="border-color:rgba(155,89,182,0.4)"><div class="rn" style="color:#9b59b6">${unidPeg} u.</div><div class="rl">Pegotines${totPegARS>0?' · '+fmtP(totPegARS):''}${totPegUYU>0?' · '+fmtP(totPegUYU)+' UYU':''}</div></div>`:''}
   </div>
   <table>
     <thead><tr><th>Fecha</th><th>Artículo</th><th>Cant.</th><th>Precio u.</th><th>Total</th><th>Pago</th></tr></thead>
@@ -2551,7 +2575,7 @@ function exportarVentasPDF() {
 function exportarVentasWhatsApp() {
   const { ventas, label } = _ventasRango();
   const ahora = new Date().toLocaleString('es-AR');
-  const { totalARS, totalUYU, totEfec, totTrans, totReg, totAnota, unidRem, unidTote, unidNino } = _ventasTotales(ventas);
+  const { totalARS, totalUYU, totEfec, totTrans, totReg, totAnota, unidRem, unidTote, unidNino, unidPeg, totPegARS, totPegUYU } = _ventasTotales(ventas);
   const fmtP = n => '$' + n.toLocaleString('es-AR');
 
   const lines = [
@@ -2571,6 +2595,7 @@ function exportarVentasWhatsApp() {
     ...(unidRem>0?[`  Remeras adultos: ${unidRem}`]:[]),
     ...(unidTote>0?[`  Tote bags: ${unidTote}`]:[]),
     ...(unidNino>0?[`  Remeras niñxs: ${unidNino}`]:[]),
+    ...(unidPeg>0?[`🎟️ *Pegotines: ${unidPeg} u.${totPegARS>0?' — '+fmtP(totPegARS):''}${totPegUYU>0?' — '+fmtP(totPegUYU)+' UYU':''}`]:[]),
     '',
     `_Generado ${ahora}_`,
   ];
