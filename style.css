@@ -590,6 +590,18 @@ button.total-item {
 .anota-adeuda       { color: #f39c12 !important; }
 .venta-anota,
 .historial-anota    { border-left: 2px solid rgba(243,156,18,0.4); }
+.venta-pegotines    { border-left: 2px solid rgba(155,89,182,0.5); }
+.pegotines-badge {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  background: rgba(155,89,182,0.12);
+  color: #9b59b6;
+  margin-left: 0.3rem;
+  vertical-align: middle;
+}
 .pago-opcion        { flex: 1 1 5rem; }
 
 /* HISTORIAL DE AUDITORÍAS ───────────────────────────────────────────────── */
