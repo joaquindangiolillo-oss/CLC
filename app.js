@@ -564,6 +564,8 @@ function renderVentas() {
     const monedaBadge = h.moneda === 'UYU'
       ? '<span class="moneda-badge moneda-uyu">UYU</span>'
       : '<span class="moneda-badge moneda-ars">ARS</span>';
+    const pegotinesBadge = h._stock?.tipo === 'pegotines'
+      ? '<span class="pegotines-badge">🎟️ Pegotines</span>' : '';
     const nombreHtml = h.pago === 'anota' && h.nombreAnota
       ? `<span class="anota-nombre">👤 ${h.nombreAnota}</span>` : '';
     const montoHtml = h.pago === 'anota'
@@ -575,9 +577,9 @@ function renderVentas() {
         ).join('')}</div>`
       : '';
     return `
-    <div class="venta-item${h._ediciones?.length ? ' tiene-ediciones' : ''}${h.pago === 'anota' ? ' venta-anota' : ''}">
+    <div class="venta-item${h._ediciones?.length ? ' tiene-ediciones' : ''}${h.pago === 'anota' ? ' venta-anota' : ''}${h._stock?.tipo === 'pegotines' ? ' venta-pegotines' : ''}">
       <div class="venta-item-main">
-        <span class="venta-desc">${h.descripcion}${nombreHtml}</span>
+        <span class="venta-desc">${h.descripcion}${pegotinesBadge}${nombreHtml}</span>
         <span class="venta-cant">-${h.cantidad}</span>
         ${montoHtml}
         <span class="hist-pago hist-pago--${h.pago ?? 'efectivo'}">${pagoLabel}</span>
@@ -689,7 +691,16 @@ function actualizarDisponible() {
   const moneda = getMonedaVenta();
   inputPrecioOverride.placeholder = moneda === 'UYU' ? 'Ingresá el precio (UYU)' : 'Precio por defecto (ARS)';
 
-  if (disp !== null) {
+  if (cat === 'pegotines') {
+    pDisponible.textContent = '';
+    if (precio > 0) {
+      pUnit.textContent       = `Precio: ${formatPeso(precio)} c/u`;
+      pTotalVenta.textContent = `Total: ${formatPeso(precio * cant)}`;
+    } else {
+      pUnit.textContent       = '⚠️ Ingresá el precio';
+      pTotalVenta.textContent = '';
+    }
+  } else if (disp !== null) {
     pDisponible.textContent = `Disponible: ${disp}`;
     pDisponible.style.color = disp === 0 ? 'var(--acento)' : 'var(--verde)';
     if (precio > 0) {
@@ -712,6 +723,7 @@ selCategoria.addEventListener('change', () => {
   if (cat === 'adulto') camposAdulto.classList.remove('hidden');
   else if (cat === 'nino') camposNino.classList.remove('hidden');
   else if (cat === 'tote') camposTote.classList.remove('hidden');
+  // pegotines: sin campos extra ni stock
   actualizarDisponible();
 });
 
@@ -801,6 +813,11 @@ document.getElementById('form-venta').addEventListener('submit', e => {
     descripcion = `Tote Bag ${modelo === 'silla' ? 'Reposera' : 'Vereda'}`;
     precio      = PRECIOS.tote;
     _stock      = { tipo: 'tote', modelo };
+
+  } else if (cat === 'pegotines') {
+    descripcion = 'Pegotines';
+    _stock      = { tipo: 'pegotines' };
+    // no hay stock para descontar
   }
 
   // Precio final: override manual o precio por defecto
