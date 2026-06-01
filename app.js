@@ -493,7 +493,6 @@ function renderVentas() {
   const unidTote     = cobradas.filter(h => h._stock?.tipo === 'tote').reduce((s, h) => s + h.cantidad, 0);
   const unidNino     = cobradas.filter(h => h._stock?.tipo === 'nino').reduce((s, h) => s + h.cantidad, 0);
   const pegEntradas  = historial.filter(h => h._stock?.tipo === 'pegotines');
-  const unidPeg      = pegEntradas.reduce((s, h) => s + h.cantidad, 0);
   const totalPegARS  = pegEntradas.filter(h => (h.moneda||'ARS')==='ARS').reduce((s, h) => s + (h.ingreso ?? 0), 0);
   const totalPegUYU  = pegEntradas.filter(h => (h.moneda||'ARS')==='UYU').reduce((s, h) => s + (h.ingreso ?? 0), 0);
   const totalUnid    = unidRemera + unidTote + unidNino;
@@ -523,15 +522,13 @@ function renderVentas() {
   // Card pegotines — solo visible si hay entradas
   const vcardPeg = document.getElementById('vcard-pegotines');
   if (vcardPeg) {
-    if (unidPeg > 0) {
-      vcardPeg.classList.remove('hidden');
-      document.getElementById('v-pegotines-unid').textContent = `${unidPeg} u.`;
+    const hayPeg = totalPegARS > 0 || totalPegUYU > 0;
+    vcardPeg.classList.toggle('hidden', !hayPeg);
+    if (hayPeg) {
       const plataParts = [];
       if (totalPegARS > 0) plataParts.push(formatPeso(totalPegARS));
       if (totalPegUYU > 0) plataParts.push(formatPeso(totalPegUYU) + ' UYU');
       document.getElementById('v-pegotines-plata').textContent = plataParts.join(' · ');
-    } else {
-      vcardPeg.classList.add('hidden');
     }
   }
 
@@ -742,7 +739,11 @@ selCategoria.addEventListener('change', () => {
   if (cat === 'adulto') camposAdulto.classList.remove('hidden');
   else if (cat === 'nino') camposNino.classList.remove('hidden');
   else if (cat === 'tote') camposTote.classList.remove('hidden');
-  // pegotines: sin campos extra ni stock
+  const esPeg = cat === 'pegotines';
+  document.getElementById('label-cantidad').classList.toggle('hidden', esPeg);
+  document.getElementById('label-precio-txt').textContent = esPeg ? 'Monto total ($)' : 'Precio unitario ($)';
+  inputPrecioOverride.placeholder = esPeg ? 'Ingresá el monto total' : 'Precio por defecto';
+  if (esPeg) inputCantidad.value = 1;
   actualizarDisponible();
 });
 
@@ -836,7 +837,7 @@ document.getElementById('form-venta').addEventListener('submit', e => {
   } else if (cat === 'pegotines') {
     descripcion = 'Pegotines';
     _stock      = { tipo: 'pegotines' };
-    // no hay stock para descontar
+    cant        = 1; // para pegotines el monto es el total, no hay unidades
   }
 
   // Precio final: override manual o precio por defecto
@@ -2496,16 +2497,15 @@ function _ventasTotales(ventas) {
   const unidTote  = cobradas.filter(h=>h._stock?.tipo==='tote').reduce((s,h)=>s+h.cantidad,0);
   const unidNino  = cobradas.filter(h=>h._stock?.tipo==='nino').reduce((s,h)=>s+h.cantidad,0);
   const pegEntradas = ventas.filter(h=>h._stock?.tipo==='pegotines');
-  const unidPeg   = pegEntradas.reduce((s,h)=>s+h.cantidad,0);
   const totPegARS = pegEntradas.filter(h=>(h.moneda||'ARS')==='ARS').reduce((s,h)=>s+(h.ingreso??0),0);
   const totPegUYU = pegEntradas.filter(h=>(h.moneda||'ARS')==='UYU').reduce((s,h)=>s+(h.ingreso??0),0);
-  return { totalARS, totalUYU, totEfec, totTrans, totReg, totAnota, unidRem, unidTote, unidNino, unidPeg, totPegARS, totPegUYU };
+  return { totalARS, totalUYU, totEfec, totTrans, totReg, totAnota, unidRem, unidTote, unidNino, totPegARS, totPegUYU };
 }
 
 function exportarVentasPDF() {
   const { ventas, label } = _ventasRango();
   const ahora = new Date().toLocaleString('es-AR');
-  const { totalARS, totalUYU, totEfec, totTrans, totReg, totAnota, unidRem, unidTote, unidNino, unidPeg, totPegARS, totPegUYU } = _ventasTotales(ventas);
+  const { totalARS, totalUYU, totEfec, totTrans, totReg, totAnota, unidRem, unidTote, unidNino, totPegARS, totPegUYU } = _ventasTotales(ventas);
   const fmtP = n => '$' + n.toLocaleString('es-AR');
   const pagoLabel = p => ({efectivo:'Efectivo',transferencia:'Transf.',regalo:'Regalo',anota:'Anota'}[p]||p);
 
@@ -2559,7 +2559,7 @@ function exportarVentasPDF() {
     <div class="rb"><div class="rn">${fmtP(totTrans)}</div><div class="rl">Transferencia</div></div>
     ${totReg>0?`<div class="rb"><div class="rn">${totReg} u.</div><div class="rl">Regalos</div></div>`:''}
     ${totAnota>0?`<div class="rb"><div class="rn">${fmtP(totAnota)}</div><div class="rl">Anotados (deben)</div></div>`:''}
-    ${unidPeg>0?`<div class="rb" style="border-color:rgba(155,89,182,0.4)"><div class="rn" style="color:#9b59b6">${unidPeg} u.</div><div class="rl">Pegotines${totPegARS>0?' · '+fmtP(totPegARS):''}${totPegUYU>0?' · '+fmtP(totPegUYU)+' UYU':''}</div></div>`:''}
+    ${(totPegARS>0||totPegUYU>0)?`<div class="rb" style="border-color:rgba(155,89,182,0.4)"><div class="rn" style="color:#9b59b6">${totPegARS>0?fmtP(totPegARS):''}${totPegUYU>0?(totPegARS>0?' · ':'')+fmtP(totPegUYU)+' UYU':''}</div><div class="rl">Pegotines</div></div>`:''}
   </div>
   <table>
     <thead><tr><th>Fecha</th><th>Artículo</th><th>Cant.</th><th>Precio u.</th><th>Total</th><th>Pago</th></tr></thead>
@@ -2575,7 +2575,7 @@ function exportarVentasPDF() {
 function exportarVentasWhatsApp() {
   const { ventas, label } = _ventasRango();
   const ahora = new Date().toLocaleString('es-AR');
-  const { totalARS, totalUYU, totEfec, totTrans, totReg, totAnota, unidRem, unidTote, unidNino, unidPeg, totPegARS, totPegUYU } = _ventasTotales(ventas);
+  const { totalARS, totalUYU, totEfec, totTrans, totReg, totAnota, unidRem, unidTote, unidNino, totPegARS, totPegUYU } = _ventasTotales(ventas);
   const fmtP = n => '$' + n.toLocaleString('es-AR');
 
   const lines = [
@@ -2595,7 +2595,7 @@ function exportarVentasWhatsApp() {
     ...(unidRem>0?[`  Remeras adultos: ${unidRem}`]:[]),
     ...(unidTote>0?[`  Tote bags: ${unidTote}`]:[]),
     ...(unidNino>0?[`  Remeras niñxs: ${unidNino}`]:[]),
-    ...(unidPeg>0?[`🎟️ *Pegotines: ${unidPeg} u.${totPegARS>0?' — '+fmtP(totPegARS):''}${totPegUYU>0?' — '+fmtP(totPegUYU)+' UYU':''}`]:[]),
+    ...((totPegARS>0||totPegUYU>0)?[`🎟️ *Pegotines: ${[totPegARS>0?fmtP(totPegARS):null,totPegUYU>0?fmtP(totPegUYU)+' UYU':null].filter(Boolean).join(' · ')}*`]:[]),
     '',
     `_Generado ${ahora}_`,
   ];
