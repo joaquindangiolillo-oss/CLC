@@ -592,7 +592,21 @@ button.total-item {
 .anota-adeuda       { color: #f39c12 !important; }
 .venta-anota,
 .historial-anota    { border-left: 2px solid rgba(243,156,18,0.4); }
+.venta-desde-pedido { border-left: 2px solid rgba(52,152,219,0.5); }
 .venta-pegotines    { border-left: 2px solid rgba(155,89,182,0.5); }
+.btn-pago-inline {
+  background: var(--verde);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  min-height: 28px;
+  white-space: nowrap;
+}
+.btn-pago-inline:active { opacity: 0.8; }
 .pegotines-badge {
   display: inline-block;
   font-size: 0.68rem;

@@ -593,18 +593,47 @@ function renderVentas() {
     ? historial
     : historial.filter(h => h.pago === filtroVentas);
 
+  // Con filtro "anota" también mostramos pedidos con saldo pendiente
+  const pedidosAnota = filtroVentas === 'anota'
+    ? pedidos.filter(p => p.estadoFisico !== 'cancelado' && pedidoSaldo(p) > 0)
+    : [];
+
   const lista = document.getElementById('ventas-lista');
 
-  if (historial.length === 0) {
+  if (historial.length === 0 && pedidosAnota.length === 0) {
     lista.innerHTML = '<p class="historial-vacio">Todavía no hay ventas registradas.<br>Usá el botón <strong>+ Registrar</strong> para agregar una.</p>';
     return;
   }
-  if (filtrados.length === 0) {
+  if (filtrados.length === 0 && pedidosAnota.length === 0) {
     lista.innerHTML = '<p class="historial-vacio">No hay ventas con ese método de pago.</p>';
     return;
   }
 
-  lista.innerHTML = filtrados.map(h => {
+  const pedidosHtml = pedidosAnota.map(p => {
+    const saldo = pedidoSaldo(p);
+    const mon   = p.moneda || 'UYU';
+    const monBadge = mon === 'UYU'
+      ? '<span class="moneda-badge moneda-uyu">UYU</span>'
+      : '<span class="moneda-badge moneda-ars">ARS</span>';
+    return `
+    <div class="venta-item venta-anota venta-desde-pedido">
+      <div class="venta-item-main">
+        <span class="venta-desc">📋 ${pedidoDescItem(p)}<span class="anota-nombre">👤 ${p.para || '(sin nombre)'}</span></span>
+        <span class="venta-ingreso anota-adeuda">Adeuda ${formatPeso(saldo)}</span>
+        <span class="hist-pago hist-pago--anota">📝 Pedido</span>
+        ${monBadge}
+        <span class="hist-acciones">
+          <button class="btn-pago-inline" onclick="abrirPagoPedido(${p.id})" title="Cobrar saldo">💰 Cobrar</button>
+        </span>
+      </div>
+      <div class="venta-item-meta">
+        <span class="venta-precio-unit">Total pedido: ${formatPeso(p.precioTotal || 0)}</span>
+        <span class="hist-fecha">${p.fecha || ''}</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  lista.innerHTML = pedidosHtml + filtrados.map(h => {
     const pagoLabel = h.pago === 'transferencia' ? 'Transf.'
                     : h.pago === 'regalo'        ? '🎁 Regalo'
                     : h.pago === 'anota'         ? '📝 Anota'
