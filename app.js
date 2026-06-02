@@ -228,17 +228,20 @@ function setSincStatus(st) {
   el.textContent = icons[st] ?? '☁️';
 }
 
-// Escribe en la nube (fire-and-forget, no-cors evita problemas de CORS/preflight)
+// Escribe en la nube — usa cors para poder detectar errores reales
 async function pushToCloud() {
   if (!gasUrl) return;
   setSincStatus('syncing');
   try {
-    await fetch(gasUrl, {
+    const resp = await fetch(gasUrl, {
       method: 'POST',
-      mode: 'no-cors',
+      mode: 'cors',
       headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
       body: JSON.stringify({ stock: estado, historial, auditorias, pedidos }),
     });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const result = await resp.json();
+    if (result.error) throw new Error(result.error);
     setSincStatus('ok');
   } catch (err) {
     console.warn('[Sync] push error:', err);
@@ -286,6 +289,7 @@ async function sincronizarDesdeNube() {
   }
   if (Array.isArray(data.pedidos)) {
     pedidos = data.pedidos;
+    normalizePedidos();
     localStorage.setItem('cayo_pedidos', JSON.stringify(pedidos));
     changed = true;
   }
