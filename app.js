@@ -505,7 +505,13 @@ function renderVentas() {
   const totalEfec    = historial.reduce((s, h) => s + (h.pago === 'efectivo'      ? (h.ingreso ?? 0) : 0), 0);
   const totalTrans   = historial.reduce((s, h) => s + (h.pago === 'transferencia' ? (h.ingreso ?? 0) : 0), 0);
   const totalRegU    = historial.reduce((s, h) => h.pago === 'regalo' ? s + h.cantidad : s, 0);
-  const totalAnotaM  = historial.reduce((s, h) => h.pago === 'anota'  ? s + (h.precioUnit || 0) * h.cantidad : s, 0);
+  const anotaARS = historial.filter(h => h.pago === 'anota' && (h.moneda||'ARS') === 'ARS').reduce((s, h) => s + (h.precioUnit||0) * h.cantidad, 0);
+  const anotaUYU = historial.filter(h => h.pago === 'anota' && (h.moneda||'ARS') === 'UYU').reduce((s, h) => s + (h.precioUnit||0) * h.cantidad, 0);
+  const pedPendientes = pedidos.filter(p => p.estadoFisico !== 'cancelado' && pedidoSaldo(p) > 0);
+  const pedSaldoARS = pedPendientes.filter(p => (p.moneda||'UYU') === 'ARS').reduce((s, p) => s + pedidoSaldo(p), 0);
+  const pedSaldoUYU = pedPendientes.filter(p => (p.moneda||'UYU') === 'UYU').reduce((s, p) => s + pedidoSaldo(p), 0);
+  const totalAnotaARS = anotaARS + pedSaldoARS;
+  const totalAnotaUYU = anotaUYU + pedSaldoUYU;
 
   document.getElementById('v-unidades').textContent  = totalUnid;
   const desglEl = document.getElementById('v-unidades-desglose');
@@ -521,7 +527,10 @@ function renderVentas() {
   document.getElementById('v-efectivo').textContent  = formatPeso(totalEfec);
   document.getElementById('v-transf').textContent    = formatPeso(totalTrans);
   document.getElementById('v-regalos').textContent   = `${totalRegU} u.`;
-  document.getElementById('v-anota').textContent     = formatPeso(totalAnotaM);
+  const anotaParts = [];
+  if (totalAnotaARS > 0) anotaParts.push(formatPeso(totalAnotaARS));
+  if (totalAnotaUYU > 0) anotaParts.push(formatPeso(totalAnotaUYU) + ' UYU');
+  document.getElementById('v-anota').textContent = anotaParts.join(' · ') || formatPeso(0);
 
   // Card pegotines — solo visible si hay entradas
   const vcardPeg = document.getElementById('vcard-pegotines');
