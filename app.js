@@ -532,27 +532,46 @@ function renderVentas() {
     }
   }
 
-  // Anotados panel
+  // Anotados panel — combina ventas "anota" + pedidos con saldo pendiente
   const anotadosEl = document.getElementById('anotados-panel');
-  const anotadosEntradas = historial.filter(h => h.pago === 'anota');
   if (anotadosEl) {
-    if (anotadosEntradas.length === 0) {
+    const porPersona = {};
+
+    const agregar = (nombre, desc, monto, moneda) => {
+      const k = nombre || '(sin nombre)';
+      if (!porPersona[k]) porPersona[k] = { items: [], montos: {} };
+      if (desc) porPersona[k].items.push(desc);
+      if (monto > 0) porPersona[k].montos[moneda] = (porPersona[k].montos[moneda] || 0) + monto;
+    };
+
+    // Ventas registradas como "anota"
+    historial.filter(h => h.pago === 'anota').forEach(h => {
+      const mon = h.moneda || 'ARS';
+      agregar(h.nombreAnota, h.descripcion + (h.cantidad > 1 ? ` ×${h.cantidad}` : ''), (h.precioUnit || 0) * h.cantidad, mon);
+    });
+
+    // Solicitudes/pedidos no cancelados con saldo > 0
+    pedidos.filter(p => p.estadoFisico !== 'cancelado' && pedidoSaldo(p) > 0).forEach(p => {
+      const mon = p.moneda || 'UYU';
+      agregar(p.para, pedidoDescItem(p), pedidoSaldo(p), mon);
+    });
+
+    const filas = Object.entries(porPersona);
+    if (filas.length === 0) {
       anotadosEl.classList.add('hidden');
     } else {
-      const porPersona = {};
-      anotadosEntradas.forEach(h => {
-        const n = h.nombreAnota || '(sin nombre)';
-        if (!porPersona[n]) porPersona[n] = { items: [], total: 0 };
-        porPersona[n].items.push(h);
-        porPersona[n].total += (h.precioUnit || 0) * h.cantidad;
-      });
       anotadosEl.innerHTML = `<h4 class="anotados-titulo">📝 Anotados — cuentas pendientes</h4>
-        ${Object.entries(porPersona).map(([nombre, data]) => `
-          <div class="anotados-row">
+        ${filas.map(([nombre, data]) => {
+          const montoTxt = Object.entries(data.montos)
+            .map(([mon, monto]) => `${formatPeso(monto)}${mon === 'UYU' ? ' UYU' : ''}`)
+            .join(' · ');
+          const detalle = data.items.length ? data.items.join(', ') : '';
+          return `<div class="anotados-row">
             <span class="anotados-nombre">👤 ${nombre}</span>
-            <span class="anotados-detalle">${data.items.map(h => `${h.descripcion}${h.cantidad > 1 ? ` ×${h.cantidad}` : ''}`).join(', ')}</span>
-            <span class="anotados-monto">Debe ${formatPeso(data.total)}</span>
-          </div>`).join('')}`;
+            ${detalle ? `<span class="anotados-detalle">${detalle}</span>` : ''}
+            <span class="anotados-monto">Debe ${montoTxt || '—'}</span>
+          </div>`;
+        }).join('')}`;
       anotadosEl.classList.remove('hidden');
     }
   }
