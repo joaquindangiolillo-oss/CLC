@@ -426,16 +426,22 @@ function claseStock(n) {
 }
 
 function renderAdultos() {
+  // Asegurar que todas las variantes existan en el estado (migración defensiva)
+  TALLES_ADULTO.forEach(t => {
+    if (!estado.adultos[t]) estado.adultos[t] = {};
+    VARIANTES.forEach(v => { if (estado.adultos[t][v] === undefined) estado.adultos[t][v] = 0; });
+  });
+
   const tbody = document.getElementById('tbody-adultos');
   const tfoot = document.getElementById('tfoot-adultos');
   const totalesPorTalle = Object.fromEntries(TALLES_ADULTO.map(t => [t, 0]));
 
   // Acumular totales
-  VARIANTES.forEach(v => TALLES_ADULTO.forEach(t => { totalesPorTalle[t] += estado.adultos[t][v]; }));
+  VARIANTES.forEach(v => TALLES_ADULTO.forEach(t => { totalesPorTalle[t] += (estado.adultos[t]?.[v] ?? 0); }));
 
   tbody.innerHTML = GRUPOS_ADULTO.map(grupo =>
     grupo.variantes.map((v, idx) => {
-      const sub = TALLES_ADULTO.reduce((s, t) => s + estado.adultos[t][v], 0);
+      const sub = TALLES_ADULTO.reduce((s, t) => s + (estado.adultos[t]?.[v] ?? 0), 0);
       const celdaGrupo = idx === 0
         ? `<td class="grupo-label" rowspan="${grupo.variantes.length}">${grupo.nombre}</td>`
         : '';
