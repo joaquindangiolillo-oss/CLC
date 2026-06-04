@@ -950,7 +950,7 @@ document.getElementById('form-venta').addEventListener('submit', e => {
   pError.classList.add('hidden');
 
   const cat  = selCategoria.value;
-  const cant = parseInt(inputCantidad.value, 10);
+  let cant = parseInt(inputCantidad.value, 10);
   if (!cat || isNaN(cant) || cant < 1) return;
 
   let descripcion = '';
