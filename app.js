@@ -164,6 +164,33 @@ normalizePedidos();
 let pedidoPagoActualId = null;
 let solItemsTemp = [];
 
+function cargarIngresos() {
+  try { return JSON.parse(localStorage.getItem('cayo_ingresos') || '[]'); }
+  catch (_) { return []; }
+}
+let ingresos = cargarIngresos();
+function guardarIngresos() {
+  localStorage.setItem('cayo_ingresos', JSON.stringify(ingresos));
+  pushToCloud();
+}
+
+let ingItemsTemp = [];
+function renderIngItemsChips() {
+  const el = document.getElementById('ing-items-agregados');
+  if (!el) return;
+  if (ingItemsTemp.length === 0) { el.innerHTML = ''; return; }
+  el.innerHTML = ingItemsTemp.map((it, i) => `
+    <span class="sol-item-chip">
+      ${(it.cantidad > 1 ? `${it.cantidad}× ` : '') + _itemDesc(it)}
+      <button type="button" class="sol-chip-rm" onclick="remIngItem(${i})">✕</button>
+    </span>
+  `).join('');
+}
+window.remIngItem = function(i) {
+  ingItemsTemp.splice(i, 1);
+  renderIngItemsChips();
+};
+
 function renderSolItemsChips() {
   const el = document.getElementById('sol-items-agregados');
   if (!el) return;
@@ -258,7 +285,7 @@ async function pushToCloud() {
       method: 'POST',
       mode: 'cors',
       headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-      body: JSON.stringify({ stock: estado, historial, auditorias, pedidos }),
+      body: JSON.stringify({ stock: estado, historial, auditorias, pedidos, ingresos }),
     });
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
     const result = await resp.json();
@@ -312,6 +339,11 @@ async function sincronizarDesdeNube() {
     pedidos = data.pedidos;
     normalizePedidos();
     localStorage.setItem('cayo_pedidos', JSON.stringify(pedidos));
+    changed = true;
+  }
+  if (Array.isArray(data.ingresos)) {
+    ingresos = data.ingresos;
+    localStorage.setItem('cayo_ingresos', JSON.stringify(ingresos));
     changed = true;
   }
   if (changed) renderTodo();
@@ -499,11 +531,32 @@ function renderRecaudado() {
   if (card) card.style.display = (totalARS > 0 || totalUYU > 0) ? '' : 'none';
 }
 
+function renderIngresos() {
+  const lista = document.getElementById('ing-historial-lista');
+  if (!lista) return;
+  if (ingresos.length === 0) {
+    lista.innerHTML = '<p class="ing-vacio">Sin ingresos registrados.</p>';
+    return;
+  }
+  const sorted = [...ingresos].reverse();
+  lista.innerHTML = sorted.map(ing => {
+    const resumen = (ing.items || []).map(it => (it.cantidad > 1 ? `${it.cantidad}× ` : '') + _itemDesc(it)).join(' · ');
+    return `<div class="ing-historial-item">
+      <div class="ing-item-main">
+        <span class="ing-item-desc">${resumen || '—'}</span>
+        <span class="ing-item-fecha">${ing.fecha || ''}</span>
+      </div>
+      ${ing.nota ? `<div class="ing-item-nota">${ing.nota}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
 function renderTodo() {
   renderAdultos();
   renderTotes();
   renderNinos();
   renderRecaudado();
+  renderIngresos();
   if (!document.getElementById('tab-ventas').classList.contains('hidden'))  renderVentas();
   if (!document.getElementById('tab-pedidos').classList.contains('hidden')) renderPedidos();
 }
@@ -2779,3 +2832,106 @@ window.descargarAuditoriaPDF = function(id) {
   const w = window.open('', '_blank');
   if (w) { w.document.write(html); w.document.close(); }
 };
+
+// ── Modal Registrar Ingreso ───────────────────────────────────────────────────
+document.getElementById('btn-registrar-ingreso').addEventListener('click', () => {
+  ingItemsTemp = [];
+  renderIngItemsChips();
+  document.getElementById('ing-categoria').value = '';
+  document.getElementById('ing-cantidad').value  = 1;
+  document.getElementById('ing-nota').value      = '';
+  document.getElementById('ing-error').classList.add('hidden');
+  ['ing-campos-adulto','ing-campos-nino','ing-campos-tote'].forEach(id =>
+    document.getElementById(id).classList.add('hidden'));
+  document.getElementById('modal-ingreso').classList.remove('hidden');
+});
+
+document.getElementById('btn-cerrar-ingreso').addEventListener('click', () =>
+  document.getElementById('modal-ingreso').classList.add('hidden'));
+document.getElementById('btn-cancelar-ingreso').addEventListener('click', () =>
+  document.getElementById('modal-ingreso').classList.add('hidden'));
+
+document.getElementById('ing-categoria').addEventListener('change', () => {
+  const cat = document.getElementById('ing-categoria').value;
+  ['ing-campos-adulto','ing-campos-nino','ing-campos-tote'].forEach(id =>
+    document.getElementById(id).classList.add('hidden'));
+  if (cat === 'adulto')    document.getElementById('ing-campos-adulto').classList.remove('hidden');
+  else if (cat === 'nino') document.getElementById('ing-campos-nino').classList.remove('hidden');
+  else if (cat === 'tote') document.getElementById('ing-campos-tote').classList.remove('hidden');
+});
+
+document.getElementById('btn-agregar-item-ing').addEventListener('click', () => {
+  const cat   = document.getElementById('ing-categoria').value;
+  const errEl = document.getElementById('ing-error');
+  if (!cat) {
+    errEl.textContent = 'Seleccioná una categoría.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+  errEl.classList.add('hidden');
+  const cant = parseInt(document.getElementById('ing-cantidad').value, 10) || 1;
+  const item = { tipo: cat, cantidad: cant };
+  if (cat === 'adulto') {
+    item.talle    = document.getElementById('ing-talle-adulto').value;
+    item.variante = document.getElementById('ing-variante').value;
+  } else if (cat === 'nino') {
+    item.talle = document.getElementById('ing-talle-nino').value;
+  } else {
+    item.modelo = document.getElementById('ing-modelo').value;
+  }
+  ingItemsTemp.push(item);
+  renderIngItemsChips();
+  document.getElementById('ing-categoria').value = '';
+  ['ing-campos-adulto','ing-campos-nino','ing-campos-tote'].forEach(id =>
+    document.getElementById(id).classList.add('hidden'));
+  document.getElementById('ing-cantidad').value = 1;
+});
+
+document.getElementById('btn-confirmar-ingreso').addEventListener('click', () => {
+  const errEl = document.getElementById('ing-error');
+  const cat   = document.getElementById('ing-categoria').value;
+  const allItems = [...ingItemsTemp];
+  if (cat) {
+    const cant = parseInt(document.getElementById('ing-cantidad').value, 10) || 1;
+    const item = { tipo: cat, cantidad: cant };
+    if (cat === 'adulto') {
+      item.talle    = document.getElementById('ing-talle-adulto').value;
+      item.variante = document.getElementById('ing-variante').value;
+    } else if (cat === 'nino') {
+      item.talle = document.getElementById('ing-talle-nino').value;
+    } else {
+      item.modelo = document.getElementById('ing-modelo').value;
+    }
+    allItems.push(item);
+  }
+  if (allItems.length === 0) {
+    errEl.textContent = 'Agregá al menos un ítem.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+
+  // Aplicar al stock
+  allItems.forEach(it => {
+    if (it.tipo === 'adulto') {
+      if (!estado.adultos[it.talle]) estado.adultos[it.talle] = {};
+      estado.adultos[it.talle][it.variante] = (estado.adultos[it.talle][it.variante] || 0) + it.cantidad;
+    } else if (it.tipo === 'tote') {
+      estado.totes[it.modelo] = (estado.totes[it.modelo] || 0) + it.cantidad;
+    } else if (it.tipo === 'nino') {
+      estado.ninos[it.talle] = (estado.ninos[it.talle] || 0) + it.cantidad;
+    }
+  });
+
+  const nota = document.getElementById('ing-nota').value.trim();
+  const fecha = new Date().toLocaleDateString('es-UY', { day:'2-digit', month:'2-digit', year:'numeric' });
+  ingresos.push({ id: Date.now(), fecha, items: allItems, nota });
+
+  guardar();
+  guardarIngresos();
+  renderTodo();
+  document.getElementById('modal-ingreso').classList.add('hidden');
+
+  // Mostrar historial de ingresos si estaba colapsado
+  const hist = document.getElementById('ing-historial');
+  if (hist && hist.classList.contains('hidden')) hist.classList.remove('hidden');
+});
