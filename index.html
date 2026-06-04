@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Stock - Cayo la Cabra</title>
-  <link rel="stylesheet" href="style.css?v=33" />
+  <link rel="stylesheet" href="style.css?v=34" />
 </head>
 <body>
   <header>
@@ -50,6 +50,7 @@
       <div class="stock-export-bar">
         <button class="btn-exportar-pdf" onclick="generarStockPDF()">📄 PDF del stock</button>
         <button class="btn-exportar-wa"  onclick="exportarStockWhatsApp()">📤 WhatsApp</button>
+        <button class="btn-registrar-ingreso" id="btn-registrar-ingreso">📥 Registrar ingreso</button>
       </div>
 
       <section class="seccion">
@@ -85,6 +86,80 @@
           </table>
         </div>
       </section>
+
+      <section class="seccion ing-historial-seccion">
+        <button class="ing-historial-toggle" onclick="this.nextElementSibling.classList.toggle('hidden'); this.classList.toggle('abierto')">
+          📦 Historial de ingresos <span class="ing-toggle-icon">▼</span>
+        </button>
+        <div id="ing-historial" class="hidden">
+          <div id="ing-historial-lista"></div>
+        </div>
+      </section>
+    </div>
+
+    <!-- ── MODAL REGISTRAR INGRESO ── -->
+    <div id="modal-ingreso" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>📥 Registrar ingreso de mercadería</h2>
+          <button class="modal-cerrar" id="btn-cerrar-ingreso" aria-label="Cerrar">✕</button>
+        </div>
+        <div class="sol-seccion-items">
+          <div id="ing-items-agregados" class="sol-items-agregados"></div>
+          <label class="config-label">Categoría
+            <select id="ing-categoria" class="config-input">
+              <option value="">— Seleccioná —</option>
+              <option value="adulto">Remera Adulto</option>
+              <option value="nino">Remera Niñx</option>
+              <option value="tote">Tote Bag</option>
+            </select>
+          </label>
+          <div id="ing-campos-adulto" class="campos hidden">
+            <label class="config-label">Diseño
+              <select id="ing-variante" class="config-input">
+                <option value="veredaRoja">Vereda Roja</option>
+                <option value="veredaNegra">Vereda Negra</option>
+                <option value="reposeraRoja">Reposera Roja</option>
+                <option value="reposeraNegra">Reposera Negra</option>
+                <option value="blanca">Cabra Blanca</option>
+                <option value="cabraNegra">Cabra Negra</option>
+              </select>
+            </label>
+            <label class="config-label">Talle
+              <select id="ing-talle-adulto" class="config-input">
+                <option value="S">S</option><option value="M">M</option><option value="L">L</option><option value="XL">XL</option><option value="XXL">XXL</option>
+              </select>
+            </label>
+          </div>
+          <div id="ing-campos-nino" class="campos hidden">
+            <label class="config-label">Talle
+              <select id="ing-talle-nino" class="config-input">
+                <option value="2">2</option><option value="4">4</option><option value="6">6</option><option value="8">8</option><option value="10">10</option><option value="12">12</option><option value="16">16</option>
+              </select>
+            </label>
+          </div>
+          <div id="ing-campos-tote" class="campos hidden">
+            <label class="config-label">Modelo
+              <select id="ing-modelo" class="config-input">
+                <option value="silla">Reposera</option>
+                <option value="vereda">Vereda</option>
+              </select>
+            </label>
+          </div>
+          <label class="config-label">Cantidad
+            <input type="number" id="ing-cantidad" class="config-input" min="1" value="1" />
+          </label>
+          <button type="button" id="btn-agregar-item-ing" class="btn-agregar-item">＋ Agregar ítem al ingreso</button>
+        </div>
+        <label class="config-label">Nota (opcional)
+          <input type="text" id="ing-nota" class="config-input" maxlength="200" placeholder="Ej: Importación junio 2026..." />
+        </label>
+        <p id="ing-error" class="error hidden"></p>
+        <div class="modal-actions">
+          <button id="btn-confirmar-ingreso" class="btn-primary">Registrar ingreso</button>
+          <button id="btn-cancelar-ingreso" class="btn-secondary">Cancelar</button>
+        </div>
+      </div>
     </div>
 
     <!-- ── TAB VENTAS ── -->
@@ -578,6 +653,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=33"></script>
+  <script src="app.js?v=34"></script>
 </body>
 </html>
