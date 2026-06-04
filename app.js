@@ -3,17 +3,17 @@
 // ── Estado inicial ────────────────────────────────────────────────────────────
 const STOCK_INICIAL = {
   adultos: {
-    S:   { veredaRoja: 5, veredaNegra: 5, reposeraRoja: 4, reposeraNegra: 4, blanca: 10 },
-    M:   { veredaRoja: 0, veredaNegra: 0, reposeraRoja: 3, reposeraNegra: 3, blanca: 10 },
-    L:   { veredaRoja: 0, veredaNegra: 0, reposeraRoja: 3, reposeraNegra: 3, blanca: 15 },
-    XL:  { veredaRoja: 0, veredaNegra: 0, reposeraRoja: 3, reposeraNegra: 3, blanca: 15 },
-    XXL: { veredaRoja: 0, veredaNegra: 0, reposeraRoja: 2, reposeraNegra: 2, blanca:  5 },
+    S:   { veredaRoja: 5, veredaNegra: 5, reposeraRoja: 4, reposeraNegra: 4, blanca: 10, cabraNegra: 0 },
+    M:   { veredaRoja: 0, veredaNegra: 0, reposeraRoja: 3, reposeraNegra: 3, blanca: 10, cabraNegra: 0 },
+    L:   { veredaRoja: 0, veredaNegra: 0, reposeraRoja: 3, reposeraNegra: 3, blanca: 15, cabraNegra: 0 },
+    XL:  { veredaRoja: 0, veredaNegra: 0, reposeraRoja: 3, reposeraNegra: 3, blanca: 15, cabraNegra: 0 },
+    XXL: { veredaRoja: 0, veredaNegra: 0, reposeraRoja: 2, reposeraNegra: 2, blanca:  5, cabraNegra: 0 },
   },
   totes: { silla: 9, vereda: 5 },
   ninos: { 2: 1, 4: 2, 6: 2, 8: 1, 10: 3, 12: 1, 16: 2 },
 };
 
-const VARIANTES      = ['reposeraRoja', 'reposeraNegra', 'blanca', 'veredaRoja', 'veredaNegra'];
+const VARIANTES      = ['reposeraRoja', 'reposeraNegra', 'blanca', 'cabraNegra', 'veredaRoja', 'veredaNegra'];
 const TALLES_ADULTO  = ['S', 'M', 'L', 'XL', 'XXL'];
 const TALLES_NINO    = [2, 4, 6, 8, 10, 12, 16];
 
@@ -24,7 +24,8 @@ const LABEL_VARIANTE = {
   veredaNegra:   'Vereda Negra',
   reposeraRoja:  'Reposera Roja',
   reposeraNegra: 'Reposera Negra',
-  blanca:        'Blanca',
+  blanca:        'Cabra Blanca',
+  cabraNegra:    'Cabra Negra',
 };
 
 const COL_CLASS = {
@@ -33,25 +34,40 @@ const COL_CLASS = {
   reposeraRoja:  'col-rr',
   reposeraNegra: 'col-rn',
   blanca:        'col-bl',
+  cabraNegra:    'col-cn',
 };
 
 // Agrupación para la tabla transpuesta (diseño + color separados)
 const GRUPOS_ADULTO = [
   { nombre: 'Reposera', variantes: ['reposeraRoja', 'reposeraNegra'] },
-  { nombre: 'Blanca',   variantes: ['blanca'] },
+  { nombre: 'Cabra',    variantes: ['blanca', 'cabraNegra'] },
   { nombre: 'Vereda',   variantes: ['veredaRoja',   'veredaNegra']   },
 ];
 const COLOR_VARIANTE = {
-  reposeraRoja: 'Roja', reposeraNegra: 'Negra',
-  blanca: '—',
-  veredaRoja: 'Roja',   veredaNegra: 'Negra',
+  reposeraRoja: 'Roja',  reposeraNegra: 'Negra',
+  blanca:       'Blanca', cabraNegra:   'Negra',
+  veredaRoja:   'Roja',  veredaNegra:   'Negra',
 };
 
 // ── Persistencia ──────────────────────────────────────────────────────────────
 function cargarEstado() {
   try {
     const raw = localStorage.getItem('cayo_stock');
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const st = JSON.parse(raw);
+      let changed = false;
+      // Migración: agregar cabraNegra a talles que no lo tienen
+      if (st.adultos) {
+        TALLES_ADULTO.forEach(t => {
+          if (st.adultos[t] && st.adultos[t].cabraNegra === undefined) {
+            st.adultos[t].cabraNegra = 0;
+            changed = true;
+          }
+        });
+      }
+      if (changed) localStorage.setItem('cayo_stock', JSON.stringify(st));
+      return st;
+    }
   } catch (_) {}
   return JSON.parse(JSON.stringify(STOCK_INICIAL));
 }
@@ -71,6 +87,11 @@ function normalizeHistorial(arr) {
       changed = true;
     }
     if (!h.moneda) { h.moneda = 'ARS'; changed = true; }
+    // Migración: "Remera Blanca talle X" → "Remera Cabra Blanca talle X"
+    if (h.descripcion && /^Remera Blanca talle /.test(h.descripcion)) {
+      h.descripcion = h.descripcion.replace('Remera Blanca talle ', 'Remera Cabra Blanca talle ');
+      changed = true;
+    }
   });
   return changed;
 }

@@ -57,38 +57,49 @@ function doPost(e) {
     const body = JSON.parse(e.postData.contents);
     const ss   = SpreadsheetApp.getActiveSpreadsheet();
 
+    // Cada sección se guarda independientemente — un error en los helpers
+    // no impide que las demás secciones se guarden
     if (body.stock !== undefined) {
-      let sheet = ss.getSheetByName('Stock');
-      if (!sheet) sheet = ss.insertSheet('Stock');
-      sheet.getRange('A1').setValue(JSON.stringify(body.stock));
+      try {
+        let sheet = ss.getSheetByName('Stock');
+        if (!sheet) sheet = ss.insertSheet('Stock');
+        sheet.getRange('A1').setValue(JSON.stringify(body.stock));
+      } catch(e) { Logger.log('stock save error: ' + e); }
     }
 
     if (body.historial !== undefined) {
-      let sheet = ss.getSheetByName('Historial');
-      if (!sheet) sheet = ss.insertSheet('Historial');
-      sheet.getRange('A1').setValue(JSON.stringify(body.historial));
-      actualizarHojaVentas(ss, body.historial);
-      actualizarPorVariante(ss, body.historial);
+      try {
+        let sheet = ss.getSheetByName('Historial');
+        if (!sheet) sheet = ss.insertSheet('Historial');
+        sheet.getRange('A1').setValue(JSON.stringify(body.historial));
+      } catch(e) { Logger.log('historial save error: ' + e); }
+      try { actualizarHojaVentas(ss, body.historial); } catch(e) { Logger.log('ventas sheet error: ' + e); }
+      try { actualizarPorVariante(ss, body.historial); } catch(e) { Logger.log('variante sheet error: ' + e); }
     }
 
     if (body.auditorias !== undefined) {
-      let sheet = ss.getSheetByName('Auditorias');
-      if (!sheet) sheet = ss.insertSheet('Auditorias');
-      sheet.getRange('A1').setValue(JSON.stringify(body.auditorias));
-      actualizarHojaAuditorias(ss, body.auditorias);
+      try {
+        let sheet = ss.getSheetByName('Auditorias');
+        if (!sheet) sheet = ss.insertSheet('Auditorias');
+        sheet.getRange('A1').setValue(JSON.stringify(body.auditorias));
+      } catch(e) { Logger.log('auditorias save error: ' + e); }
+      try { actualizarHojaAuditorias(ss, body.auditorias); } catch(e) { Logger.log('audit sheet error: ' + e); }
     }
 
     if (body.pedidos !== undefined) {
-      let sheet = ss.getSheetByName('Pedidos');
-      if (!sheet) sheet = ss.insertSheet('Pedidos');
-      sheet.getRange('A1').setValue(JSON.stringify(body.pedidos));
-      actualizarHojaPedidos(ss, body.pedidos);
+      try {
+        let sheet = ss.getSheetByName('Pedidos');
+        if (!sheet) sheet = ss.insertSheet('Pedidos');
+        sheet.getRange('A1').setValue(JSON.stringify(body.pedidos));
+      } catch(e) { Logger.log('pedidos save error: ' + e); }
+      try { actualizarHojaPedidos(ss, body.pedidos); } catch(e) { Logger.log('pedidos sheet error: ' + e); }
     }
 
-    // Actualizar resumen con los datos más recientes
-    const stockData = body.stock     || leerJSON(ss, 'Stock',    '{}');
-    const histData  = body.historial || leerJSON(ss, 'Historial', '[]');
-    actualizarResumen(ss, stockData, histData);
+    try {
+      const stockData = body.stock     || leerJSON(ss, 'Stock',    '{}');
+      const histData  = body.historial || leerJSON(ss, 'Historial', '[]');
+      actualizarResumen(ss, stockData, histData);
+    } catch(e) { Logger.log('resumen error: ' + e); }
 
     return ContentService
       .createTextOutput(JSON.stringify({ ok: true }))
@@ -256,10 +267,10 @@ function actualizarPorVariante(ss, historial) {
   sheet.clearContents();
   sheet.clearFormats();
 
-  const VARIANTES = ['reposeraRoja', 'reposeraNegra', 'blanca', 'veredaRoja', 'veredaNegra'];
+  const VARIANTES = ['reposeraRoja', 'reposeraNegra', 'blanca', 'cabraNegra', 'veredaRoja', 'veredaNegra'];
   const TALLES    = ['S', 'M', 'L', 'XL', 'XXL'];
-  const LABELS    = { reposeraRoja:'Reposera', reposeraNegra:'Reposera', blanca:'Blanca', veredaRoja:'Vereda', veredaNegra:'Vereda' };
-  const COLORES   = { reposeraRoja:'Roja', reposeraNegra:'Negra', blanca:'—', veredaRoja:'Roja', veredaNegra:'Negra' };
+  const LABELS    = { reposeraRoja:'Reposera', reposeraNegra:'Reposera', blanca:'Cabra', cabraNegra:'Cabra', veredaRoja:'Vereda', veredaNegra:'Vereda' };
+  const COLORES   = { reposeraRoja:'Roja', reposeraNegra:'Negra', blanca:'Blanca', cabraNegra:'Negra', veredaRoja:'Roja', veredaNegra:'Negra' };
 
   const ventasAdulto = {};
   VARIANTES.forEach(v => { ventasAdulto[v] = {}; TALLES.forEach(t => { ventasAdulto[v][t] = 0; }); });
@@ -349,12 +360,13 @@ function actualizarResumen(ss, stock, historial) {
   const totalTrans = arr.reduce((s, h) => h.pago === 'transferencia' ? s + (h.ingreso || 0) : s, 0);
   const totalRegU  = arr.reduce((s, h) => h.pago === 'regalo'        ? s + h.cantidad        : s, 0);
 
-  const VARIANTES = ['reposeraRoja', 'reposeraNegra', 'blanca', 'veredaRoja', 'veredaNegra'];
+  const VARIANTES = ['reposeraRoja', 'reposeraNegra', 'blanca', 'cabraNegra', 'veredaRoja', 'veredaNegra'];
   const TALLES    = ['S', 'M', 'L', 'XL', 'XXL'];
   const LABELS    = {
     reposeraRoja:  'Reposera Roja',
     reposeraNegra: 'Reposera Negra',
-    blanca:        'Blanca',
+    blanca:        'Cabra Blanca',
+    cabraNegra:    'Cabra Negra',
     veredaRoja:    'Vereda Roja',
     veredaNegra:   'Vereda Negra',
   };
