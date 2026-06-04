@@ -799,6 +799,7 @@ function getMonedaVenta() {
 }
 
 function precioBase(cat) {
+  if (cat === 'pegotines') return 0;
   const moneda = getMonedaVenta();
   if (moneda === 'UYU') {
     if (cat === 'tote') return PRECIOS.tote_uyu;
@@ -894,7 +895,7 @@ selCategoria.addEventListener('change', () => {
   document.getElementById('label-cantidad').classList.toggle('hidden', esPeg);
   document.getElementById('label-precio-txt').textContent = esPeg ? 'Monto total ($)' : 'Precio unitario ($)';
   inputPrecioOverride.placeholder = esPeg ? 'Ingresá el monto total' : 'Precio por defecto';
-  if (esPeg) inputCantidad.value = 1;
+  if (esPeg) { inputCantidad.value = 1; inputPrecioOverride.value = ''; }
   actualizarDisponible();
 });
 
