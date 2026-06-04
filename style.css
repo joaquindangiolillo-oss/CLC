@@ -1319,3 +1319,14 @@ td .stock-reservas { display: flex; flex-wrap: wrap; gap: 0.2rem; justify-conten
   text-align: center;
   padding: 1rem;
 }
+
+/* ── Desglose por moneda en cards de efectivo/transf ── */
+.vcard-moneda-linea {
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+.vcard-moneda-uyu {
+  color: var(--texto-tenue);
+  font-size: 0.95rem;
+}

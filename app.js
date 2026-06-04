@@ -578,6 +578,10 @@ function renderVentas() {
   const totalUYU     = historial.filter(h => (h.moneda || 'ARS') === 'UYU').reduce((s, h) => s + (h.ingreso ?? 0), 0);
   const totalEfec    = historial.reduce((s, h) => s + (h.pago === 'efectivo'      ? (h.ingreso ?? 0) : 0), 0);
   const totalTrans   = historial.reduce((s, h) => s + (h.pago === 'transferencia' ? (h.ingreso ?? 0) : 0), 0);
+  const efecARS  = historial.filter(h => h.pago === 'efectivo'      && (h.moneda||'ARS') === 'ARS').reduce((s, h) => s + (h.ingreso ?? 0), 0);
+  const efecUYU  = historial.filter(h => h.pago === 'efectivo'      && (h.moneda||'ARS') === 'UYU').reduce((s, h) => s + (h.ingreso ?? 0), 0);
+  const transfARS = historial.filter(h => h.pago === 'transferencia' && (h.moneda||'ARS') === 'ARS').reduce((s, h) => s + (h.ingreso ?? 0), 0);
+  const transfUYU = historial.filter(h => h.pago === 'transferencia' && (h.moneda||'ARS') === 'UYU').reduce((s, h) => s + (h.ingreso ?? 0), 0);
   const totalRegU    = historial.reduce((s, h) => h.pago === 'regalo' ? s + h.cantidad : s, 0);
   const anotaARS = historial.filter(h => h.pago === 'anota' && (h.moneda||'ARS') === 'ARS').reduce((s, h) => s + (h.precioUnit||0) * h.cantidad, 0);
   const anotaUYU = historial.filter(h => h.pago === 'anota' && (h.moneda||'ARS') === 'UYU').reduce((s, h) => s + (h.precioUnit||0) * h.cantidad, 0);
@@ -598,8 +602,20 @@ function renderVentas() {
   }
   document.getElementById('v-total-ars').textContent = formatPeso(totalARS);
   document.getElementById('v-total-uyu').textContent = formatPeso(totalUYU);
-  document.getElementById('v-efectivo').textContent  = formatPeso(totalEfec);
-  document.getElementById('v-transf').textContent    = formatPeso(totalTrans);
+  const setMonedaCard = (idARS, idUYU, ars, uyu) => {
+    const elARS = document.getElementById(idARS);
+    const elUYU = document.getElementById(idUYU);
+    if (!elARS || !elUYU) return;
+    elARS.textContent = `🇦🇷 ${formatPeso(ars)}`;
+    if (uyu > 0) {
+      elUYU.textContent = `🇺🇾 ${formatPeso(uyu)} UYU`;
+      elUYU.classList.remove('hidden');
+    } else {
+      elUYU.classList.add('hidden');
+    }
+  };
+  setMonedaCard('v-efectivo-ars', 'v-efectivo-uyu', efecARS, efecUYU);
+  setMonedaCard('v-transf-ars',   'v-transf-uyu',   transfARS, transfUYU);
   document.getElementById('v-regalos').textContent   = `${totalRegU} u.`;
   const anotaParts = [];
   if (totalAnotaARS > 0) anotaParts.push(formatPeso(totalAnotaARS));
