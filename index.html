@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Stock - Cayo la Cabra</title>
-  <link rel="stylesheet" href="style.css?v=34" />
+  <link rel="stylesheet" href="style.css?v=35" />
 </head>
 <body>
   <header>
@@ -181,11 +181,13 @@
         </div>
         <div class="vcard vcard--efectivo">
           <span class="vcard-label">💵 Efectivo</span>
-          <span class="vcard-valor" id="v-efectivo">$0</span>
+          <span class="vcard-valor vcard-moneda-linea" id="v-efectivo-ars">$0</span>
+          <span class="vcard-moneda-linea vcard-moneda-uyu hidden" id="v-efectivo-uyu"></span>
         </div>
         <div class="vcard vcard--transf">
           <span class="vcard-label">🏦 Transferencia</span>
-          <span class="vcard-valor" id="v-transf">$0</span>
+          <span class="vcard-valor vcard-moneda-linea" id="v-transf-ars">$0</span>
+          <span class="vcard-moneda-linea vcard-moneda-uyu hidden" id="v-transf-uyu"></span>
         </div>
         <div class="vcard vcard--regalo">
           <span class="vcard-label">🎁 Regalos</span>
@@ -653,6 +655,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=34"></script>
+  <script src="app.js?v=35"></script>
 </body>
 </html>
