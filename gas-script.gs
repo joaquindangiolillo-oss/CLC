@@ -267,10 +267,10 @@ function actualizarPorVariante(ss, historial) {
   sheet.clearContents();
   sheet.clearFormats();
 
-  const VARIANTES = ['reposeraRoja', 'reposeraNegra', 'blanca', 'veredaRoja', 'veredaNegra'];
+  const VARIANTES = ['reposeraRoja', 'reposeraNegra', 'blanca', 'cabraNegra', 'veredaRoja', 'veredaNegra'];
   const TALLES    = ['S', 'M', 'L', 'XL', 'XXL'];
-  const LABELS    = { reposeraRoja:'Reposera', reposeraNegra:'Reposera', blanca:'Blanca', veredaRoja:'Vereda', veredaNegra:'Vereda' };
-  const COLORES   = { reposeraRoja:'Roja', reposeraNegra:'Negra', blanca:'—', veredaRoja:'Roja', veredaNegra:'Negra' };
+  const LABELS    = { reposeraRoja:'Reposera', reposeraNegra:'Reposera', blanca:'Cabra', cabraNegra:'Cabra', veredaRoja:'Vereda', veredaNegra:'Vereda' };
+  const COLORES   = { reposeraRoja:'Roja', reposeraNegra:'Negra', blanca:'Blanca', cabraNegra:'Negra', veredaRoja:'Roja', veredaNegra:'Negra' };
 
   const ventasAdulto = {};
   VARIANTES.forEach(v => { ventasAdulto[v] = {}; TALLES.forEach(t => { ventasAdulto[v][t] = 0; }); });
@@ -360,12 +360,13 @@ function actualizarResumen(ss, stock, historial) {
   const totalTrans = arr.reduce((s, h) => h.pago === 'transferencia' ? s + (h.ingreso || 0) : s, 0);
   const totalRegU  = arr.reduce((s, h) => h.pago === 'regalo'        ? s + h.cantidad        : s, 0);
 
-  const VARIANTES = ['reposeraRoja', 'reposeraNegra', 'blanca', 'veredaRoja', 'veredaNegra'];
+  const VARIANTES = ['reposeraRoja', 'reposeraNegra', 'blanca', 'cabraNegra', 'veredaRoja', 'veredaNegra'];
   const TALLES    = ['S', 'M', 'L', 'XL', 'XXL'];
   const LABELS    = {
     reposeraRoja:  'Reposera Roja',
     reposeraNegra: 'Reposera Negra',
-    blanca:        'Blanca',
+    blanca:        'Cabra Blanca',
+    cabraNegra:    'Cabra Negra',
     veredaRoja:    'Vereda Roja',
     veredaNegra:   'Vereda Negra',
   };
