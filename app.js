@@ -747,7 +747,7 @@ function renderVentas() {
     <div class="venta-item${h._ediciones?.length ? ' tiene-ediciones' : ''}${h.pago === 'anota' ? ' venta-anota' : ''}${h._stock?.tipo === 'pegotines' ? ' venta-pegotines' : ''}">
       <div class="venta-item-main">
         <span class="venta-desc">${h.descripcion}${pegotinesBadge}${nombreHtml}</span>
-        <span class="venta-cant">-${h.cantidad}</span>
+        ${h._stock?.tipo === 'pegotines' ? '' : `<span class="venta-cant">-${h.cantidad}</span>`}
         ${montoHtml}
         <span class="hist-pago hist-pago--${h.pago ?? 'efectivo'}">${pagoLabel}</span>
         ${monedaBadge}
