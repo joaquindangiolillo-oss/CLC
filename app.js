@@ -591,7 +591,7 @@ function renderVentas() {
   const totalRegU    = historial.reduce((s, h) => h.pago === 'regalo' ? s + h.cantidad : s, 0);
   const anotaARS = historial.filter(h => h.pago === 'anota' && (h.moneda||'ARS') === 'ARS').reduce((s, h) => s + (h.precioUnit||0) * h.cantidad, 0);
   const anotaUYU = historial.filter(h => h.pago === 'anota' && (h.moneda||'ARS') === 'UYU').reduce((s, h) => s + (h.precioUnit||0) * h.cantidad, 0);
-  const pedPendientes = pedidos.filter(p => p.estadoFisico !== 'cancelado' && pedidoSaldo(p) > 0);
+  const pedPendientes = pedidos.filter(p => p.estadoFisico !== 'cancelado' && p.estadoFisico !== 'solicitud' && pedidoSaldo(p) > 0);
   const pedSaldoARS = pedPendientes.filter(p => (p.moneda||'UYU') === 'ARS').reduce((s, p) => s + pedidoSaldo(p), 0);
   const pedSaldoUYU = pedPendientes.filter(p => (p.moneda||'UYU') === 'UYU').reduce((s, p) => s + pedidoSaldo(p), 0);
   const totalAnotaARS = anotaARS + pedSaldoARS;
@@ -660,7 +660,7 @@ function renderVentas() {
     });
 
     // Solicitudes/pedidos no cancelados con saldo > 0
-    pedidos.filter(p => p.estadoFisico !== 'cancelado' && pedidoSaldo(p) > 0).forEach(p => {
+    pedidos.filter(p => p.estadoFisico !== 'cancelado' && p.estadoFisico !== 'solicitud' && pedidoSaldo(p) > 0).forEach(p => {
       const mon = p.moneda || 'UYU';
       agregar(p.para, pedidoDescItem(p), pedidoSaldo(p), mon);
     });
@@ -691,7 +691,7 @@ function renderVentas() {
 
   // Con filtro "anota" también mostramos pedidos con saldo pendiente
   const pedidosAnota = filtroVentas === 'anota'
-    ? pedidos.filter(p => p.estadoFisico !== 'cancelado' && pedidoSaldo(p) > 0)
+    ? pedidos.filter(p => p.estadoFisico !== 'cancelado' && p.estadoFisico !== 'solicitud' && pedidoSaldo(p) > 0)
     : [];
 
   const lista = document.getElementById('ventas-lista');
