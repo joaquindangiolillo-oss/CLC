@@ -25,14 +25,17 @@ function doGet(e) {
       const histRaw  = histSheet  ? histSheet.getRange('A1').getValue()  : '';
       const auditRaw = auditSheet ? auditSheet.getRange('A1').getValue() : '';
 
-      const pedidosSheet = ss.getSheetByName('Pedidos');
-      const pedidosRaw   = pedidosSheet ? pedidosSheet.getRange('A1').getValue() : '';
+      const pedidosSheet  = ss.getSheetByName('Pedidos');
+      const pedidosRaw    = pedidosSheet  ? pedidosSheet.getRange('A1').getValue()  : '';
+      const ingresosSheet = ss.getSheetByName('Ingresos');
+      const ingresosRaw   = ingresosSheet ? ingresosSheet.getRange('A1').getValue() : '';
 
       const result = {
         stock:      stockRaw    ? JSON.parse(stockRaw)    : null,
         historial:  histRaw     ? JSON.parse(histRaw)     : null,
         auditorias: auditRaw    ? JSON.parse(auditRaw)    : null,
         pedidos:    pedidosRaw  ? JSON.parse(pedidosRaw)  : null,
+        ingresos:   ingresosRaw ? JSON.parse(ingresosRaw) : null,
       };
 
       return ContentService
@@ -93,6 +96,14 @@ function doPost(e) {
         sheet.getRange('A1').setValue(JSON.stringify(body.pedidos));
       } catch(e) { Logger.log('pedidos save error: ' + e); }
       try { actualizarHojaPedidos(ss, body.pedidos); } catch(e) { Logger.log('pedidos sheet error: ' + e); }
+    }
+
+    if (body.ingresos !== undefined) {
+      try {
+        let sheet = ss.getSheetByName('Ingresos');
+        if (!sheet) sheet = ss.insertSheet('Ingresos');
+        sheet.getRange('A1').setValue(JSON.stringify(body.ingresos));
+      } catch(e) { Logger.log('ingresos save error: ' + e); }
     }
 
     try {
