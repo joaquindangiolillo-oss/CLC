@@ -368,8 +368,11 @@ async function sincronizarDesdeNube() {
     localStorage.setItem('cayo_pedidos', JSON.stringify(pedidos));
     changed = true;
   }
-  if (Array.isArray(data.ingresos)) {
-    ingresos = data.ingresos;
+  if (Array.isArray(data.ingresos) && data.ingresos.length > 0) {
+    // Merge: combinar ingresos de la nube con los locales (evitar pérdida de datos)
+    const idsNube = new Set(data.ingresos.map(i => i.id));
+    const soloLocales = ingresos.filter(i => !idsNube.has(i.id));
+    ingresos = [...data.ingresos, ...soloLocales].sort((a, b) => a.id - b.id);
     localStorage.setItem('cayo_ingresos', JSON.stringify(ingresos));
     changed = true;
   }
