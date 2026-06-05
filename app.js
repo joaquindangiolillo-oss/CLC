@@ -1993,7 +1993,9 @@ function renderPedidos() {
   if (pedidosSubtab === 'activos') {
     filtrados = pedidos.filter(p => p.estadoFisico === 'solicitud' || p.estadoFisico === 'armado');
   } else if (pedidosSubtab === 'entregados') {
-    filtrados = pedidos.filter(p => p.estadoFisico === 'entregado');
+    filtrados = pedidos.filter(p => p.estadoFisico === 'entregado' && pedidoSaldo(p) > 0);
+  } else if (pedidosSubtab === 'completados') {
+    filtrados = pedidos.filter(p => p.estadoFisico === 'entregado' && pedidoSaldo(p) <= 0);
   } else {
     filtrados = pedidos.filter(p => p.estadoFisico === 'cancelado');
   }
