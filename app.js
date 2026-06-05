@@ -10,12 +10,23 @@ const STOCK_INICIAL = {
     XXL: { veredaRoja: 0, veredaNegra: 0, reposeraRoja: 2, reposeraNegra: 2, blanca:  5, cabraNegra: 0 },
   },
   totes: { silla: 9, vereda: 5 },
-  ninos: { 2: 1, 4: 2, 6: 2, 8: 1, 10: 3, 12: 1, 16: 2 },
+  ninos: {
+    2:  { reposeraRoja: 1, cabraBlanca: 0 },
+    4:  { reposeraRoja: 2, cabraBlanca: 0 },
+    6:  { reposeraRoja: 2, cabraBlanca: 0 },
+    8:  { reposeraRoja: 1, cabraBlanca: 0 },
+    10: { reposeraRoja: 3, cabraBlanca: 0 },
+    12: { reposeraRoja: 1, cabraBlanca: 0 },
+    16: { reposeraRoja: 2, cabraBlanca: 0 },
+  },
 };
 
 const VARIANTES      = ['reposeraRoja', 'reposeraNegra', 'blanca', 'cabraNegra', 'veredaRoja', 'veredaNegra'];
+const VARIANTES_NINO = ['reposeraRoja', 'cabraBlanca'];
 const TALLES_ADULTO  = ['S', 'M', 'L', 'XL', 'XXL'];
 const TALLES_NINO    = [2, 4, 6, 8, 10, 12, 16];
+
+const LABEL_VARIANTE_NINO = { reposeraRoja: 'Reposera Roja', cabraBlanca: 'Cabra Blanca' };
 
 const PRECIOS = { remera: 25000, tote: 16000, remera_uyu: 650, tote_uyu: 400, nino_uyu: 500 };
 
@@ -56,11 +67,23 @@ function cargarEstado() {
     if (raw) {
       const st = JSON.parse(raw);
       let changed = false;
-      // Migración: agregar cabraNegra a talles que no lo tienen
+      // Migración: agregar cabraNegra a talles adulto que no lo tienen
       if (st.adultos) {
         TALLES_ADULTO.forEach(t => {
           if (st.adultos[t] && st.adultos[t].cabraNegra === undefined) {
             st.adultos[t].cabraNegra = 0;
+            changed = true;
+          }
+        });
+      }
+      // Migración: ninos de número plano a objeto por variante
+      if (st.ninos) {
+        TALLES_NINO.forEach(t => {
+          if (typeof st.ninos[t] === 'number') {
+            st.ninos[t] = { reposeraRoja: st.ninos[t], cabraBlanca: 0 };
+            changed = true;
+          } else if (st.ninos[t] && st.ninos[t].cabraBlanca === undefined) {
+            st.ninos[t].cabraBlanca = 0;
             changed = true;
           }
         });
@@ -112,8 +135,12 @@ function cargarHistorial() {
 // Infiere qué stock restaurar a partir de la descripción (entradas viejas sin _stock)
 function inferirStock(h) {
   const d = h.descripcion;
-  const ninoM = d.match(/Remera Ni[ñn]x .+ talle (\d+)/);
-  if (ninoM) return { tipo: 'nino', talle: ninoM[1] };
+  const ninoM = d.match(/Remera Ni[ñn]x (.+) talle (\d+)/);
+  if (ninoM) {
+    const nombreVar = ninoM[1].trim();
+    const variante  = Object.entries(LABEL_VARIANTE_NINO).find(([, v]) => v === nombreVar)?.[0] || 'reposeraRoja';
+    return { tipo: 'nino', talle: ninoM[2], variante };
+  }
   if (d === 'Tote Bag Reposera') return { tipo: 'tote', modelo: 'silla' };
   if (d === 'Tote Bag Vereda')   return { tipo: 'tote', modelo: 'vereda' };
   const adM = d.match(/Remera (.+) talle ([A-Z]+)$/);
@@ -216,7 +243,7 @@ function guardarPedidos() {
 function _itemMatchOpts(it, tipo, opts) {
   if (tipo === 'adulto') return it.talle === opts.talle && it.variante === opts.variante;
   if (tipo === 'tote')   return it.modelo === opts.modelo;
-  if (tipo === 'nino')   return String(it.talle) === String(opts.talle);
+  if (tipo === 'nino')   return String(it.talle) === String(opts.talle) && it.variante === opts.variante;
   return false;
 }
 function countArmados(tipo, opts) {
@@ -232,7 +259,7 @@ function countSolicitudes(tipo, opts) {
 function getRawStock(tipo, opts) {
   if (tipo === 'adulto') return estado.adultos[opts.talle]?.[opts.variante] ?? 0;
   if (tipo === 'tote')   return estado.totes[opts.modelo] ?? 0;
-  if (tipo === 'nino')   return estado.ninos[opts.talle] ?? 0;
+  if (tipo === 'nino')   return estado.ninos[opts.talle]?.[opts.variante] ?? 0;
   return 0;
 }
 function stockDisponible(tipo, opts) {
@@ -256,7 +283,7 @@ function pedidoEstadoPago(p) {
 function _itemDesc(it) {
   if (it.tipo === 'adulto') return `${LABEL_VARIANTE[it.variante] || it.variante} talle ${it.talle}`;
   if (it.tipo === 'tote')   return `Tote ${it.modelo === 'silla' ? 'Reposera' : 'Vereda'}`;
-  if (it.tipo === 'nino')   return `Niñx talle ${it.talle}`;
+  if (it.tipo === 'nino')   return `Niñx ${LABEL_VARIANTE_NINO[it.variante] || ''} talle ${it.talle}`.replace(/\s+/g,' ').trim();
   return 'ítem';
 }
 function pedidoDescItem(p) {
@@ -498,21 +525,39 @@ function renderTotes() {
 }
 
 function renderNinos() {
+  // Migración defensiva
+  TALLES_NINO.forEach(t => {
+    if (typeof estado.ninos[t] === 'number') {
+      estado.ninos[t] = { reposeraRoja: estado.ninos[t], cabraBlanca: 0 };
+    } else if (!estado.ninos[t]) {
+      estado.ninos[t] = { reposeraRoja: 0, cabraBlanca: 0 };
+    } else {
+      VARIANTES_NINO.forEach(v => { if (estado.ninos[t][v] === undefined) estado.ninos[t][v] = 0; });
+    }
+  });
+
   const tbody = document.getElementById('tbody-ninos');
   const tfoot = document.getElementById('tfoot-ninos');
-  const n = estado.ninos;
   let total = 0;
+  const totalesPorVariante = Object.fromEntries(VARIANTES_NINO.map(v => [v, 0]));
+
   tbody.innerHTML = TALLES_NINO.map(t => {
-    const disp = stockDisponible('nino', { talle: t });
-    const arm  = countArmados('nino', { talle: t });
-    const sol  = countSolicitudes('nino', { talle: t });
-    total += disp;
-    const badges = (arm > 0 || sol > 0)
-      ? `<div class="stock-reservas">${arm > 0 ? `<span class="badge-arm">${arm} arm.</span>` : ''}${sol > 0 ? `<span class="badge-sol">${sol} sol.</span>` : ''}</div>`
-      : '';
-    return `<tr><td class="talle-label">${t}</td><td class="${claseStock(disp)}">${disp}${badges}</td></tr>`;
+    const celdas = VARIANTES_NINO.map(v => {
+      const disp = stockDisponible('nino', { talle: t, variante: v });
+      const arm  = countArmados('nino', { talle: t, variante: v });
+      const sol  = countSolicitudes('nino', { talle: t, variante: v });
+      total += disp;
+      totalesPorVariante[v] += disp;
+      const badges = (arm > 0 || sol > 0)
+        ? `<div class="stock-reservas">${arm > 0 ? `<span class="badge-arm">${arm} arm.</span>` : ''}${sol > 0 ? `<span class="badge-sol">${sol} sol.</span>` : ''}</div>`
+        : '';
+      return `<td class="${claseStock(disp)}">${disp}${badges}</td>`;
+    }).join('');
+    return `<tr><td class="talle-label">${t}</td>${celdas}</tr>`;
   }).join('');
-  tfoot.innerHTML = `<tr><td>Total</td><td style="color:var(--acento);font-weight:700">${total}</td></tr>`;
+
+  const totCeldas = VARIANTES_NINO.map(v => `<td style="color:var(--acento);font-weight:700">${totalesPorVariante[v]}</td>`).join('');
+  tfoot.innerHTML = `<tr><td>Total</td>${totCeldas}</tr>`;
   document.getElementById('total-ninos').textContent = total;
 }
 
@@ -975,13 +1020,14 @@ document.getElementById('form-venta').addEventListener('submit', e => {
     _stock      = { tipo: 'adulto', talle, variante };
 
   } else if (cat === 'nino') {
-    const talle = selTalleNino.value;
-    disponible  = stockDisponible('nino', { talle });
+    const talle   = selTalleNino.value;
+    const variante = document.getElementById('venta-variante-nino').value || 'reposeraRoja';
+    disponible  = stockDisponible('nino', { talle, variante });
     if (cant > disponible) { mostrarError(`Stock insuficiente. Disponible: ${disponible}`); return; }
-    estado.ninos[talle] -= cant;
-    descripcion = `Remera Niñx Reposera Roja talle ${talle}`;
+    estado.ninos[talle][variante] -= cant;
+    descripcion = `Remera Niñx ${LABEL_VARIANTE_NINO[variante]} talle ${talle}`;
     precio      = PRECIOS.remera;
-    _stock      = { tipo: 'nino', talle };
+    _stock      = { tipo: 'nino', talle, variante };
 
   } else if (cat === 'tote') {
     const modelo = selTote.value;
@@ -1222,12 +1268,12 @@ window.abrirEditar = function(id) {
 
   // Determinar categoría, talle, variante/modelo desde _stock o inferirStock
   const ref = h._stock || inferirStock(h);
-  let cat = 'adulto', talle = 'S', variante = 'veredaRoja', talleNino = '2', modelo = 'silla';
+  let cat = 'adulto', talle = 'S', variante = 'veredaRoja', talleNino = '2', varianteNino = 'reposeraRoja', modelo = 'silla';
 
   if (ref) {
     cat = ref.tipo;
     if (cat === 'adulto') { talle = ref.talle; variante = ref.variante; }
-    else if (cat === 'nino')  talleNino = String(ref.talle);
+    else if (cat === 'nino')  { talleNino = String(ref.talle); varianteNino = ref.variante || 'reposeraRoja'; }
     else if (cat === 'tote')  modelo    = ref.modelo;
   }
 
@@ -1237,6 +1283,8 @@ window.abrirEditar = function(id) {
   selEditTalleAdulto.value = talle;
   selEditVariante.value    = variante;
   selEditTalleNino.value   = talleNino;
+  const selEditVarNino = document.getElementById('editar-variante-nino');
+  if (selEditVarNino) selEditVarNino.value = varianteNino;
   selEditTote.value        = modelo;
   inputEditCantidad.value  = h.cantidad;
   inputEditPrecio.value    = h.precioUnit ?? '';
@@ -1291,7 +1339,7 @@ document.getElementById('btn-confirmar-editar').addEventListener('click', () => 
   if (refViejo) {
     const { tipo, talle, variante, modelo } = refViejo;
     if (tipo === 'adulto') estado.adultos[talle][variante] += h.cantidad;
-    else if (tipo === 'nino') estado.ninos[talle] = (estado.ninos[talle] ?? 0) + h.cantidad;
+    else if (tipo === 'nino') { if (estado.ninos[talle]) estado.ninos[talle][variante || 'reposeraRoja'] = (estado.ninos[talle][variante || 'reposeraRoja'] ?? 0) + h.cantidad; }
     else if (tipo === 'tote') estado.totes[modelo] += h.cantidad;
   }
 
@@ -1307,7 +1355,7 @@ document.getElementById('btn-confirmar-editar').addEventListener('click', () => 
       if (refViejo) {
         const { tipo, talle: t, variante: v, modelo: m } = refViejo;
         if (tipo === 'adulto') estado.adultos[t][v] -= h.cantidad;
-        else if (tipo === 'nino') estado.ninos[t] -= h.cantidad;
+        else if (tipo === 'nino') { if (estado.ninos[t]) estado.ninos[t][v || 'reposeraRoja'] -= h.cantidad; }
         else if (tipo === 'tote') estado.totes[m] -= h.cantidad;
       }
       errEl.textContent = `Stock insuficiente para ${LABEL_VARIANTE[variante]} talle ${talle}. Disponible: ${disp}`;
@@ -1319,22 +1367,23 @@ document.getElementById('btn-confirmar-editar').addEventListener('click', () => 
     nuevo_stock = { tipo: 'adulto', talle, variante };
 
   } else if (nuevaCat === 'nino') {
-    const talle = selEditTalleNino.value;
-    const disp  = estado.ninos[talle] ?? 0;
+    const talle    = selEditTalleNino.value;
+    const varNino  = document.getElementById('editar-variante-nino')?.value || 'reposeraRoja';
+    const disp     = estado.ninos[talle]?.[varNino] ?? 0;
     if (nuevaCant > disp) {
       if (refViejo) {
         const { tipo, talle: t, variante: v, modelo: m } = refViejo;
         if (tipo === 'adulto') estado.adultos[t][v] -= h.cantidad;
-        else if (tipo === 'nino') estado.ninos[t] -= h.cantidad;
+        else if (tipo === 'nino') { if (estado.ninos[t]) estado.ninos[t][v || 'reposeraRoja'] -= h.cantidad; }
         else if (tipo === 'tote') estado.totes[m] -= h.cantidad;
       }
       errEl.textContent = `Stock insuficiente para talle ${talle}. Disponible: ${disp}`;
       errEl.classList.remove('hidden');
       return;
     }
-    estado.ninos[talle] -= nuevaCant;
-    nuevaDesc   = `Remera Niñx Reposera Roja talle ${talle}`;
-    nuevo_stock = { tipo: 'nino', talle };
+    estado.ninos[talle][varNino] -= nuevaCant;
+    nuevaDesc   = `Remera Niñx ${LABEL_VARIANTE_NINO[varNino]} talle ${talle}`;
+    nuevo_stock = { tipo: 'nino', talle, variante: varNino };
 
   } else if (nuevaCat === 'tote') {
     const modelo = selEditTote.value;
@@ -1405,7 +1454,7 @@ window.eliminarRegistro = function(id) {
   if (ref) {
     const { tipo, talle, variante, modelo } = ref;
     if (tipo === 'adulto') estado.adultos[talle][variante] += h.cantidad;
-    else if (tipo === 'nino') estado.ninos[talle] = (estado.ninos[talle] ?? 0) + h.cantidad;
+    else if (tipo === 'nino') { const vn = variante || 'reposeraRoja'; if (estado.ninos[talle]) estado.ninos[talle][vn] = (estado.ninos[talle][vn] ?? 0) + h.cantidad; }
     else if (tipo === 'tote') estado.totes[modelo] += h.cantidad;
   }
 
@@ -2081,7 +2130,8 @@ window.entregarPedido = function(id) {
     } else if (it.tipo === 'tote') {
       estado.totes[it.modelo] = Math.max(0, (estado.totes[it.modelo] || 0) - it.cantidad);
     } else if (it.tipo === 'nino') {
-      estado.ninos[it.talle] = Math.max(0, (estado.ninos[it.talle] ?? 0) - it.cantidad);
+      const vn = it.variante || 'reposeraRoja';
+      if (estado.ninos[it.talle]) estado.ninos[it.talle][vn] = Math.max(0, (estado.ninos[it.talle][vn] ?? 0) - it.cantidad);
     }
   });
   p.estadoFisico = 'entregado';
@@ -2177,7 +2227,7 @@ function actualizarStockInfoSolicitud() {
     opts = { talle: document.getElementById('sol-talle-adulto').value, variante: document.getElementById('sol-variante').value };
   } else if (cat === 'nino') {
     tipo = 'nino';
-    opts = { talle: document.getElementById('sol-talle-nino').value };
+    opts = { talle: document.getElementById('sol-talle-nino').value, variante: document.getElementById('sol-variante-nino').value || 'reposeraRoja' };
   } else {
     tipo = 'tote';
     opts = { modelo: document.getElementById('sol-modelo').value };
@@ -2240,7 +2290,8 @@ document.getElementById('btn-agregar-item-sol').addEventListener('click', () => 
     item.talle    = document.getElementById('sol-talle-adulto').value;
     item.variante = document.getElementById('sol-variante').value;
   } else if (cat === 'nino') {
-    item.talle = document.getElementById('sol-talle-nino').value;
+    item.talle    = document.getElementById('sol-talle-nino').value;
+    item.variante = document.getElementById('sol-variante-nino').value || 'reposeraRoja';
   } else {
     item.modelo = document.getElementById('sol-modelo').value;
   }
@@ -2278,7 +2329,8 @@ document.getElementById('btn-confirmar-solicitud').addEventListener('click', () 
       item.talle    = document.getElementById('sol-talle-adulto').value;
       item.variante = document.getElementById('sol-variante').value;
     } else if (cat === 'nino') {
-      item.talle = document.getElementById('sol-talle-nino').value;
+      item.talle    = document.getElementById('sol-talle-nino').value;
+      item.variante = document.getElementById('sol-variante-nino').value || 'reposeraRoja';
     } else {
       item.modelo = document.getElementById('sol-modelo').value;
     }
@@ -2898,7 +2950,8 @@ document.getElementById('btn-agregar-item-ing').addEventListener('click', () => 
     item.talle    = document.getElementById('ing-talle-adulto').value;
     item.variante = document.getElementById('ing-variante').value;
   } else if (cat === 'nino') {
-    item.talle = document.getElementById('ing-talle-nino').value;
+    item.talle    = document.getElementById('ing-talle-nino').value;
+    item.variante = document.getElementById('ing-variante-nino').value || 'reposeraRoja';
   } else {
     item.modelo = document.getElementById('ing-modelo').value;
   }
@@ -2921,7 +2974,8 @@ document.getElementById('btn-confirmar-ingreso').addEventListener('click', () =>
       item.talle    = document.getElementById('ing-talle-adulto').value;
       item.variante = document.getElementById('ing-variante').value;
     } else if (cat === 'nino') {
-      item.talle = document.getElementById('ing-talle-nino').value;
+      item.talle    = document.getElementById('ing-talle-nino').value;
+      item.variante = document.getElementById('ing-variante-nino').value || 'reposeraRoja';
     } else {
       item.modelo = document.getElementById('ing-modelo').value;
     }
@@ -2941,7 +2995,9 @@ document.getElementById('btn-confirmar-ingreso').addEventListener('click', () =>
     } else if (it.tipo === 'tote') {
       estado.totes[it.modelo] = (estado.totes[it.modelo] || 0) + it.cantidad;
     } else if (it.tipo === 'nino') {
-      estado.ninos[it.talle] = (estado.ninos[it.talle] || 0) + it.cantidad;
+      const vn = it.variante || 'reposeraRoja';
+      if (!estado.ninos[it.talle] || typeof estado.ninos[it.talle] === 'number') estado.ninos[it.talle] = { reposeraRoja: 0, cabraBlanca: 0 };
+      estado.ninos[it.talle][vn] = (estado.ninos[it.talle][vn] || 0) + it.cantidad;
     }
   });
 

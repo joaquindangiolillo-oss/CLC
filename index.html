@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Stock - Cayo la Cabra</title>
-  <link rel="stylesheet" href="style.css?v=38" />
+  <link rel="stylesheet" href="style.css?v=42" />
 </head>
 <body>
   <header>
@@ -77,10 +77,10 @@
       </section>
 
       <section class="seccion">
-        <h2>Remeras Niñx — Reposera Roja</h2>
+        <h2>Remeras Niñx</h2>
         <div class="tabla-container">
           <table>
-            <thead><tr><th>Talle</th><th>Cantidad</th></tr></thead>
+            <thead><tr><th>Talle</th><th>Reposera Roja</th><th>Cabra Blanca</th></tr></thead>
             <tbody id="tbody-ninos"></tbody>
             <tfoot id="tfoot-ninos"></tfoot>
           </table>
@@ -132,6 +132,12 @@
             </label>
           </div>
           <div id="ing-campos-nino" class="campos hidden">
+            <label class="config-label">Diseño
+              <select id="ing-variante-nino" class="config-input">
+                <option value="reposeraRoja">Reposera Roja</option>
+                <option value="cabraBlanca">Cabra Blanca</option>
+              </select>
+            </label>
             <label class="config-label">Talle
               <select id="ing-talle-nino" class="config-input">
                 <option value="2">2</option><option value="4">4</option><option value="6">6</option><option value="8">8</option><option value="10">10</option><option value="12">12</option><option value="16">16</option>
@@ -300,6 +306,12 @@
           </label>
         </div>
         <div id="campos-nino" class="campos hidden">
+          <label>Diseño
+            <select id="venta-variante-nino">
+              <option value="reposeraRoja">Reposera Roja</option>
+              <option value="cabraBlanca">Cabra Blanca</option>
+            </select>
+          </label>
           <label>Talle
             <select id="venta-talle-nino">
               <option value="2">2</option><option value="4">4</option><option value="6">6</option>
@@ -400,6 +412,12 @@
         </label>
       </div>
       <div id="editar-campos-nino" class="campos hidden">
+        <label>Diseño
+          <select id="editar-variante-nino">
+            <option value="reposeraRoja">Reposera Roja</option>
+            <option value="cabraBlanca">Cabra Blanca</option>
+          </select>
+        </label>
         <label>Talle
           <select id="editar-talle-nino">
             <option value="2">2</option><option value="4">4</option><option value="6">6</option>
@@ -575,6 +593,12 @@
           </label>
         </div>
         <div id="sol-campos-nino" class="campos hidden">
+          <label class="config-label">Diseño
+            <select id="sol-variante-nino" class="config-input">
+              <option value="reposeraRoja">Reposera Roja</option>
+              <option value="cabraBlanca">Cabra Blanca</option>
+            </select>
+          </label>
           <label class="config-label">Talle
             <select id="sol-talle-nino" class="config-input">
               <option value="2">2</option><option value="4">4</option><option value="6">6</option><option value="8">8</option><option value="10">10</option><option value="12">12</option><option value="16">16</option>
@@ -655,6 +679,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=41"></script>
+  <script src="app.js?v=42"></script>
 </body>
 </html>
