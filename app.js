@@ -397,6 +397,11 @@ function setModoEdicion(activo) {
 // Botón 🔒/🔓
 document.getElementById('btn-lock').addEventListener('click', () => {
   if (modoEdicion) {
+    if (localStorage.getItem('cayo_admin') === '1') {
+      if (confirm('¿Querés que este dispositivo deje de recordar el PIN?')) {
+        localStorage.removeItem('cayo_admin');
+      }
+    }
     setModoEdicion(false);
     return;
   }
@@ -409,6 +414,9 @@ document.getElementById('btn-lock').addEventListener('click', () => {
 function confirmarPin() {
   if (document.getElementById('pin-input').value === EDIT_PIN) {
     document.getElementById('modal-pin').classList.add('hidden');
+    if (document.getElementById('pin-recordar')?.checked) {
+      localStorage.setItem('cayo_admin', '1');
+    }
     setModoEdicion(true);
   } else {
     document.getElementById('pin-error').classList.remove('hidden');
@@ -2500,8 +2508,8 @@ document.getElementById('btn-cerrar-editar').addEventListener('click', () => {
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 renderTodo();
-// Siempre arranca en modo lectura — solo se desbloquea con PIN
-setModoEdicion(false);
+// Auto-desbloquear si este dispositivo está recordado
+setModoEdicion(localStorage.getItem('cayo_admin') === '1');
 if (gasUrl) {
   setSincStatus('syncing');
   sincronizarDesdeNube(); // al abrir la app, traer datos frescos de la nube

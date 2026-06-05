@@ -976,9 +976,10 @@ td .stock-reservas { display: flex; flex-wrap: wrap; gap: 0.2rem; justify-conten
   line-height: 1.6; margin-bottom: 0.25rem;
 }
 
-/* Modo lectura — ocultar botones de pedidos */
-.modo-lectura #btn-nueva-solicitud { display: none !important; }
-.modo-lectura .pedido-acciones     { display: none !important; }
+/* Modo lectura — ocultar botones de pedidos e ingresos */
+.modo-lectura #btn-nueva-solicitud   { display: none !important; }
+.modo-lectura .pedido-acciones       { display: none !important; }
+.modo-lectura #btn-registrar-ingreso { display: none !important; }
 
 /* ── Modal bloqueo auditoría ── */
 .audit-bloqueo-desc {
