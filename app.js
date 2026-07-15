@@ -170,7 +170,6 @@ function cargarAuditorias() {
   } catch (_) { return []; }
 }
 let auditorias       = cargarAuditorias();
-let auditComparacion = null; // { ajustes, coincidencias, sinContar, diferenciaNeta }
 
 function cargarPedidos() {
   try { return JSON.parse(localStorage.getItem('cayo_pedidos') || '[]'); }
@@ -1643,73 +1642,52 @@ document.getElementById('btn-guardar-auditoria').addEventListener('click', () =>
     return;
   }
 
-  // Validación: saldo neto por categoría debe ser 0
   const netoAdulto = ajustes.filter(a => a.tipo === 'adulto').reduce((s, a) => s + a.diff, 0);
   const netoTote   = ajustes.filter(a => a.tipo === 'tote').reduce((s, a) => s + a.diff, 0);
   const netoNino   = ajustes.filter(a => a.tipo === 'nino').reduce((s, a) => s + a.diff, 0);
 
-  if (netoAdulto !== 0 || netoTote !== 0 || netoNino !== 0) {
-    const fmtNeto = n => {
-      if (n === 0) return '<span class="audit-net-ok">✅ 0</span>';
-      const s = n > 0 ? `+${n}` : String(n);
-      return `<span class="${n < 0 ? 'audit-net-neg' : 'audit-net-pos'}">${s} u.</span>`;
-    };
-    document.getElementById('audit-bloqueo-netos').innerHTML = `
-      <div class="audit-bloqueo-fila"><span>👕 Remeras adultos</span>${fmtNeto(netoAdulto)}</div>
-      <div class="audit-bloqueo-fila"><span>👜 Tote Bags</span>${fmtNeto(netoTote)}</div>
-      <div class="audit-bloqueo-fila"><span>👶 Remeras niñxs</span>${fmtNeto(netoNino)}</div>
-    `;
-    // Guardamos la comparación por si vuelven a editar
-    auditComparacion = { ajustes, coincidencias, sinContar, diferenciaNeta: netoAdulto + netoTote + netoNino };
-    document.getElementById('modal-audit-bloqueo').classList.remove('hidden');
-    return;
-  }
-
-  mostrarResultadoAuditoria({ ajustes, coincidencias, sinContar, diferenciaNeta: 0 });
+  guardarControlDeStock({ ajustes, coincidencias, sinContar, diferenciaNeta: netoAdulto + netoTote + netoNino });
 });
 
-function aplicarAjustesAuditoria(motivo, motivoDetalle) {
-  const { ajustes, diferenciaNeta } = auditComparacion;
+// Guarda el control de stock como registro puro: no modifica estado.adultos/totes/ninos,
+// solo deja constancia de lo contado vs. lo que había en el sistema en ese momento.
+function guardarControlDeStock(comparacion) {
+  const { ajustes, coincidencias, sinContar, diferenciaNeta } = comparacion;
 
-  ajustes.forEach(aj => {
-    if (aj.tipo === 'adulto')    estado.adultos[aj.talle][aj.variante] = aj.nuevo;
-    else if (aj.tipo === 'tote') estado.totes[aj.modelo]               = aj.nuevo;
-    else if (aj.tipo === 'nino') estado.ninos[aj.talle]                = aj.nuevo;
-  });
-
-  // Snapshot del stock verificado (después de aplicar ajustes)
+  // Foto de lo contado: valor físico donde se contó, valor de sistema donde no.
   const stockSnapshot = {
     adultos: JSON.parse(JSON.stringify(estado.adultos)),
     totes:   JSON.parse(JSON.stringify(estado.totes)),
     ninos:   JSON.parse(JSON.stringify(estado.ninos)),
   };
+  ajustes.forEach(aj => {
+    if (aj.tipo === 'adulto')    stockSnapshot.adultos[aj.talle][aj.variante] = aj.nuevo;
+    else if (aj.tipo === 'tote') stockSnapshot.totes[aj.modelo]               = aj.nuevo;
+    else if (aj.tipo === 'nino') stockSnapshot.ninos[aj.talle]                = aj.nuevo;
+  });
 
   const entrada = {
     id:            Date.now(),
     fecha:         new Date().toLocaleString('es-AR'),
     ajustes:       ajustes.map(a => ({ desc: a.desc, anterior: a.anterior, nuevo: a.nuevo, diff: a.diff })),
     diferenciaNeta,
-    motivo:        motivo || null,
-    motivoDetalle: motivoDetalle || '',
+    motivo:        null,
+    motivoDetalle: '',
     stockSnapshot,
   };
 
   auditorias.push(entrada);
   localStorage.setItem('cayo_auditorias', JSON.stringify(auditorias));
-  auditComparacion = null;
 
-  guardar();
-  renderTodo();
   renderAuditoria();
   renderHistorialAuditorias();
 
   // Banner de confirmación
   const banner = document.createElement('div');
   banner.className = 'audit-guardado-banner';
-  const motivoTxt = motivo ? ` · ${motivo}` : '';
   banner.textContent = ajustes.length > 0
-    ? `✅ Auditoría guardada — ${ajustes.length} ajuste${ajustes.length !== 1 ? 's' : ''}${motivoTxt}`
-    : `✅ Auditoría guardada — sin diferencias`;
+    ? `✅ Control guardado — ${ajustes.length} diferencia${ajustes.length !== 1 ? 's' : ''} registrada${ajustes.length !== 1 ? 's' : ''} (stock del sistema sin modificar)`
+    : `✅ Control guardado — sin diferencias`;
   document.querySelector('.audit-historial-section').prepend(banner);
   setTimeout(() => banner.remove(), 4000);
 }
@@ -1825,130 +1803,6 @@ window.toggleAuditItem = function(id) {
   const open = det.classList.toggle('audit-collapsed');
   ico.textContent = open ? '▼' : '▲';
 };
-
-// ── Modal resultado auditoría ─────────────────────────────────────────────────
-function mostrarResultadoAuditoria(comparacion) {
-  auditComparacion = comparacion;
-  const { ajustes, coincidencias, sinContar, diferenciaNeta } = comparacion;
-
-  let html = '';
-
-  if (ajustes.length > 0) {
-    html += `<div class="resultado-seccion">
-      <h3 class="resultado-titulo resultado-titulo--diff">🔴 Diferencias (${ajustes.length})</h3>
-      ${ajustes.map(a => {
-        const d    = a.diff > 0 ? `+${a.diff}` : String(a.diff);
-        const dcls = a.diff < 0 ? 'audit-aj-neg' : 'audit-aj-pos';
-        return `<div class="audit-aj-fila">
-          <span class="audit-aj-desc">${a.desc}</span>
-          <span class="audit-aj-vals">${a.anterior} → ${a.nuevo}</span>
-          <span class="audit-aj-diff ${dcls}">${d}</span>
-        </div>`;
-      }).join('')}
-    </div>`;
-  }
-
-  if (coincidencias.length > 0) {
-    html += `<div class="resultado-seccion">
-      <h3 class="resultado-titulo resultado-titulo--ok">✅ Coincidencias (${coincidencias.length})</h3>
-      ${coincidencias.map(c => `<div class="audit-aj-fila">
-        <span class="audit-aj-desc">${c.desc}</span>
-        <span class="audit-aj-vals">${c.valor} u. — ok</span>
-        <span></span>
-      </div>`).join('')}
-    </div>`;
-  }
-
-  if (sinContar.length > 0) {
-    html += `<div class="resultado-seccion">
-      <h3 class="resultado-titulo resultado-titulo--sc">⚪ Sin contar (${sinContar.length})</h3>
-      ${sinContar.map(s => `<div class="audit-aj-fila">
-        <span class="audit-aj-desc">${s.desc}</span>
-        <span class="audit-aj-vals" style="color:var(--texto-tenue);font-style:italic">no contado</span>
-        <span></span>
-      </div>`).join('')}
-    </div>`;
-  }
-
-  if (ajustes.length === 0) {
-    html = `<p class="resultado-ok-msg">✅ Todo lo contado coincide con el sistema.</p>` + html;
-  }
-
-  if (diferenciaNeta !== 0) {
-    const signo = diferenciaNeta > 0 ? '+' : '';
-    const cls   = diferenciaNeta < 0 ? 'audit-net-neg' : 'audit-net-pos';
-    html += `<div class="resultado-neto">
-      Diferencia neta: <strong class="${cls}">${signo}${diferenciaNeta} u.</strong>
-    </div>`;
-  } else if (ajustes.length > 0) {
-    html += `<div class="resultado-neto resultado-neto--ok">
-      Diferencia neta: <strong>0 u.</strong> — redistribución interna ✅
-    </div>`;
-  }
-
-  document.getElementById('resultado-body').innerHTML = html;
-
-  const motivoSection = document.getElementById('resultado-motivo-section');
-  if (diferenciaNeta !== 0) {
-    motivoSection.classList.remove('hidden');
-    document.getElementById('resultado-motivo-select').value = '';
-    document.getElementById('resultado-detalle-label').style.display = 'none';
-    document.getElementById('resultado-detalle').value = '';
-    document.getElementById('resultado-error').classList.add('hidden');
-  } else {
-    motivoSection.classList.add('hidden');
-  }
-
-  document.getElementById('modal-resultado-auditoria').classList.remove('hidden');
-}
-
-document.getElementById('resultado-motivo-select').addEventListener('change', () => {
-  document.getElementById('resultado-detalle-label').style.display =
-    document.getElementById('resultado-motivo-select').value ? 'flex' : 'none';
-  document.getElementById('resultado-error').classList.add('hidden');
-});
-
-document.getElementById('btn-confirmar-resultado').addEventListener('click', () => {
-  if (!auditComparacion) return;
-  if (auditComparacion.diferenciaNeta !== 0) {
-    const motivo = document.getElementById('resultado-motivo-select').value;
-    if (!motivo) { document.getElementById('resultado-error').classList.remove('hidden'); return; }
-    const detalle = document.getElementById('resultado-detalle').value.trim();
-    document.getElementById('modal-resultado-auditoria').classList.add('hidden');
-    aplicarAjustesAuditoria(motivo, detalle);
-  } else {
-    document.getElementById('modal-resultado-auditoria').classList.add('hidden');
-    aplicarAjustesAuditoria(null, '');
-  }
-});
-
-['btn-cancelar-resultado', 'btn-cerrar-resultado'].forEach(id => {
-  document.getElementById(id).addEventListener('click', () => {
-    document.getElementById('modal-resultado-auditoria').classList.add('hidden');
-    auditComparacion = null;
-  });
-});
-
-// ── Modal bloqueo auditoría ───────────────────────────────────────────────────
-['btn-cerrar-audit-bloqueo', 'btn-bloqueo-editar'].forEach(id => {
-  document.getElementById(id).addEventListener('click', () => {
-    document.getElementById('modal-audit-bloqueo').classList.add('hidden');
-    auditComparacion = null;
-  });
-});
-
-document.getElementById('btn-bloqueo-ventas').addEventListener('click', () => {
-  document.getElementById('modal-audit-bloqueo').classList.add('hidden');
-  auditComparacion = null;
-  irATab('ventas');
-});
-
-document.getElementById('modal-resultado-auditoria').addEventListener('click', e => {
-  if (e.target === document.getElementById('modal-resultado-auditoria')) {
-    document.getElementById('modal-resultado-auditoria').classList.add('hidden');
-    auditComparacion = null;
-  }
-});
 
 // Modo ciego — oculta/muestra los valores del sistema
 document.getElementById('audit-modo-ciego').addEventListener('change', function() {
