@@ -1593,7 +1593,10 @@ function renderAuditoria() {
   }
 }
 
-document.getElementById('btn-guardar-auditoria').addEventListener('click', () => {
+// Lee los campos cargados en la pantalla de Auditoría y arma la comparación
+// contra el stock actual del sistema. Usado tanto para guardar el registro
+// como para aplicar el ajuste al stock real.
+function leerComparacionAuditoria() {
   const ajustes       = [];
   const coincidencias = [];
   const sinContar     = [];
@@ -1636,17 +1639,38 @@ document.getElementById('btn-guardar-auditoria').addEventListener('click', () =>
     }
   });
 
-  // No se ingresó nada
-  if (ajustes.length === 0 && coincidencias.length === 0) {
-    alert('No ingresaste ningún valor. Completá los campos con el conteo físico.');
-    return;
-  }
+  if (ajustes.length === 0 && coincidencias.length === 0) return null;
 
   const netoAdulto = ajustes.filter(a => a.tipo === 'adulto').reduce((s, a) => s + a.diff, 0);
   const netoTote   = ajustes.filter(a => a.tipo === 'tote').reduce((s, a) => s + a.diff, 0);
   const netoNino   = ajustes.filter(a => a.tipo === 'nino').reduce((s, a) => s + a.diff, 0);
 
-  guardarControlDeStock({ ajustes, coincidencias, sinContar, diferenciaNeta: netoAdulto + netoTote + netoNino });
+  return { ajustes, coincidencias, sinContar, diferenciaNeta: netoAdulto + netoTote + netoNino };
+}
+
+document.getElementById('btn-guardar-auditoria').addEventListener('click', () => {
+  const comparacion = leerComparacionAuditoria();
+  if (!comparacion) {
+    alert('No ingresaste ningún valor. Completá los campos con el conteo físico.');
+    return;
+  }
+  guardarControlDeStock(comparacion);
+});
+
+document.getElementById('btn-ajustar-stock').addEventListener('click', () => {
+  const comparacion = leerComparacionAuditoria();
+  if (!comparacion) {
+    alert('No ingresaste ningún valor. Completá los campos con el conteo físico.');
+    return;
+  }
+  if (comparacion.ajustes.length === 0) {
+    alert('No hay diferencias entre lo cargado y el sistema — no hay nada que ajustar.');
+    return;
+  }
+  const detalle = comparacion.ajustes.map(a => `• ${a.desc}: ${a.anterior} → ${a.nuevo}`).join('\n');
+  const ok = confirm(`Esto va a CAMBIAR el stock real del sistema:\n\n${detalle}\n\n¿Confirmás?`);
+  if (!ok) return;
+  aplicarStockReal(comparacion);
 });
 
 // Guarda el control de stock como registro puro: no modifica estado.adultos/totes/ninos,
@@ -1688,6 +1712,48 @@ function guardarControlDeStock(comparacion) {
   banner.textContent = ajustes.length > 0
     ? `✅ Control guardado — ${ajustes.length} diferencia${ajustes.length !== 1 ? 's' : ''} registrada${ajustes.length !== 1 ? 's' : ''} (stock del sistema sin modificar)`
     : `✅ Control guardado — sin diferencias`;
+  document.querySelector('.audit-historial-section').prepend(banner);
+  setTimeout(() => banner.remove(), 4000);
+}
+
+// Aplica lo cargado al stock real del sistema (uso explícito, tras confirmación),
+// y deja registro del ajuste en el historial de auditorías.
+function aplicarStockReal(comparacion) {
+  const { ajustes, diferenciaNeta } = comparacion;
+
+  ajustes.forEach(aj => {
+    if (aj.tipo === 'adulto')    estado.adultos[aj.talle][aj.variante] = aj.nuevo;
+    else if (aj.tipo === 'tote') estado.totes[aj.modelo]               = aj.nuevo;
+    else if (aj.tipo === 'nino') estado.ninos[aj.talle]                = aj.nuevo;
+  });
+
+  const stockSnapshot = {
+    adultos: JSON.parse(JSON.stringify(estado.adultos)),
+    totes:   JSON.parse(JSON.stringify(estado.totes)),
+    ninos:   JSON.parse(JSON.stringify(estado.ninos)),
+  };
+
+  const entrada = {
+    id:            Date.now(),
+    fecha:         new Date().toLocaleString('es-AR'),
+    ajustes:       ajustes.map(a => ({ desc: a.desc, anterior: a.anterior, nuevo: a.nuevo, diff: a.diff })),
+    diferenciaNeta,
+    motivo:        'Ajuste manual de stock real',
+    motivoDetalle: '',
+    stockSnapshot,
+  };
+
+  auditorias.push(entrada);
+  localStorage.setItem('cayo_auditorias', JSON.stringify(auditorias));
+
+  guardar();
+  renderTodo();
+  renderAuditoria();
+  renderHistorialAuditorias();
+
+  const banner = document.createElement('div');
+  banner.className = 'audit-guardado-banner';
+  banner.textContent = `✅ Stock real actualizado — ${ajustes.length} ítem${ajustes.length !== 1 ? 's' : ''} corregido${ajustes.length !== 1 ? 's' : ''}`;
   document.querySelector('.audit-historial-section').prepend(banner);
   setTimeout(() => banner.remove(), 4000);
 }
