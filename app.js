@@ -34,6 +34,16 @@ function totalNinoTalle(ninosObj, talle) {
   return VARIANTES_NINO.reduce((s, v) => s + (ninosObj?.[talle]?.[v] ?? 0), 0);
 }
 
+// Defensa para mostrar valores de auditorías guardadas antes de la corrección
+// del bug de niñx: si el valor guardado quedó como objeto (el bug viejo), lo
+// suma en vez de mostrarlo tal cual. Para valores ya numéricos no cambia nada.
+function mostrarCantidadGuardada(valor) {
+  if (valor && typeof valor === 'object') {
+    return Object.values(valor).reduce((s, n) => s + (Number(n) || 0), 0);
+  }
+  return valor;
+}
+
 const PRECIOS = { remera: 25000, tote: 16000, remera_uyu: 650, tote_uyu: 400, nino_uyu: 500 };
 
 const LABEL_VARIANTE = {
@@ -1800,11 +1810,14 @@ function renderHistorialAuditorias() {
           <span></span><span></span>
         </div>`
       : a.ajustes.map(aj => {
-          const d    = aj.diff > 0 ? `+${aj.diff}` : String(aj.diff);
-          const dcls = aj.diff < 0 ? 'audit-aj-neg' : 'audit-aj-pos';
+          const anterior = mostrarCantidadGuardada(aj.anterior);
+          const nuevo    = mostrarCantidadGuardada(aj.nuevo);
+          const diff     = typeof aj.diff === 'number' && !isNaN(aj.diff) ? aj.diff : nuevo - anterior;
+          const d    = diff > 0 ? `+${diff}` : String(diff);
+          const dcls = diff < 0 ? 'audit-aj-neg' : 'audit-aj-pos';
           return `<div class="audit-aj-fila">
             <span class="audit-aj-desc">${aj.desc}</span>
-            <span class="audit-aj-vals">${aj.anterior} → ${aj.nuevo}</span>
+            <span class="audit-aj-vals">${anterior} → ${nuevo}</span>
             <span class="audit-aj-diff ${dcls}">${d}</span>
           </div>`;
         }).join('');
@@ -2485,7 +2498,12 @@ function generarStockPDF() {
     let snapTables;
     const ajustesList = ultimaAudit.ajustes || [];
     if (ajustesList.length > 0) {
-      const filas = ajustesList.map(a => `<tr><td>${a.desc}</td><td>${a.anterior}</td><td>${a.nuevo}</td><td>${a.diff > 0 ? '+' : ''}${a.diff}</td></tr>`).join('');
+      const filas = ajustesList.map(a => {
+        const anterior = mostrarCantidadGuardada(a.anterior);
+        const nuevo    = mostrarCantidadGuardada(a.nuevo);
+        const diff     = typeof a.diff === 'number' && !isNaN(a.diff) ? a.diff : nuevo - anterior;
+        return `<tr><td>${a.desc}</td><td>${anterior}</td><td>${nuevo}</td><td>${diff > 0 ? '+' : ''}${diff}</td></tr>`;
+      }).join('');
       snapTables = `<p class="no-snap" style="margin-bottom:8px">Este control no tiene foto completa del stock. Se muestran los ajustes registrados:</p>
         <table><thead><tr><th>Artículo</th><th>Antes</th><th>Después</th><th>Diferencia</th></tr></thead>
         <tbody>${filas}</tbody></table>`;
@@ -2770,9 +2788,12 @@ window.descargarAuditoriaPDF = function(id) {
 
   // Ajustes
   const ajustesRows = a.ajustes.map(aj => {
-    const d = aj.diff > 0 ? `+${aj.diff}` : String(aj.diff);
-    const c = aj.diff < 0 ? '#c0392b' : '#27ae60';
-    return `<tr><td>${aj.desc}</td><td>${aj.anterior}</td><td>${aj.nuevo}</td>
+    const anterior = mostrarCantidadGuardada(aj.anterior);
+    const nuevo    = mostrarCantidadGuardada(aj.nuevo);
+    const diff     = typeof aj.diff === 'number' && !isNaN(aj.diff) ? aj.diff : nuevo - anterior;
+    const d = diff > 0 ? `+${diff}` : String(diff);
+    const c = diff < 0 ? '#c0392b' : '#27ae60';
+    return `<tr><td>${aj.desc}</td><td>${anterior}</td><td>${nuevo}</td>
             <td style="color:${c};font-weight:700;text-align:center">${d}</td></tr>`;
   }).join('');
 
