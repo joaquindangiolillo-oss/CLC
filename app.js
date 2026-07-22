@@ -640,6 +640,15 @@ function renderTodo() {
 
 // ── Tab Ventas ────────────────────────────────────────────────────────────────
 let filtroVentas = 'todos';
+let filtroMoneda = 'todas';
+
+// Aplica el filtro de medio de pago y de moneda activos a una lista de ventas.
+// Usado tanto por la lista en pantalla como por los exports (PDF/WhatsApp).
+function aplicarFiltrosVentas(lista) {
+  let r = filtroVentas === 'todos' ? lista : lista.filter(h => h.pago === filtroVentas);
+  if (filtroMoneda !== 'todas') r = r.filter(h => (h.moneda || 'ARS') === filtroMoneda);
+  return r;
+}
 
 function renderVentas() {
   // Totales globales separados por moneda
@@ -756,9 +765,7 @@ function renderVentas() {
     }
   }
 
-  const filtrados = filtroVentas === 'todos'
-    ? historial
-    : historial.filter(h => h.pago === filtroVentas);
+  const filtrados = aplicarFiltrosVentas(historial);
 
   // Con filtro "anota" también mostramos pedidos con saldo pendiente
   const pedidosAnota = filtroVentas === 'anota'
@@ -848,6 +855,15 @@ document.querySelectorAll('.filtro-btn').forEach(btn => {
     document.querySelectorAll('.filtro-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     filtroVentas = btn.dataset.filtro;
+    renderVentas();
+  });
+});
+
+document.querySelectorAll('.filtro-moneda-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.filtro-moneda-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    filtroMoneda = btn.dataset.moneda;
     renderVentas();
   });
 });
@@ -2655,12 +2671,20 @@ function _ventasRango() {
   const hastaEl = document.getElementById('export-hasta');
   const desde = desdeEl?.value ? new Date(desdeEl.value + 'T00:00:00').getTime() : 0;
   const hasta = hastaEl?.value ? new Date(hastaEl.value + 'T23:59:59').getTime() : Infinity;
-  const ventas = historial.filter(h => h.id >= desde && h.id <= hasta);
+  const enRango = historial.filter(h => h.id >= desde && h.id <= hasta);
+  const ventas = aplicarFiltrosVentas(enRango);
   const desdeTxt = desdeEl?.value ? new Date(desdeEl.value + 'T00:00:00').toLocaleDateString('es-AR') : null;
   const hastaTxt = hastaEl?.value ? new Date(hastaEl.value + 'T00:00:00').toLocaleDateString('es-AR') : null;
-  const label = (desdeTxt || hastaTxt)
+  const fechaLabel = (desdeTxt || hastaTxt)
     ? `${desdeTxt || '...'} → ${hastaTxt || '...'}`
     : 'Todas las fechas';
+  const filtroLabels = {
+    efectivo: 'Efectivo', transferencia: 'Transferencia', regalo: 'Regalos', anota: 'Anotados',
+  };
+  const extra = [];
+  if (filtroVentas !== 'todos') extra.push(filtroLabels[filtroVentas] || filtroVentas);
+  if (filtroMoneda !== 'todas') extra.push(filtroMoneda === 'UYU' ? '🇺🇾 UYU' : '🇦🇷 ARS');
+  const label = extra.length ? `${fechaLabel} · ${extra.join(' · ')}` : fechaLabel;
   return { ventas, label };
 }
 
