@@ -2682,9 +2682,9 @@ function generarStockPDF() {
     @media print{body{padding:4px}.page-break{page-break-before:always;border:none;margin:0}}`;
 
   const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
-  <title>Stock Cayo la Cabra — ${ahora}</title>
+  <title>Stock Cayó la Cabra — ${ahora}</title>
   <style>${css}</style></head><body>
-  <div class="encabezado"><h1>🐐 Cayo la Cabra — Stock</h1><span class="fecha">Generado: ${ahora}</span></div>
+  <div class="encabezado"><h1>🐐 Cayó la Cabra — Stock</h1><span class="fecha">Generado: ${ahora}</span></div>
   <div class="resumen">
     <div class="res-box"><div class="res-num">${totAdultos}</div><div class="res-lbl">Remeras adultos</div></div>
     <div class="res-box"><div class="res-num">${totTotes}</div><div class="res-lbl">Tote Bags</div></div>
@@ -2704,7 +2704,7 @@ function generarStockPDF() {
   <tbody>${ninoRows}</tbody>
   <tfoot><tr><td>Total</td>${TALLES_NINO.map(t=>`<td>${totalNinoTalle(estado.ninos, t)}</td>`).join('')}<td>${totNinos}</td></tr></tfoot></table>
   ${auditSection}
-  <p class="footer">Generado desde la app de stock · Cayo la Cabra</p>
+  <p class="footer">Generado desde la app de stock · Cayó la Cabra</p>
   <script>window.onload=()=>window.print()<\/script></body></html>`;
 
   const w = window.open('', '_blank');
@@ -2753,7 +2753,7 @@ function exportarStockWhatsApp() {
   ].join('\n');
 
   const lines = [
-    '*🐐 Cayo la Cabra — Stock*',
+    '*🐐 Cayó la Cabra — Stock*',
     `📅 ${ahora}`,
     '',
     '```',
@@ -2912,9 +2912,9 @@ function exportarVentasPDF() {
     @media print{body{padding:4px}}`;
 
   const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
-  <title>Ventas — Cayo la Cabra</title><style>${css}</style></head><body>
+  <title>Ventas — Cayó la Cabra</title><style>${css}</style></head><body>
   <div class="enc">
-    <div><h1>🐐 Cayo la Cabra — Ventas</h1>
+    <div><h1>🐐 Cayó la Cabra — Ventas</h1>
     <div style="color:#666;font-size:9px;margin-top:2px">Período: ${label}</div></div>
     <div class="meta">Generado: ${ahora}<br>${ventas.length + pedidosAnota.length} registro${(ventas.length + pedidosAnota.length)!==1?'s':''}</div>
   </div>
@@ -2937,7 +2937,7 @@ function exportarVentasPDF() {
     <thead><tr><th>Fecha</th><th>Artículo</th><th>Cant.</th><th>Precio u.</th><th>Total</th><th>Pago</th></tr></thead>
     <tbody>${rows.length ? rows : '<tr><td colspan="6" style="text-align:center;padding:12px;color:#999">Sin ventas en este período</td></tr>'}</tbody>
   </table>`}
-  <p class="footer">Generado desde la app de stock · Cayo la Cabra</p>
+  <p class="footer">Generado desde la app de stock · Cayó la Cabra</p>
   <script>window.onload=()=>window.print()<\/script></body></html>`;
 
   const w = window.open('', '_blank');
@@ -2953,7 +2953,7 @@ function exportarVentasWhatsApp() {
   const ventasAnota = ventas.filter(h => h.pago === 'anota');
 
   const lines = [
-    '*🐐 Cayo la Cabra — Ventas*',
+    '*🐐 Cayó la Cabra — Ventas*',
     `📅 Período: ${label}`,
     `${ventas.length + pedidosAnota.length} registro${(ventas.length + pedidosAnota.length)!==1?'s':''}`,
     '',
@@ -3074,12 +3074,12 @@ window.descargarAuditoriaPDF = function(id) {
     .footer{margin-top:24px;color:#aaa;font-size:9px}
     @media print{body{padding:0}}
   </style></head><body>
-  <h1>🐐 Cayo la Cabra — Control de Stock</h1>
+  <h1>🐐 Cayó la Cabra — Control de Stock</h1>
   <h2>📅 ${a.fecha}</h2>
   ${motivoSection}
   ${ajustesSection}
   ${snapshotSection}
-  <p class="footer">Generado desde la app de stock · Cayo la Cabra</p>
+  <p class="footer">Generado desde la app de stock · Cayó la Cabra</p>
   <script>window.onload=()=>window.print()<\/script>
   </body></html>`;
 
