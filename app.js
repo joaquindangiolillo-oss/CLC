@@ -11,24 +11,24 @@ const STOCK_INICIAL = {
   },
   totes: { silla: 9, vereda: 5 },
   ninos: {
-    2:  { reposeraRoja: 1, cabraBlanca: 0 },
-    4:  { reposeraRoja: 2, cabraBlanca: 0 },
-    6:  { reposeraRoja: 2, cabraBlanca: 0 },
-    8:  { reposeraRoja: 1, cabraBlanca: 0 },
-    10: { reposeraRoja: 3, cabraBlanca: 0 },
-    12: { reposeraRoja: 1, cabraBlanca: 0 },
-    16: { reposeraRoja: 2, cabraBlanca: 0 },
+    2:  { reposeraRoja: 1, cabraNegra: 0 },
+    4:  { reposeraRoja: 2, cabraNegra: 0 },
+    6:  { reposeraRoja: 2, cabraNegra: 0 },
+    8:  { reposeraRoja: 1, cabraNegra: 0 },
+    10: { reposeraRoja: 3, cabraNegra: 0 },
+    12: { reposeraRoja: 1, cabraNegra: 0 },
+    16: { reposeraRoja: 2, cabraNegra: 0 },
   },
 };
 
 const VARIANTES      = ['reposeraRoja', 'reposeraNegra', 'blanca', 'cabraNegra', 'veredaRoja', 'veredaNegra'];
-const VARIANTES_NINO = ['reposeraRoja', 'cabraBlanca'];
+const VARIANTES_NINO = ['reposeraRoja', 'cabraNegra'];
 const TALLES_ADULTO  = ['S', 'M', 'L', 'XL', 'XXL'];
 const TALLES_NINO    = [2, 4, 6, 8, 10, 12, 16];
 
-const LABEL_VARIANTE_NINO = { reposeraRoja: 'Reposera Roja', cabraBlanca: 'Cabra Blanca' };
+const LABEL_VARIANTE_NINO = { reposeraRoja: 'Reposera Roja', cabraNegra: 'Cabra Negra' };
 
-// Suma las variantes (Reposera Roja + Cabra Blanca) de un talle de niñx.
+// Suma las variantes (Reposera Roja + Cabra Negra) de un talle de niñx.
 // ninosObj es estado.ninos o un stockSnapshot.ninos — ambos con la misma forma.
 function totalNinoTalle(ninosObj, talle) {
   return VARIANTES_NINO.reduce((s, v) => s + (ninosObj?.[talle]?.[v] ?? 0), 0);
@@ -96,10 +96,20 @@ function cargarEstado() {
       if (st.ninos) {
         TALLES_NINO.forEach(t => {
           if (typeof st.ninos[t] === 'number') {
-            st.ninos[t] = { reposeraRoja: st.ninos[t], cabraBlanca: 0 };
+            st.ninos[t] = { reposeraRoja: st.ninos[t], cabraNegra: 0 };
             changed = true;
-          } else if (st.ninos[t] && st.ninos[t].cabraBlanca === undefined) {
-            st.ninos[t].cabraBlanca = 0;
+          } else if (st.ninos[t] && st.ninos[t].cabraNegra === undefined) {
+            st.ninos[t].cabraNegra = 0;
+            changed = true;
+          }
+        });
+      }
+      // Migración: variante niñx renombrada de "cabraBlanca" a "cabraNegra" (estaba mal declarada)
+      if (st.ninos) {
+        TALLES_NINO.forEach(t => {
+          if (st.ninos[t] && st.ninos[t].cabraBlanca !== undefined) {
+            st.ninos[t].cabraNegra = (st.ninos[t].cabraNegra || 0) + st.ninos[t].cabraBlanca;
+            delete st.ninos[t].cabraBlanca;
             changed = true;
           }
         });
@@ -129,6 +139,15 @@ function normalizeHistorial(arr) {
     // Migración: "Remera Blanca talle X" → "Remera Cabra Blanca talle X"
     if (h.descripcion && /^Remera Blanca talle /.test(h.descripcion)) {
       h.descripcion = h.descripcion.replace('Remera Blanca talle ', 'Remera Cabra Blanca talle ');
+      changed = true;
+    }
+    // Migración: diseño niñx renombrado de "Cabra Blanca" a "Cabra Negra" (estaba mal declarado)
+    if (h._stock && h._stock.tipo === 'nino' && h._stock.variante === 'cabraBlanca') {
+      h._stock.variante = 'cabraNegra';
+      changed = true;
+    }
+    if (h.descripcion && /Niñx Cabra Blanca/.test(h.descripcion)) {
+      h.descripcion = h.descripcion.replace(/Niñx Cabra Blanca/g, 'Niñx Cabra Negra');
       changed = true;
     }
   });
@@ -186,6 +205,22 @@ function cargarAuditorias() {
   } catch (_) { return []; }
 }
 let auditorias       = cargarAuditorias();
+// Migración: diseño niñx renombrado de "cabraBlanca" a "cabraNegra" en snapshots de auditorías guardadas
+(function migrarAuditoriasCabraNegra() {
+  let changed = false;
+  auditorias.forEach(a => {
+    const ninosSnap = a.stockSnapshot?.ninos;
+    if (!ninosSnap) return;
+    Object.values(ninosSnap).forEach(t => {
+      if (t && typeof t === 'object' && t.cabraBlanca !== undefined) {
+        t.cabraNegra = (t.cabraNegra || 0) + t.cabraBlanca;
+        delete t.cabraBlanca;
+        changed = true;
+      }
+    });
+  });
+  if (changed) localStorage.setItem('cayo_auditorias', JSON.stringify(auditorias));
+})();
 
 function cargarPedidos() {
   try { return JSON.parse(localStorage.getItem('cayo_pedidos') || '[]'); }
@@ -199,6 +234,13 @@ function normalizePedidos() {
       p.items = [{ tipo: p.tipo, talle: p.talle, variante: p.variante, modelo: p.modelo, cantidad: p.cantidad || 1 }];
       changed = true;
     }
+    // Migración: diseño niñx renombrado de "cabraBlanca" a "cabraNegra" (estaba mal declarado)
+    (p.items || []).forEach(it => {
+      if (it.tipo === 'nino' && it.variante === 'cabraBlanca') {
+        it.variante = 'cabraNegra';
+        changed = true;
+      }
+    });
   });
   if (changed) guardarPedidos();
 }
@@ -215,6 +257,20 @@ function guardarIngresos() {
   localStorage.setItem('cayo_ingresos', JSON.stringify(ingresos));
   pushToCloud();
 }
+function normalizeIngresos() {
+  let changed = false;
+  ingresos.forEach(ing => {
+    // Migración: diseño niñx renombrado de "cabraBlanca" a "cabraNegra" (estaba mal declarado)
+    (ing.items || []).forEach(it => {
+      if (it.tipo === 'nino' && it.variante === 'cabraBlanca') {
+        it.variante = 'cabraNegra';
+        changed = true;
+      }
+    });
+  });
+  if (changed) guardarIngresos();
+}
+normalizeIngresos();
 
 let ingItemsTemp = [];
 function renderIngItemsChips() {
@@ -554,9 +610,9 @@ function renderNinos() {
   // Migración defensiva
   TALLES_NINO.forEach(t => {
     if (typeof estado.ninos[t] === 'number') {
-      estado.ninos[t] = { reposeraRoja: estado.ninos[t], cabraBlanca: 0 };
+      estado.ninos[t] = { reposeraRoja: estado.ninos[t], cabraNegra: 0 };
     } else if (!estado.ninos[t]) {
-      estado.ninos[t] = { reposeraRoja: 0, cabraBlanca: 0 };
+      estado.ninos[t] = { reposeraRoja: 0, cabraNegra: 0 };
     } else {
       VARIANTES_NINO.forEach(v => { if (estado.ninos[t][v] === undefined) estado.ninos[t][v] = 0; });
     }
@@ -2683,6 +2739,20 @@ function _ventasRango() {
     return ts >= desde && ts <= hasta;
   });
   const ventas = aplicarFiltrosVentas(enRango);
+
+  // Con filtro "anota" también incluimos las solicitudes/pedidos con saldo
+  // pendiente — igual que en la lista en pantalla, porque buena parte de lo
+  // "anotado" vive ahí y no como venta con pago=anota.
+  const pedidosAnota = filtroVentas === 'anota'
+    ? pedidos.filter(p => {
+        if (p.estadoFisico === 'cancelado' || p.estadoFisico === 'solicitud') return false;
+        if (pedidoSaldo(p) <= 0) return false;
+        if ((p.id ?? 0) < desde || (p.id ?? 0) > hasta) return false;
+        if (filtroMoneda !== 'todas' && (p.moneda || 'UYU') !== filtroMoneda) return false;
+        return true;
+      })
+    : [];
+
   const desdeTxt = desdeEl?.value ? new Date(desdeEl.value + 'T00:00:00').toLocaleDateString('es-AR') : null;
   const hastaTxt = hastaEl?.value ? new Date(hastaEl.value + 'T00:00:00').toLocaleDateString('es-AR') : null;
   const fechaLabel = (desdeTxt || hastaTxt)
@@ -2695,16 +2765,17 @@ function _ventasRango() {
   if (filtroVentas !== 'todos') extra.push(filtroLabels[filtroVentas] || filtroVentas);
   if (filtroMoneda !== 'todas') extra.push(filtroMoneda === 'UYU' ? '🇺🇾 UYU' : '🇦🇷 ARS');
   const label = extra.length ? `${fechaLabel} · ${extra.join(' · ')}` : fechaLabel;
-  return { ventas, label };
+  return { ventas, pedidosAnota, label };
 }
 
-function _ventasTotales(ventas) {
+function _ventasTotales(ventas, pedidosAnota = []) {
   const totalARS = ventas.filter(h => (h.moneda||'ARS')==='ARS').reduce((s,h)=>s+(h.ingreso??0),0);
   const totalUYU = ventas.filter(h => (h.moneda||'ARS')==='UYU').reduce((s,h)=>s+(h.ingreso??0),0);
   const totEfec  = ventas.reduce((s,h)=>s+(h.pago==='efectivo'?(h.ingreso??0):0),0);
   const totTrans = ventas.reduce((s,h)=>s+(h.pago==='transferencia'?(h.ingreso??0):0),0);
   const totReg    = ventas.reduce((s,h)=>h.pago==='regalo'?s+h.cantidad:s,0);
-  const totAnota  = ventas.reduce((s,h)=>h.pago==='anota'?s+(h.precioUnit||0)*h.cantidad:s,0);
+  const totAnota  = ventas.reduce((s,h)=>h.pago==='anota'?s+(h.precioUnit||0)*h.cantidad:s,0)
+                   + pedidosAnota.reduce((s,p)=>s+pedidoSaldo(p),0);
   const cobradas  = ventas.filter(h=>h.pago==='efectivo'||h.pago==='transferencia');
   const unidRem   = cobradas.filter(h=>h._stock?.tipo==='adulto').reduce((s,h)=>s+h.cantidad,0);
   const unidTote  = cobradas.filter(h=>h._stock?.tipo==='tote').reduce((s,h)=>s+h.cantidad,0);
@@ -2716,13 +2787,25 @@ function _ventasTotales(ventas) {
 }
 
 function exportarVentasPDF() {
-  const { ventas, label } = _ventasRango();
+  const { ventas, pedidosAnota, label } = _ventasRango();
   const ahora = new Date().toLocaleString('es-AR');
-  const { totalARS, totalUYU, totEfec, totTrans, totReg, totAnota, unidRem, unidTote, unidNino, totPegARS, totPegUYU } = _ventasTotales(ventas);
+  const { totalARS, totalUYU, totEfec, totTrans, totReg, totAnota, unidRem, unidTote, unidNino, totPegARS, totPegUYU } = _ventasTotales(ventas, pedidosAnota);
   const fmtP = n => '$' + n.toLocaleString('es-AR');
   const pagoLabel = p => ({efectivo:'Efectivo',transferencia:'Transf.',regalo:'Regalo',anota:'Anota'}[p]||p);
 
-  const rows = [...ventas].sort((a,b)=>a.id-b.id).map(h => {
+  const pedidosRows = [...pedidosAnota].sort((a,b)=>a.id-b.id).map(p => {
+    const mon = (p.moneda||'UYU')==='UYU' ? ' UYU' : '';
+    return `<tr>
+      <td class="col-fecha">${p.fecha||''}</td>
+      <td>📋 ${pedidoDescItem(p)}${p.para?`<br><small>👤 ${p.para}</small>`:''}</td>
+      <td class="col-c">-</td>
+      <td class="col-r">-</td>
+      <td class="col-r bold">Adeuda ${fmtP(pedidoSaldo(p))}${mon}</td>
+      <td class="col-c" style="color:#e67e22">Pedido</td>
+    </tr>`;
+  }).join('');
+
+  const rows = pedidosRows + [...ventas].sort((a,b)=>a.id-b.id).map(h => {
     const mon = (h.moneda||'ARS')==='UYU' ? ' UYU' : '';
     const pagoColor = h.pago==='regalo'?'#27ae60':h.pago==='anota'?'#e67e22':'#333';
     const totalTxt = h.pago==='regalo' ? 'Regalo'
@@ -2762,14 +2845,14 @@ function exportarVentasPDF() {
   <div class="enc">
     <div><h1>🐐 Cayo la Cabra — Ventas</h1>
     <div style="color:#666;font-size:9px;margin-top:2px">Período: ${label}</div></div>
-    <div class="meta">Generado: ${ahora}<br>${ventas.length} venta${ventas.length!==1?'s':''}</div>
+    <div class="meta">Generado: ${ahora}<br>${ventas.length + pedidosAnota.length} registro${(ventas.length + pedidosAnota.length)!==1?'s':''}</div>
   </div>
   <div class="res">
     <div class="rb dark"><div class="rn">${unidRem+unidTote+unidNino}</div><div class="rl">Unidades cobradas</div></div>
-    <div class="rb"><div class="rn">${fmtP(totalARS)}</div><div class="rl">Total ARS</div></div>
+    ${totalARS>0?`<div class="rb"><div class="rn">${fmtP(totalARS)}</div><div class="rl">Total ARS</div></div>`:''}
     ${totalUYU>0?`<div class="rb"><div class="rn">${fmtP(totalUYU)} UYU</div><div class="rl">Total UYU</div></div>`:''}
-    <div class="rb"><div class="rn">${fmtP(totEfec)}</div><div class="rl">Efectivo</div></div>
-    <div class="rb"><div class="rn">${fmtP(totTrans)}</div><div class="rl">Transferencia</div></div>
+    ${totEfec>0?`<div class="rb"><div class="rn">${fmtP(totEfec)}</div><div class="rl">Efectivo</div></div>`:''}
+    ${totTrans>0?`<div class="rb"><div class="rn">${fmtP(totTrans)}</div><div class="rl">Transferencia</div></div>`:''}
     ${totReg>0?`<div class="rb"><div class="rn">${totReg} u.</div><div class="rl">Regalos</div></div>`:''}
     ${totAnota>0?`<div class="rb"><div class="rn">${fmtP(totAnota)}</div><div class="rl">Anotados (deben)</div></div>`:''}
     ${(totPegARS>0||totPegUYU>0)?`<div class="rb" style="border-color:rgba(155,89,182,0.4)"><div class="rn" style="color:#9b59b6">${totPegARS>0?fmtP(totPegARS):''}${totPegUYU>0?(totPegARS>0?' · ':'')+fmtP(totPegUYU)+' UYU':''}</div><div class="rl">Pegotines</div></div>`:''}
@@ -2786,23 +2869,31 @@ function exportarVentasPDF() {
 }
 
 function exportarVentasWhatsApp() {
-  const { ventas, label } = _ventasRango();
+  const { ventas, pedidosAnota, label } = _ventasRango();
   const ahora = new Date().toLocaleString('es-AR');
-  const { totalARS, totalUYU, totEfec, totTrans, totReg, totAnota, unidRem, unidTote, unidNino, totPegARS, totPegUYU } = _ventasTotales(ventas);
+  const { totalARS, totalUYU, totEfec, totTrans, totReg, totAnota, unidRem, unidTote, unidNino, totPegARS, totPegUYU } = _ventasTotales(ventas, pedidosAnota);
   const fmtP = n => '$' + n.toLocaleString('es-AR');
+
+  const ventasAnota = ventas.filter(h => h.pago === 'anota');
 
   const lines = [
     '*🐐 Cayo la Cabra — Ventas*',
     `📅 Período: ${label}`,
-    `${ventas.length} venta${ventas.length!==1?'s':''}`,
+    `${ventas.length + pedidosAnota.length} registro${(ventas.length + pedidosAnota.length)!==1?'s':''}`,
     '',
     '💰 *Totales*',
-    `  ARS: ${fmtP(totalARS)}`,
+    ...(totalARS>0?[`  ARS: ${fmtP(totalARS)}`]:[]),
     ...(totalUYU>0?[`  UYU: ${fmtP(totalUYU)}`]:[]),
-    `  Efectivo: ${fmtP(totEfec)}`,
-    `  Transferencia: ${fmtP(totTrans)}`,
+    ...(totEfec>0?[`  Efectivo: ${fmtP(totEfec)}`]:[]),
+    ...(totTrans>0?[`  Transferencia: ${fmtP(totTrans)}`]:[]),
     ...(totReg>0?[`  Regalos: ${totReg} u.`]:[]),
     ...(totAnota>0?[`  Anotados (deben): ${fmtP(totAnota)}`]:[]),
+    ...((ventasAnota.length || pedidosAnota.length) ? [
+      '',
+      '📝 *Anotados*',
+      ...ventasAnota.map(h => `  👤 ${h.nombreAnota || '(sin nombre)'} — ${h.descripcion}: Adeuda ${fmtP((h.precioUnit||0)*h.cantidad)}${(h.moneda||'ARS')==='UYU'?' UYU':''}`),
+      ...pedidosAnota.map(p => `  👤 ${p.para || '(sin nombre)'} — ${pedidoDescItem(p)}: Adeuda ${fmtP(pedidoSaldo(p))}${(p.moneda||'UYU')==='UYU'?' UYU':''}`),
+    ] : []),
     '',
     `📦 *Unidades cobradas: ${unidRem+unidTote+unidNino}*`,
     ...(unidRem>0?[`  Remeras adultos: ${unidRem}`]:[]),
@@ -3002,7 +3093,7 @@ document.getElementById('btn-confirmar-ingreso').addEventListener('click', () =>
       estado.totes[it.modelo] = (estado.totes[it.modelo] || 0) + it.cantidad;
     } else if (it.tipo === 'nino') {
       const vn = it.variante || 'reposeraRoja';
-      if (!estado.ninos[it.talle] || typeof estado.ninos[it.talle] === 'number') estado.ninos[it.talle] = { reposeraRoja: 0, cabraBlanca: 0 };
+      if (!estado.ninos[it.talle] || typeof estado.ninos[it.talle] === 'number') estado.ninos[it.talle] = { reposeraRoja: 0, cabraNegra: 0 };
       estado.ninos[it.talle][vn] = (estado.ninos[it.talle][vn] || 0) + it.cantidad;
     }
   });
