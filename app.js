@@ -28,6 +28,22 @@ const TALLES_NINO    = [2, 4, 6, 8, 10, 12, 16];
 
 const LABEL_VARIANTE_NINO = { reposeraRoja: 'Reposera Roja', cabraBlanca: 'Cabra Blanca' };
 
+// Suma las variantes (Reposera Roja + Cabra Blanca) de un talle de niñx.
+// ninosObj es estado.ninos o un stockSnapshot.ninos — ambos con la misma forma.
+function totalNinoTalle(ninosObj, talle) {
+  return VARIANTES_NINO.reduce((s, v) => s + (ninosObj?.[talle]?.[v] ?? 0), 0);
+}
+
+// Defensa para mostrar valores de auditorías guardadas antes de la corrección
+// del bug de niñx: si el valor guardado quedó como objeto (el bug viejo), lo
+// suma en vez de mostrarlo tal cual. Para valores ya numéricos no cambia nada.
+function mostrarCantidadGuardada(valor) {
+  if (valor && typeof valor === 'object') {
+    return Object.values(valor).reduce((s, n) => s + (Number(n) || 0), 0);
+  }
+  return valor;
+}
+
 const PRECIOS = { remera: 25000, tote: 16000, remera_uyu: 650, tote_uyu: 400, nino_uyu: 500 };
 
 const LABEL_VARIANTE = {
@@ -170,7 +186,6 @@ function cargarAuditorias() {
   } catch (_) { return []; }
 }
 let auditorias       = cargarAuditorias();
-let auditComparacion = null; // { ajustes, coincidencias, sinContar, diferenciaNeta }
 
 function cargarPedidos() {
   try { return JSON.parse(localStorage.getItem('cayo_pedidos') || '[]'); }
@@ -992,6 +1007,7 @@ document.getElementById('btn-venta').addEventListener('click', () => {
   inputPrecioOverride.value = '';
   document.getElementById('venta-nombre-anota').value = '';
   document.getElementById('campos-anota-nombre').classList.add('hidden');
+  document.getElementById('venta-fecha-manual').value = '';
   pDisponible.textContent = '';
   pError.classList.add('hidden');
   document.getElementById('venta-precio-unit').textContent  = '';
@@ -1073,9 +1089,21 @@ document.getElementById('form-venta').addEventListener('submit', e => {
 
   const ingreso = (pago === 'regalo' || pago === 'anota') ? 0 : precioFinal * cant;
 
+  // Fecha manual (para cargar ventas atrasadas) o la de ahora si no se eligió una
+  const fechaManual = document.getElementById('venta-fecha-manual').value; // 'YYYY-MM-DD' o ''
+  let fecha;
+  if (fechaManual) {
+    const [y, m, d] = fechaManual.split('-').map(Number);
+    const ahora = new Date();
+    fecha = new Date(y, m - 1, d, ahora.getHours(), ahora.getMinutes(), ahora.getSeconds())
+      .toLocaleString('es-AR');
+  } else {
+    fecha = new Date().toLocaleString('es-AR');
+  }
+
   const entrada = {
     id: Date.now(),
-    fecha: new Date().toLocaleString('es-AR'),
+    fecha,
     descripcion,
     cantidad:  cant,
     ingreso,
@@ -1526,21 +1554,19 @@ function renderAuditoria() {
     </td>
   </tr>`;
 
-  // Niños
-  const filasNinos = TALLES_NINO.map(t => {
-    const v = estado.ninos[t] ?? 0;
-    return `<tr>
-      <td class="talle-label">${t}</td>
-      <td>
-        <div class="audit-cell">
-          <span class="audit-actual">${v}</span>
-          <input type="number" class="audit-input" min="0"
-            data-tipo="nino" data-talle="${t}"
-            data-sistema="${v}" placeholder="—" />
-        </div>
-      </td>
-    </tr>`;
-  }).join('');
+  // Niños — filas = variante, columnas = talle (igual estructura que adultos)
+  const filasNinos = VARIANTES_NINO.map(v => `<tr>
+    <td>${LABEL_VARIANTE_NINO[v]}</td>
+    ${TALLES_NINO.map(t => {
+      const val = estado.ninos[t]?.[v] ?? 0;
+      return `<td><div class="audit-cell">
+        <span class="audit-actual">${val}</span>
+        <input type="number" class="audit-input" min="0"
+          data-tipo="nino" data-talle="${t}" data-variante="${v}"
+          data-sistema="${val}" placeholder="—" />
+      </div></td>`;
+    }).join('')}
+  </tr>`).join('');
 
   contenedor.innerHTML = `
     <div class="audit-leyenda">
@@ -1574,10 +1600,10 @@ function renderAuditoria() {
     </div>
 
     <div class="seccion">
-      <h2>Remeras Niñx — Reposera Roja</h2>
+      <h2>Remeras Niñx</h2>
       <div class="tabla-container">
         <table>
-          <thead><tr><th>Talle</th><th>Cantidad</th></tr></thead>
+          <thead><tr><th>Diseño</th>${TALLES_NINO.map(t => `<th>${t}</th>`).join('')}</tr></thead>
           <tbody>${filasNinos}</tbody>
         </table>
       </div>
@@ -1594,7 +1620,10 @@ function renderAuditoria() {
   }
 }
 
-document.getElementById('btn-guardar-auditoria').addEventListener('click', () => {
+// Lee los campos cargados en la pantalla de Auditoría y arma la comparación
+// contra el stock actual del sistema. Usado tanto para guardar el registro
+// como para aplicar el ajuste al stock real.
+function leerComparacionAuditoria() {
   const ajustes       = [];
   const coincidencias = [];
   const sinContar     = [];
@@ -1615,8 +1644,8 @@ document.getElementById('btn-guardar-auditoria').addEventListener('click', () =>
       desc   = `Tote Bag ${modelo === 'silla' ? 'Reposera' : 'Vereda'}`;
       actual = estado.totes[modelo];
     } else if (tipo === 'nino') {
-      desc   = `Remera Niñx talle ${talle}`;
-      actual = estado.ninos[talle] ?? 0;
+      desc   = `Remera Niñx ${LABEL_VARIANTE_NINO[variante] || ''} talle ${talle}`.replace(/\s+/g, ' ').trim();
+      actual = estado.ninos[talle]?.[variante] ?? 0;
     }
 
     if (val === '') {
@@ -1637,47 +1666,94 @@ document.getElementById('btn-guardar-auditoria').addEventListener('click', () =>
     }
   });
 
-  // No se ingresó nada
-  if (ajustes.length === 0 && coincidencias.length === 0) {
-    alert('No ingresaste ningún valor. Completá los campos con el conteo físico.');
-    return;
-  }
+  if (ajustes.length === 0 && coincidencias.length === 0) return null;
 
-  // Validación: saldo neto por categoría debe ser 0
   const netoAdulto = ajustes.filter(a => a.tipo === 'adulto').reduce((s, a) => s + a.diff, 0);
   const netoTote   = ajustes.filter(a => a.tipo === 'tote').reduce((s, a) => s + a.diff, 0);
   const netoNino   = ajustes.filter(a => a.tipo === 'nino').reduce((s, a) => s + a.diff, 0);
 
-  if (netoAdulto !== 0 || netoTote !== 0 || netoNino !== 0) {
-    const fmtNeto = n => {
-      if (n === 0) return '<span class="audit-net-ok">✅ 0</span>';
-      const s = n > 0 ? `+${n}` : String(n);
-      return `<span class="${n < 0 ? 'audit-net-neg' : 'audit-net-pos'}">${s} u.</span>`;
-    };
-    document.getElementById('audit-bloqueo-netos').innerHTML = `
-      <div class="audit-bloqueo-fila"><span>👕 Remeras adultos</span>${fmtNeto(netoAdulto)}</div>
-      <div class="audit-bloqueo-fila"><span>👜 Tote Bags</span>${fmtNeto(netoTote)}</div>
-      <div class="audit-bloqueo-fila"><span>👶 Remeras niñxs</span>${fmtNeto(netoNino)}</div>
-    `;
-    // Guardamos la comparación por si vuelven a editar
-    auditComparacion = { ajustes, coincidencias, sinContar, diferenciaNeta: netoAdulto + netoTote + netoNino };
-    document.getElementById('modal-audit-bloqueo').classList.remove('hidden');
+  return { ajustes, coincidencias, sinContar, diferenciaNeta: netoAdulto + netoTote + netoNino };
+}
+
+document.getElementById('btn-guardar-auditoria').addEventListener('click', () => {
+  const comparacion = leerComparacionAuditoria();
+  if (!comparacion) {
+    alert('No ingresaste ningún valor. Completá los campos con el conteo físico.');
     return;
   }
-
-  mostrarResultadoAuditoria({ ajustes, coincidencias, sinContar, diferenciaNeta: 0 });
+  guardarControlDeStock(comparacion);
 });
 
-function aplicarAjustesAuditoria(motivo, motivoDetalle) {
-  const { ajustes, diferenciaNeta } = auditComparacion;
+document.getElementById('btn-ajustar-stock').addEventListener('click', () => {
+  const comparacion = leerComparacionAuditoria();
+  if (!comparacion) {
+    alert('No ingresaste ningún valor. Completá los campos con el conteo físico.');
+    return;
+  }
+  if (comparacion.ajustes.length === 0) {
+    alert('No hay diferencias entre lo cargado y el sistema — no hay nada que ajustar.');
+    return;
+  }
+  const detalle = comparacion.ajustes.map(a => `• ${a.desc}: ${a.anterior} → ${a.nuevo}`).join('\n');
+  const ok = confirm(`Esto va a CAMBIAR el stock real del sistema:\n\n${detalle}\n\n¿Confirmás?`);
+  if (!ok) return;
+  aplicarStockReal(comparacion);
+});
+
+// Guarda el control de stock como registro puro: no modifica estado.adultos/totes/ninos,
+// solo deja constancia de lo contado vs. lo que había en el sistema en ese momento.
+function guardarControlDeStock(comparacion) {
+  const { ajustes, coincidencias, sinContar, diferenciaNeta } = comparacion;
+
+  // Foto de lo contado: valor físico donde se contó, valor de sistema donde no.
+  const stockSnapshot = {
+    adultos: JSON.parse(JSON.stringify(estado.adultos)),
+    totes:   JSON.parse(JSON.stringify(estado.totes)),
+    ninos:   JSON.parse(JSON.stringify(estado.ninos)),
+  };
+  ajustes.forEach(aj => {
+    if (aj.tipo === 'adulto')    stockSnapshot.adultos[aj.talle][aj.variante] = aj.nuevo;
+    else if (aj.tipo === 'tote') stockSnapshot.totes[aj.modelo]               = aj.nuevo;
+    else if (aj.tipo === 'nino') stockSnapshot.ninos[aj.talle][aj.variante]   = aj.nuevo;
+  });
+
+  const entrada = {
+    id:            Date.now(),
+    fecha:         new Date().toLocaleString('es-AR'),
+    ajustes:       ajustes.map(a => ({ desc: a.desc, anterior: a.anterior, nuevo: a.nuevo, diff: a.diff })),
+    diferenciaNeta,
+    motivo:        null,
+    motivoDetalle: '',
+    stockSnapshot,
+  };
+
+  auditorias.push(entrada);
+  localStorage.setItem('cayo_auditorias', JSON.stringify(auditorias));
+
+  renderAuditoria();
+  renderHistorialAuditorias();
+
+  // Banner de confirmación
+  const banner = document.createElement('div');
+  banner.className = 'audit-guardado-banner';
+  banner.textContent = ajustes.length > 0
+    ? `✅ Control guardado — ${ajustes.length} diferencia${ajustes.length !== 1 ? 's' : ''} registrada${ajustes.length !== 1 ? 's' : ''} (stock del sistema sin modificar)`
+    : `✅ Control guardado — sin diferencias`;
+  document.querySelector('.audit-historial-section').prepend(banner);
+  setTimeout(() => banner.remove(), 4000);
+}
+
+// Aplica lo cargado al stock real del sistema (uso explícito, tras confirmación),
+// y deja registro del ajuste en el historial de auditorías.
+function aplicarStockReal(comparacion) {
+  const { ajustes, diferenciaNeta } = comparacion;
 
   ajustes.forEach(aj => {
     if (aj.tipo === 'adulto')    estado.adultos[aj.talle][aj.variante] = aj.nuevo;
     else if (aj.tipo === 'tote') estado.totes[aj.modelo]               = aj.nuevo;
-    else if (aj.tipo === 'nino') estado.ninos[aj.talle]                = aj.nuevo;
+    else if (aj.tipo === 'nino') estado.ninos[aj.talle][aj.variante]   = aj.nuevo;
   });
 
-  // Snapshot del stock verificado (después de aplicar ajustes)
   const stockSnapshot = {
     adultos: JSON.parse(JSON.stringify(estado.adultos)),
     totes:   JSON.parse(JSON.stringify(estado.totes)),
@@ -1689,27 +1765,22 @@ function aplicarAjustesAuditoria(motivo, motivoDetalle) {
     fecha:         new Date().toLocaleString('es-AR'),
     ajustes:       ajustes.map(a => ({ desc: a.desc, anterior: a.anterior, nuevo: a.nuevo, diff: a.diff })),
     diferenciaNeta,
-    motivo:        motivo || null,
-    motivoDetalle: motivoDetalle || '',
+    motivo:        'Ajuste manual de stock real',
+    motivoDetalle: '',
     stockSnapshot,
   };
 
   auditorias.push(entrada);
   localStorage.setItem('cayo_auditorias', JSON.stringify(auditorias));
-  auditComparacion = null;
 
   guardar();
   renderTodo();
   renderAuditoria();
   renderHistorialAuditorias();
 
-  // Banner de confirmación
   const banner = document.createElement('div');
   banner.className = 'audit-guardado-banner';
-  const motivoTxt = motivo ? ` · ${motivo}` : '';
-  banner.textContent = ajustes.length > 0
-    ? `✅ Auditoría guardada — ${ajustes.length} ajuste${ajustes.length !== 1 ? 's' : ''}${motivoTxt}`
-    : `✅ Auditoría guardada — sin diferencias`;
+  banner.textContent = `✅ Stock real actualizado — ${ajustes.length} ítem${ajustes.length !== 1 ? 's' : ''} corregido${ajustes.length !== 1 ? 's' : ''}`;
   document.querySelector('.audit-historial-section').prepend(banner);
   setTimeout(() => banner.remove(), 4000);
 }
@@ -1739,11 +1810,14 @@ function renderHistorialAuditorias() {
           <span></span><span></span>
         </div>`
       : a.ajustes.map(aj => {
-          const d    = aj.diff > 0 ? `+${aj.diff}` : String(aj.diff);
-          const dcls = aj.diff < 0 ? 'audit-aj-neg' : 'audit-aj-pos';
+          const anterior = mostrarCantidadGuardada(aj.anterior);
+          const nuevo    = mostrarCantidadGuardada(aj.nuevo);
+          const diff     = typeof aj.diff === 'number' && !isNaN(aj.diff) ? aj.diff : nuevo - anterior;
+          const d    = diff > 0 ? `+${diff}` : String(diff);
+          const dcls = diff < 0 ? 'audit-aj-neg' : 'audit-aj-pos';
           return `<div class="audit-aj-fila">
             <span class="audit-aj-desc">${aj.desc}</span>
-            <span class="audit-aj-vals">${aj.anterior} → ${aj.nuevo}</span>
+            <span class="audit-aj-vals">${anterior} → ${nuevo}</span>
             <span class="audit-aj-diff ${dcls}">${d}</span>
           </div>`;
         }).join('');
@@ -1825,130 +1899,6 @@ window.toggleAuditItem = function(id) {
   const open = det.classList.toggle('audit-collapsed');
   ico.textContent = open ? '▼' : '▲';
 };
-
-// ── Modal resultado auditoría ─────────────────────────────────────────────────
-function mostrarResultadoAuditoria(comparacion) {
-  auditComparacion = comparacion;
-  const { ajustes, coincidencias, sinContar, diferenciaNeta } = comparacion;
-
-  let html = '';
-
-  if (ajustes.length > 0) {
-    html += `<div class="resultado-seccion">
-      <h3 class="resultado-titulo resultado-titulo--diff">🔴 Diferencias (${ajustes.length})</h3>
-      ${ajustes.map(a => {
-        const d    = a.diff > 0 ? `+${a.diff}` : String(a.diff);
-        const dcls = a.diff < 0 ? 'audit-aj-neg' : 'audit-aj-pos';
-        return `<div class="audit-aj-fila">
-          <span class="audit-aj-desc">${a.desc}</span>
-          <span class="audit-aj-vals">${a.anterior} → ${a.nuevo}</span>
-          <span class="audit-aj-diff ${dcls}">${d}</span>
-        </div>`;
-      }).join('')}
-    </div>`;
-  }
-
-  if (coincidencias.length > 0) {
-    html += `<div class="resultado-seccion">
-      <h3 class="resultado-titulo resultado-titulo--ok">✅ Coincidencias (${coincidencias.length})</h3>
-      ${coincidencias.map(c => `<div class="audit-aj-fila">
-        <span class="audit-aj-desc">${c.desc}</span>
-        <span class="audit-aj-vals">${c.valor} u. — ok</span>
-        <span></span>
-      </div>`).join('')}
-    </div>`;
-  }
-
-  if (sinContar.length > 0) {
-    html += `<div class="resultado-seccion">
-      <h3 class="resultado-titulo resultado-titulo--sc">⚪ Sin contar (${sinContar.length})</h3>
-      ${sinContar.map(s => `<div class="audit-aj-fila">
-        <span class="audit-aj-desc">${s.desc}</span>
-        <span class="audit-aj-vals" style="color:var(--texto-tenue);font-style:italic">no contado</span>
-        <span></span>
-      </div>`).join('')}
-    </div>`;
-  }
-
-  if (ajustes.length === 0) {
-    html = `<p class="resultado-ok-msg">✅ Todo lo contado coincide con el sistema.</p>` + html;
-  }
-
-  if (diferenciaNeta !== 0) {
-    const signo = diferenciaNeta > 0 ? '+' : '';
-    const cls   = diferenciaNeta < 0 ? 'audit-net-neg' : 'audit-net-pos';
-    html += `<div class="resultado-neto">
-      Diferencia neta: <strong class="${cls}">${signo}${diferenciaNeta} u.</strong>
-    </div>`;
-  } else if (ajustes.length > 0) {
-    html += `<div class="resultado-neto resultado-neto--ok">
-      Diferencia neta: <strong>0 u.</strong> — redistribución interna ✅
-    </div>`;
-  }
-
-  document.getElementById('resultado-body').innerHTML = html;
-
-  const motivoSection = document.getElementById('resultado-motivo-section');
-  if (diferenciaNeta !== 0) {
-    motivoSection.classList.remove('hidden');
-    document.getElementById('resultado-motivo-select').value = '';
-    document.getElementById('resultado-detalle-label').style.display = 'none';
-    document.getElementById('resultado-detalle').value = '';
-    document.getElementById('resultado-error').classList.add('hidden');
-  } else {
-    motivoSection.classList.add('hidden');
-  }
-
-  document.getElementById('modal-resultado-auditoria').classList.remove('hidden');
-}
-
-document.getElementById('resultado-motivo-select').addEventListener('change', () => {
-  document.getElementById('resultado-detalle-label').style.display =
-    document.getElementById('resultado-motivo-select').value ? 'flex' : 'none';
-  document.getElementById('resultado-error').classList.add('hidden');
-});
-
-document.getElementById('btn-confirmar-resultado').addEventListener('click', () => {
-  if (!auditComparacion) return;
-  if (auditComparacion.diferenciaNeta !== 0) {
-    const motivo = document.getElementById('resultado-motivo-select').value;
-    if (!motivo) { document.getElementById('resultado-error').classList.remove('hidden'); return; }
-    const detalle = document.getElementById('resultado-detalle').value.trim();
-    document.getElementById('modal-resultado-auditoria').classList.add('hidden');
-    aplicarAjustesAuditoria(motivo, detalle);
-  } else {
-    document.getElementById('modal-resultado-auditoria').classList.add('hidden');
-    aplicarAjustesAuditoria(null, '');
-  }
-});
-
-['btn-cancelar-resultado', 'btn-cerrar-resultado'].forEach(id => {
-  document.getElementById(id).addEventListener('click', () => {
-    document.getElementById('modal-resultado-auditoria').classList.add('hidden');
-    auditComparacion = null;
-  });
-});
-
-// ── Modal bloqueo auditoría ───────────────────────────────────────────────────
-['btn-cerrar-audit-bloqueo', 'btn-bloqueo-editar'].forEach(id => {
-  document.getElementById(id).addEventListener('click', () => {
-    document.getElementById('modal-audit-bloqueo').classList.add('hidden');
-    auditComparacion = null;
-  });
-});
-
-document.getElementById('btn-bloqueo-ventas').addEventListener('click', () => {
-  document.getElementById('modal-audit-bloqueo').classList.add('hidden');
-  auditComparacion = null;
-  irATab('ventas');
-});
-
-document.getElementById('modal-resultado-auditoria').addEventListener('click', e => {
-  if (e.target === document.getElementById('modal-resultado-auditoria')) {
-    document.getElementById('modal-resultado-auditoria').classList.add('hidden');
-    auditComparacion = null;
-  }
-});
 
 // Modo ciego — oculta/muestra los valores del sistema
 document.getElementById('audit-modo-ciego').addEventListener('change', function() {
@@ -2523,7 +2473,7 @@ function _stockResumen() {
     VARIANTES.reduce((s, v) => s + (estado.adultos[t]?.[v] ?? 0), 0));
   const totAdultos = totsTalle.reduce((s, q) => s + q, 0);
   const totTotes   = (estado.totes.silla || 0) + (estado.totes.vereda || 0);
-  const totNinos   = TALLES_NINO.reduce((s, t) => s + (estado.ninos[t] ?? 0), 0);
+  const totNinos   = TALLES_NINO.reduce((s, t) => s + totalNinoTalle(estado.ninos, t), 0);
   const ultimaAudit = auditorias.length > 0
     ? [...auditorias].sort((a, b) => b.id - a.id)[0] : null;
   return { totsTalle, totAdultos, totTotes, totNinos, ultimaAudit };
@@ -2548,7 +2498,12 @@ function generarStockPDF() {
     let snapTables;
     const ajustesList = ultimaAudit.ajustes || [];
     if (ajustesList.length > 0) {
-      const filas = ajustesList.map(a => `<tr><td>${a.desc}</td><td>${a.anterior}</td><td>${a.nuevo}</td><td>${a.diff > 0 ? '+' : ''}${a.diff}</td></tr>`).join('');
+      const filas = ajustesList.map(a => {
+        const anterior = mostrarCantidadGuardada(a.anterior);
+        const nuevo    = mostrarCantidadGuardada(a.nuevo);
+        const diff     = typeof a.diff === 'number' && !isNaN(a.diff) ? a.diff : nuevo - anterior;
+        return `<tr><td>${a.desc}</td><td>${anterior}</td><td>${nuevo}</td><td>${diff > 0 ? '+' : ''}${diff}</td></tr>`;
+      }).join('');
       snapTables = `<p class="no-snap" style="margin-bottom:8px">Este control no tiene foto completa del stock. Se muestran los ajustes registrados:</p>
         <table><thead><tr><th>Artículo</th><th>Antes</th><th>Después</th><th>Diferencia</th></tr></thead>
         <tbody>${filas}</tbody></table>`;
@@ -2565,7 +2520,7 @@ function generarStockPDF() {
       const snapTots  = TALLES_ADULTO.map(t => VARIANTES.reduce((s, v) => s + (ss.adultos[t]?.[v] ?? 0), 0));
       const snapTotA  = snapTots.reduce((s, q) => s + q, 0);
       const snapTotT  = (ss.totes.silla || 0) + (ss.totes.vereda || 0);
-      const snapTotN  = TALLES_NINO.reduce((s, t) => s + (ss.ninos?.[t] ?? 0), 0);
+      const snapTotN  = TALLES_NINO.reduce((s, t) => s + totalNinoTalle(ss.ninos, t), 0);
       snapTables = `
         <h4>👕 Remeras adultos</h4>
         <table><thead><tr><th>Diseño</th>${TALLES_ADULTO.map(t=>`<th>${t}</th>`).join('')}<th>Sub</th></tr></thead>
@@ -2577,7 +2532,7 @@ function generarStockPDF() {
         <tfoot><tr><td>Total</td><td><strong>${snapTotT}</strong></td></tr></tfoot></table>
         <h4>👶 Remeras niñxs</h4>
         <table><thead><tr>${TALLES_NINO.map(t=>`<th>T${t}</th>`).join('')}<th>Total</th></tr></thead>
-        <tbody><tr>${TALLES_NINO.map(t=>`<td>${ss.ninos?.[t]??0}</td>`).join('')}<td><strong>${snapTotN}</strong></td></tr></tbody></table>`;
+        <tbody><tr>${TALLES_NINO.map(t=>`<td>${totalNinoTalle(ss.ninos, t)}</td>`).join('')}<td><strong>${snapTotN}</strong></td></tr></tbody></table>`;
     }
     auditSection = `
       <div class="page-break"></div>
@@ -2633,7 +2588,7 @@ function generarStockPDF() {
   <tfoot><tr><td>Total</td><td>${totTotes}</td></tr></tfoot></table>
   <h3>👶 Remeras Niñxs</h3>
   <table><thead><tr>${TALLES_NINO.map(t=>`<th>T${t}</th>`).join('')}<th>Total</th></tr></thead>
-  <tbody><tr>${TALLES_NINO.map(t=>`<td>${estado.ninos[t]??0}</td>`).join('')}<td><strong>${totNinos}</strong></td></tr></tbody></table>
+  <tbody><tr>${TALLES_NINO.map(t=>`<td>${totalNinoTalle(estado.ninos, t)}</td>`).join('')}<td><strong>${totNinos}</strong></td></tr></tbody></table>
   ${auditSection}
   <p class="footer">Generado desde la app de stock · Cayo la Cabra</p>
   <script>window.onload=()=>window.print()<\/script></body></html>`;
@@ -2672,7 +2627,7 @@ function exportarStockWhatsApp() {
     '',
     'REMERAS NIÑXS',
     TALLES_NINO.map(t => rp('T' + t, nW)).join('') + rp('Total', nW + 1),
-    TALLES_NINO.map(t => rp(estado.ninos[t] ?? 0, nW)).join('') + rp(totNinos, nW + 1),
+    TALLES_NINO.map(t => rp(totalNinoTalle(estado.ninos, t), nW)).join('') + rp(totNinos, nW + 1),
     '',
     `TOTAL GENERAL: ${totGeneral} unidades`,
   ].join('\n');
@@ -2833,9 +2788,12 @@ window.descargarAuditoriaPDF = function(id) {
 
   // Ajustes
   const ajustesRows = a.ajustes.map(aj => {
-    const d = aj.diff > 0 ? `+${aj.diff}` : String(aj.diff);
-    const c = aj.diff < 0 ? '#c0392b' : '#27ae60';
-    return `<tr><td>${aj.desc}</td><td>${aj.anterior}</td><td>${aj.nuevo}</td>
+    const anterior = mostrarCantidadGuardada(aj.anterior);
+    const nuevo    = mostrarCantidadGuardada(aj.nuevo);
+    const diff     = typeof aj.diff === 'number' && !isNaN(aj.diff) ? aj.diff : nuevo - anterior;
+    const d = diff > 0 ? `+${diff}` : String(diff);
+    const c = diff < 0 ? '#c0392b' : '#27ae60';
+    return `<tr><td>${aj.desc}</td><td>${anterior}</td><td>${nuevo}</td>
             <td style="color:${c};font-weight:700;text-align:center">${d}</td></tr>`;
   }).join('');
 
@@ -2862,7 +2820,7 @@ window.descargarAuditoriaPDF = function(id) {
       VARIANTES.reduce((s, v) => s + (ss.adultos[t]?.[v] ?? 0), 0));
     const totAdulto = totsPorTalle.reduce((s, q) => s + q, 0);
     const totTotes  = (ss.totes.silla || 0) + (ss.totes.vereda || 0);
-    const totNinos  = TALLES_NINO.reduce((s, t) => s + (ss.ninos?.[t] ?? 0), 0);
+    const totNinos  = TALLES_NINO.reduce((s, t) => s + totalNinoTalle(ss.ninos, t), 0);
 
     snapshotSection = `
       <h3>Stock verificado en este control</h3>
@@ -2884,7 +2842,7 @@ window.descargarAuditoriaPDF = function(id) {
       <h4>👶 Remeras Niñxs</h4>
       <table>
         <thead><tr>${TALLES_NINO.map(t=>`<th>T${t}</th>`).join('')}<th>Total</th></tr></thead>
-        <tbody><tr>${TALLES_NINO.map(t=>`<td>${ss.ninos?.[t]??0}</td>`).join('')}<td><strong>${totNinos}</strong></td></tr></tbody>
+        <tbody><tr>${TALLES_NINO.map(t=>`<td>${totalNinoTalle(ss.ninos, t)}</td>`).join('')}<td><strong>${totNinos}</strong></td></tr></tbody>
       </table>`;
   }
 

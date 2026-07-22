@@ -262,6 +262,7 @@
             <span>👁 Modo ciego</span>
           </label>
           <button id="btn-guardar-auditoria" class="btn-primary">Guardar auditoría</button>
+          <button id="btn-ajustar-stock" class="btn-secondary" title="Usa lo que cargaste para corregir el stock real del sistema">📌 Ajustar stock real</button>
         </div>
       </div>
       <div id="auditoria-contenido"></div>
@@ -354,6 +355,9 @@
             <datalist id="anota-nombres-list"></datalist>
           </label>
         </div>
+        <label>Fecha de la venta <span class="fecha-manual-hint">(opcional — dejar vacío usa la fecha/hora de ahora)</span>
+          <input type="date" id="venta-fecha-manual" />
+        </label>
         <div class="venta-resumen">
           <span id="venta-precio-unit"></span>
           <span id="venta-total-venta"></span>
@@ -496,55 +500,6 @@
         <button id="btn-config-guardar" class="btn-primary">Guardar URL</button>
         <button id="btn-config-subir" class="btn-secondary">⬆️ Subir datos ahora</button>
         <button id="btn-config-borrar" class="btn-secondary">Desactivar</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── MODAL BLOQUEO AUDITORÍA ── -->
-  <div id="modal-audit-bloqueo" class="modal hidden">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h2>⚠️ Saldo neto con diferencias</h2>
-        <button class="modal-cerrar" id="btn-cerrar-audit-bloqueo" aria-label="Cerrar">✕</button>
-      </div>
-      <p class="audit-bloqueo-desc">El conteo tiene diferencias que no cierran dentro de cada categoría. Para guardar, el saldo neto de remeras adultos, totes y niñxs debe ser <strong>cero</strong> por separado.</p>
-      <div id="audit-bloqueo-netos" class="audit-bloqueo-netos"></div>
-      <p class="audit-bloqueo-hint">¿Qué querés hacer?</p>
-      <div class="modal-actions">
-        <button id="btn-bloqueo-editar" class="btn-primary">✏️ Editar saldos</button>
-        <button id="btn-bloqueo-ventas" class="btn-secondary">💰 Ingresar ventas</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── MODAL RESULTADO AUDITORÍA ── -->
-  <div id="modal-resultado-auditoria" class="modal hidden">
-    <div class="modal-content modal-wide">
-      <div class="modal-header">
-        <h2>📊 Resultado de auditoría</h2>
-        <button class="modal-cerrar" id="btn-cerrar-resultado" aria-label="Cerrar">✕</button>
-      </div>
-      <div id="resultado-body" class="resultado-body"></div>
-      <div id="resultado-motivo-section" class="hidden" style="margin-top:0.75rem">
-        <label class="config-label">Motivo del ajuste neto
-          <select id="resultado-motivo-select" class="config-input">
-            <option value="">— Seleccioná el motivo —</option>
-            <option value="Merma / pérdida">📉 Merma / pérdida</option>
-            <option value="Mercadería dañada">🔨 Mercadería dañada</option>
-            <option value="Error de conteo anterior">🔄 Corrección de error de conteo</option>
-            <option value="Recepción de nuevo stock">📦 Recepción de nuevo stock</option>
-            <option value="Devolución">↩️ Devolución</option>
-            <option value="Otro">📝 Otro</option>
-          </select>
-        </label>
-        <label class="config-label" id="resultado-detalle-label" style="display:none">Descripción breve
-          <input type="text" id="resultado-detalle" class="config-input" placeholder="Ej: se dañaron 2 remeras en la lluvia..." maxlength="200" />
-        </label>
-        <p id="resultado-error" class="error hidden">Seleccioná un motivo para confirmar.</p>
-      </div>
-      <div class="modal-actions">
-        <button id="btn-confirmar-resultado" class="btn-primary">✅ Confirmar y guardar</button>
-        <button id="btn-cancelar-resultado"  class="btn-secondary">Cancelar</button>
       </div>
     </div>
   </div>
