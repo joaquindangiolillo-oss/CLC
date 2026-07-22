@@ -1106,21 +1106,28 @@ document.getElementById('form-venta').addEventListener('submit', e => {
 
   const ingreso = (pago === 'regalo' || pago === 'anota') ? 0 : precioFinal * cant;
 
-  // Fecha manual (para cargar ventas atrasadas) o la de ahora si no se eligió una
+  // Fecha manual (para cargar ventas atrasadas) o la de ahora si no se eligió una.
+  // fechaTs es la que se usa para filtrar por rango de fechas (los exports de
+  // ventas filtran por esto, no por "id" — "id" siempre es el momento real de
+  // carga, para no romper el orden ni las búsquedas por id en otras partes).
   const fechaManual = document.getElementById('venta-fecha-manual').value; // 'YYYY-MM-DD' o ''
-  let fecha;
+  let fecha, fechaTs;
   if (fechaManual) {
     const [y, m, d] = fechaManual.split('-').map(Number);
     const ahora = new Date();
-    fecha = new Date(y, m - 1, d, ahora.getHours(), ahora.getMinutes(), ahora.getSeconds())
-      .toLocaleString('es-AR');
+    const fechaObj = new Date(y, m - 1, d, ahora.getHours(), ahora.getMinutes(), ahora.getSeconds());
+    fecha   = fechaObj.toLocaleString('es-AR');
+    fechaTs = fechaObj.getTime();
   } else {
-    fecha = new Date().toLocaleString('es-AR');
+    const ahora = new Date();
+    fecha   = ahora.toLocaleString('es-AR');
+    fechaTs = ahora.getTime();
   }
 
   const entrada = {
     id: Date.now(),
     fecha,
+    fechaTs,
     descripcion,
     cantidad:  cant,
     ingreso,
@@ -2671,7 +2678,10 @@ function _ventasRango() {
   const hastaEl = document.getElementById('export-hasta');
   const desde = desdeEl?.value ? new Date(desdeEl.value + 'T00:00:00').getTime() : 0;
   const hasta = hastaEl?.value ? new Date(hastaEl.value + 'T23:59:59').getTime() : Infinity;
-  const enRango = historial.filter(h => h.id >= desde && h.id <= hasta);
+  const enRango = historial.filter(h => {
+    const ts = h.fechaTs ?? h.id;
+    return ts >= desde && ts <= hasta;
+  });
   const ventas = aplicarFiltrosVentas(enRango);
   const desdeTxt = desdeEl?.value ? new Date(desdeEl.value + 'T00:00:00').toLocaleDateString('es-AR') : null;
   const hastaTxt = hastaEl?.value ? new Date(hastaEl.value + 'T00:00:00').toLocaleDateString('es-AR') : null;
