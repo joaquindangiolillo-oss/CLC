@@ -861,6 +861,7 @@ const camposTote       = document.getElementById('campos-tote');
 const selTalleAdulto   = document.getElementById('venta-talle-adulto');
 const selVarianteAdulto = document.getElementById('venta-variante-adulto');
 const selTalleNino     = document.getElementById('venta-talle-nino');
+const selVarianteNino  = document.getElementById('venta-variante-nino');
 const selTote          = document.getElementById('venta-tote');
 const inputCantidad      = document.getElementById('venta-cantidad');
 const inputPrecioOverride = document.getElementById('venta-precio-override');
@@ -923,7 +924,7 @@ function actualizarDisponible() {
   if (cat === 'adulto') {
     disp = stockDisponible('adulto', { talle: selTalleAdulto.value, variante: selVarianteAdulto.value });
   } else if (cat === 'nino') {
-    disp = stockDisponible('nino', { talle: selTalleNino.value });
+    disp = stockDisponible('nino', { talle: selTalleNino.value, variante: selVarianteNino.value });
   } else if (cat === 'tote') {
     disp = stockDisponible('tote', { modelo: selTote.value });
   }
@@ -976,7 +977,7 @@ selCategoria.addEventListener('change', () => {
   actualizarDisponible();
 });
 
-[selTalleAdulto, selVarianteAdulto, selTalleNino, selTote, inputCantidad, inputPrecioOverride].forEach(el =>
+[selTalleAdulto, selVarianteAdulto, selTalleNino, selVarianteNino, selTote, inputCantidad, inputPrecioOverride].forEach(el =>
   el.addEventListener('change', actualizarDisponible)
 );
 inputCantidad.addEventListener('input', actualizarDisponible);
