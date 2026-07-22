@@ -77,44 +77,52 @@ const COLOR_VARIANTE = {
 };
 
 // ── Persistencia ──────────────────────────────────────────────────────────────
+// Migra un objeto de stock (local o recién bajado de la nube) a la forma
+// actual: cabraNegra en adultos, ninos como objeto por variante, y el
+// renombre de la variante niñx "cabraBlanca" -> "cabraNegra" (estaba mal
+// declarada). Devuelve true si modificó algo.
+function migrarStock(st) {
+  let changed = false;
+  // Migración: agregar cabraNegra a talles adulto que no lo tienen
+  if (st.adultos) {
+    TALLES_ADULTO.forEach(t => {
+      if (st.adultos[t] && st.adultos[t].cabraNegra === undefined) {
+        st.adultos[t].cabraNegra = 0;
+        changed = true;
+      }
+    });
+  }
+  // Migración: ninos de número plano a objeto por variante
+  if (st.ninos) {
+    TALLES_NINO.forEach(t => {
+      if (typeof st.ninos[t] === 'number') {
+        st.ninos[t] = { reposeraRoja: st.ninos[t], cabraNegra: 0 };
+        changed = true;
+      } else if (st.ninos[t] && st.ninos[t].cabraNegra === undefined) {
+        st.ninos[t].cabraNegra = 0;
+        changed = true;
+      }
+    });
+  }
+  // Migración: variante niñx renombrada de "cabraBlanca" a "cabraNegra" (estaba mal declarada)
+  if (st.ninos) {
+    TALLES_NINO.forEach(t => {
+      if (st.ninos[t] && st.ninos[t].cabraBlanca !== undefined) {
+        st.ninos[t].cabraNegra = (st.ninos[t].cabraNegra || 0) + st.ninos[t].cabraBlanca;
+        delete st.ninos[t].cabraBlanca;
+        changed = true;
+      }
+    });
+  }
+  return changed;
+}
+
 function cargarEstado() {
   try {
     const raw = localStorage.getItem('cayo_stock');
     if (raw) {
       const st = JSON.parse(raw);
-      let changed = false;
-      // Migración: agregar cabraNegra a talles adulto que no lo tienen
-      if (st.adultos) {
-        TALLES_ADULTO.forEach(t => {
-          if (st.adultos[t] && st.adultos[t].cabraNegra === undefined) {
-            st.adultos[t].cabraNegra = 0;
-            changed = true;
-          }
-        });
-      }
-      // Migración: ninos de número plano a objeto por variante
-      if (st.ninos) {
-        TALLES_NINO.forEach(t => {
-          if (typeof st.ninos[t] === 'number') {
-            st.ninos[t] = { reposeraRoja: st.ninos[t], cabraNegra: 0 };
-            changed = true;
-          } else if (st.ninos[t] && st.ninos[t].cabraNegra === undefined) {
-            st.ninos[t].cabraNegra = 0;
-            changed = true;
-          }
-        });
-      }
-      // Migración: variante niñx renombrada de "cabraBlanca" a "cabraNegra" (estaba mal declarada)
-      if (st.ninos) {
-        TALLES_NINO.forEach(t => {
-          if (st.ninos[t] && st.ninos[t].cabraBlanca !== undefined) {
-            st.ninos[t].cabraNegra = (st.ninos[t].cabraNegra || 0) + st.ninos[t].cabraBlanca;
-            delete st.ninos[t].cabraBlanca;
-            changed = true;
-          }
-        });
-      }
-      if (changed) localStorage.setItem('cayo_stock', JSON.stringify(st));
+      if (migrarStock(st)) localStorage.setItem('cayo_stock', JSON.stringify(st));
       return st;
     }
   } catch (_) {}
@@ -204,11 +212,10 @@ function cargarAuditorias() {
     return raw ? JSON.parse(raw) : [];
   } catch (_) { return []; }
 }
-let auditorias       = cargarAuditorias();
-// Migración: diseño niñx renombrado de "cabraBlanca" a "cabraNegra" en snapshots de auditorías guardadas
-(function migrarAuditoriasCabraNegra() {
+// Migración: diseño niñx renombrado de "cabraBlanca" a "cabraNegra" en snapshots de auditorías (locales o de la nube)
+function migrarAuditorias(list) {
   let changed = false;
-  auditorias.forEach(a => {
+  list.forEach(a => {
     const ninosSnap = a.stockSnapshot?.ninos;
     if (!ninosSnap) return;
     Object.values(ninosSnap).forEach(t => {
@@ -219,8 +226,10 @@ let auditorias       = cargarAuditorias();
       }
     });
   });
-  if (changed) localStorage.setItem('cayo_auditorias', JSON.stringify(auditorias));
-})();
+  return changed;
+}
+let auditorias       = cargarAuditorias();
+if (migrarAuditorias(auditorias)) localStorage.setItem('cayo_auditorias', JSON.stringify(auditorias));
 
 function cargarPedidos() {
   try { return JSON.parse(localStorage.getItem('cayo_pedidos') || '[]'); }
@@ -417,19 +426,22 @@ async function sincronizarDesdeNube() {
   const data = await pullFromCloud();
   if (!data) { setSincStatus('error'); return; }
   let changed = false;
+  let migro = false; // si alguna migración de datos vieja tuvo que corregir algo recién bajado de la nube
   if (data.stock && typeof data.stock === 'object') {
     estado = data.stock;
+    if (migrarStock(estado)) migro = true;
     localStorage.setItem('cayo_stock', JSON.stringify(estado));
     changed = true;
   }
   if (Array.isArray(data.historial)) {
     historial = data.historial;
-    normalizeHistorial(historial);
+    if (normalizeHistorial(historial)) migro = true;
     localStorage.setItem('cayo_historial', JSON.stringify(historial));
     changed = true;
   }
   if (Array.isArray(data.auditorias)) {
     auditorias = data.auditorias;
+    if (migrarAuditorias(auditorias)) migro = true;
     localStorage.setItem('cayo_auditorias', JSON.stringify(auditorias));
     changed = true;
   }
@@ -444,10 +456,12 @@ async function sincronizarDesdeNube() {
     const idsNube = new Set(data.ingresos.map(i => i.id));
     const soloLocales = ingresos.filter(i => !idsNube.has(i.id));
     ingresos = [...data.ingresos, ...soloLocales].sort((a, b) => a.id - b.id);
+    normalizeIngresos();
     localStorage.setItem('cayo_ingresos', JSON.stringify(ingresos));
     changed = true;
   }
   if (changed) renderTodo();
+  if (migro) pushToCloud(); // corrige en la nube lo que se acaba de migrar localmente
   setSincStatus('ok');
 }
 
@@ -2819,11 +2833,37 @@ function exportarVentasPDF() {
   const fmtP = n => '$' + n.toLocaleString('es-AR');
   const pagoLabel = p => ({efectivo:'Efectivo',transferencia:'Transf.',regalo:'Regalo',anota:'Anota'}[p]||p);
 
+  const esAnota = filtroVentas === 'anota';
+
+  // Vista "Anotados": tabla propia con el nombre del deudor en su propia
+  // columna, grande y en negrita — sin columnas de Cant./Precio u./Pago que
+  // no aplican a una deuda (por eso quedaban con "-").
+  const anotaRows = esAnota ? (
+    [...ventas].sort((a,b)=>a.id-b.id).map(h => {
+      const mon = (h.moneda||'ARS')==='UYU' ? ' UYU' : '';
+      return `<tr>
+        <td class="col-fecha">${h.fecha}</td>
+        <td class="col-cliente">${h.nombreAnota || '(sin nombre)'}</td>
+        <td>${h.descripcion}${h.cantidad>1?` ×${h.cantidad}`:''}</td>
+        <td class="col-r bold">${fmtP((h.precioUnit||0)*h.cantidad)}${mon}</td>
+      </tr>`;
+    }).join('')
+    + [...pedidosAnota].sort((a,b)=>a.id-b.id).map(p => {
+      const mon = (p.moneda||'UYU')==='UYU' ? ' UYU' : '';
+      return `<tr>
+        <td class="col-fecha">${p.fecha||''}</td>
+        <td class="col-cliente">${p.para || '(sin nombre)'}</td>
+        <td>📋 ${pedidoDescItem(p)}</td>
+        <td class="col-r bold">${fmtP(pedidoSaldo(p))}${mon}</td>
+      </tr>`;
+    }).join('')
+  ) : '';
+
   const pedidosRows = [...pedidosAnota].sort((a,b)=>a.id-b.id).map(p => {
     const mon = (p.moneda||'UYU')==='UYU' ? ' UYU' : '';
     return `<tr>
       <td class="col-fecha">${p.fecha||''}</td>
-      <td>📋 ${pedidoDescItem(p)}${p.para?`<br><small>👤 ${p.para}</small>`:''}</td>
+      <td>📋 ${pedidoDescItem(p)}${p.para?`<br><span class="col-cliente-inline">👤 ${p.para}</span>`:''}</td>
       <td class="col-c">-</td>
       <td class="col-r">-</td>
       <td class="col-r bold">Adeuda ${fmtP(pedidoSaldo(p))}${mon}</td>
@@ -2839,7 +2879,7 @@ function exportarVentasPDF() {
       : fmtP(h.ingreso??0)+mon;
     return `<tr>
       <td class="col-fecha">${h.fecha}</td>
-      <td>${h.descripcion}${h.nombreAnota?`<br><small>👤 ${h.nombreAnota}</small>`:''}</td>
+      <td>${h.descripcion}${h.nombreAnota?`<br><span class="col-cliente-inline">👤 ${h.nombreAnota}</span>`:''}</td>
       <td class="col-c">${h.cantidad}</td>
       <td class="col-r">${h.precioUnit?fmtP(h.precioUnit)+mon:'-'}</td>
       <td class="col-r bold">${totalTxt}</td>
@@ -2863,6 +2903,8 @@ function exportarVentasPDF() {
     tr:nth-child(even) td{background:#fafafa}
     .col-fecha{white-space:nowrap;color:#555}.col-c{text-align:center}.col-r{text-align:right}
     .bold{font-weight:700}small{color:#888;font-size:8px}
+    .col-cliente{font-weight:800;font-size:12px;color:#111;white-space:nowrap}
+    .col-cliente-inline{display:block;font-weight:800;font-size:11px;color:#111;margin-top:2px}
     .footer{margin-top:10px;color:#bbb;font-size:8px;border-top:1px solid #eee;padding-top:5px}
     @media print{body{padding:4px}}`;
 
@@ -2883,10 +2925,15 @@ function exportarVentasPDF() {
     ${totAnota>0?`<div class="rb"><div class="rn">${fmtP(totAnota)}</div><div class="rl">Anotados (deben)</div></div>`:''}
     ${(totPegARS>0||totPegUYU>0)?`<div class="rb" style="border-color:rgba(155,89,182,0.4)"><div class="rn" style="color:#9b59b6">${totPegARS>0?fmtP(totPegARS):''}${totPegUYU>0?(totPegARS>0?' · ':'')+fmtP(totPegUYU)+' UYU':''}</div><div class="rl">Pegotines</div></div>`:''}
   </div>
+  ${esAnota ? `
+  <table>
+    <thead><tr><th>Fecha</th><th>Cliente</th><th>Detalle</th><th>Adeuda</th></tr></thead>
+    <tbody>${anotaRows.length ? anotaRows : '<tr><td colspan="4" style="text-align:center;padding:12px;color:#999">Nadie anotado en este período</td></tr>'}</tbody>
+  </table>` : `
   <table>
     <thead><tr><th>Fecha</th><th>Artículo</th><th>Cant.</th><th>Precio u.</th><th>Total</th><th>Pago</th></tr></thead>
     <tbody>${rows.length ? rows : '<tr><td colspan="6" style="text-align:center;padding:12px;color:#999">Sin ventas en este período</td></tr>'}</tbody>
-  </table>
+  </table>`}
   <p class="footer">Generado desde la app de stock · Cayo la Cabra</p>
   <script>window.onload=()=>window.print()<\/script></body></html>`;
 
@@ -2917,8 +2964,8 @@ function exportarVentasWhatsApp() {
     ...((ventasAnota.length || pedidosAnota.length) ? [
       '',
       '📝 *Anotados*',
-      ...ventasAnota.map(h => `  👤 ${h.nombreAnota || '(sin nombre)'} — ${h.descripcion}: Adeuda ${fmtP((h.precioUnit||0)*h.cantidad)}${(h.moneda||'ARS')==='UYU'?' UYU':''}`),
-      ...pedidosAnota.map(p => `  👤 ${p.para || '(sin nombre)'} — ${pedidoDescItem(p)}: Adeuda ${fmtP(pedidoSaldo(p))}${(p.moneda||'UYU')==='UYU'?' UYU':''}`),
+      ...ventasAnota.map(h => `  👤 *${h.nombreAnota || '(sin nombre)'}* — ${h.descripcion}: Adeuda ${fmtP((h.precioUnit||0)*h.cantidad)}${(h.moneda||'ARS')==='UYU'?' UYU':''}`),
+      ...pedidosAnota.map(p => `  👤 *${p.para || '(sin nombre)'}* — ${pedidoDescItem(p)}: Adeuda ${fmtP(pedidoSaldo(p))}${(p.moneda||'UYU')==='UYU'?' UYU':''}`),
     ] : []),
     '',
     `📦 *Unidades cobradas: ${unidRem+unidTote+unidNino}*`,
