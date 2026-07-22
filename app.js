@@ -2820,16 +2820,13 @@ function _ventasTotales(ventas, pedidosAnota = []) {
   const unidRem   = cobradas.filter(h=>h._stock?.tipo==='adulto').reduce((s,h)=>s+h.cantidad,0);
   const unidTote  = cobradas.filter(h=>h._stock?.tipo==='tote').reduce((s,h)=>s+h.cantidad,0);
   const unidNino  = cobradas.filter(h=>h._stock?.tipo==='nino').reduce((s,h)=>s+h.cantidad,0);
-  const pegEntradas = ventas.filter(h=>h._stock?.tipo==='pegotines');
-  const totPegARS = pegEntradas.filter(h=>(h.moneda||'ARS')==='ARS').reduce((s,h)=>s+(h.ingreso??0),0);
-  const totPegUYU = pegEntradas.filter(h=>(h.moneda||'ARS')==='UYU').reduce((s,h)=>s+(h.ingreso??0),0);
-  return { totalARS, totalUYU, totEfec, totTrans, totReg, totAnota, unidRem, unidTote, unidNino, totPegARS, totPegUYU };
+  return { totalARS, totalUYU, totEfec, totTrans, totReg, totAnota, unidRem, unidTote, unidNino };
 }
 
 function exportarVentasPDF() {
   const { ventas, pedidosAnota, label } = _ventasRango();
   const ahora = new Date().toLocaleDateString('es-AR');
-  const { totalARS, totalUYU, totEfec, totTrans, totReg, totAnota, unidRem, unidTote, unidNino, totPegARS, totPegUYU } = _ventasTotales(ventas, pedidosAnota);
+  const { totalARS, totalUYU, totEfec, totTrans, totReg, totAnota, unidRem, unidTote, unidNino } = _ventasTotales(ventas, pedidosAnota);
   const fmtP = n => '$' + n.toLocaleString('es-AR');
   const pagoLabel = p => ({efectivo:'Efectivo',transferencia:'Transf.',regalo:'Regalo',anota:'Anota'}[p]||p);
   // Las fechas guardadas incluyen hora ("22/7/2026, 14:05:09"); el reporte
@@ -2926,7 +2923,6 @@ function exportarVentasPDF() {
     ${totTrans>0?`<div class="rb"><div class="rn">${fmtP(totTrans)}</div><div class="rl">Transferencia</div></div>`:''}
     ${totReg>0?`<div class="rb"><div class="rn">${totReg} u.</div><div class="rl">Regalos</div></div>`:''}
     ${totAnota>0?`<div class="rb"><div class="rn">${fmtP(totAnota)}</div><div class="rl">Anotados (deben)</div></div>`:''}
-    ${(totPegARS>0||totPegUYU>0)?`<div class="rb" style="border-color:rgba(155,89,182,0.4)"><div class="rn" style="color:#9b59b6">${totPegARS>0?fmtP(totPegARS):''}${totPegUYU>0?(totPegARS>0?' · ':'')+fmtP(totPegUYU)+' UYU':''}</div><div class="rl">Pegotines</div></div>`:''}
   </div>
   ${esAnota ? `
   <table>
@@ -2947,7 +2943,7 @@ function exportarVentasPDF() {
 function exportarVentasWhatsApp() {
   const { ventas, pedidosAnota, label } = _ventasRango();
   const ahora = new Date().toLocaleDateString('es-AR');
-  const { totalARS, totalUYU, totEfec, totTrans, totReg, totAnota, unidRem, unidTote, unidNino, totPegARS, totPegUYU } = _ventasTotales(ventas, pedidosAnota);
+  const { totalARS, totalUYU, totEfec, totTrans, totReg, totAnota, unidRem, unidTote, unidNino } = _ventasTotales(ventas, pedidosAnota);
   const fmtP = n => '$' + n.toLocaleString('es-AR');
 
   const ventasAnota = ventas.filter(h => h.pago === 'anota');
@@ -2975,7 +2971,6 @@ function exportarVentasWhatsApp() {
     ...(unidRem>0?[`  Remeras adultos: ${unidRem}`]:[]),
     ...(unidTote>0?[`  Tote bags: ${unidTote}`]:[]),
     ...(unidNino>0?[`  Remeras niñxs: ${unidNino}`]:[]),
-    ...((totPegARS>0||totPegUYU>0)?[`🎟️ *Pegotines: ${[totPegARS>0?fmtP(totPegARS):null,totPegUYU>0?fmtP(totPegUYU)+' UYU':null].filter(Boolean).join(' · ')}*`]:[]),
     '',
     `_Generado ${ahora}_`,
   ];
