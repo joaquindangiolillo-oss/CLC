@@ -991,6 +991,7 @@ document.getElementById('btn-venta').addEventListener('click', () => {
   inputPrecioOverride.value = '';
   document.getElementById('venta-nombre-anota').value = '';
   document.getElementById('campos-anota-nombre').classList.add('hidden');
+  document.getElementById('venta-fecha-manual').value = '';
   pDisponible.textContent = '';
   pError.classList.add('hidden');
   document.getElementById('venta-precio-unit').textContent  = '';
@@ -1072,9 +1073,21 @@ document.getElementById('form-venta').addEventListener('submit', e => {
 
   const ingreso = (pago === 'regalo' || pago === 'anota') ? 0 : precioFinal * cant;
 
+  // Fecha manual (para cargar ventas atrasadas) o la de ahora si no se eligió una
+  const fechaManual = document.getElementById('venta-fecha-manual').value; // 'YYYY-MM-DD' o ''
+  let fecha;
+  if (fechaManual) {
+    const [y, m, d] = fechaManual.split('-').map(Number);
+    const ahora = new Date();
+    fecha = new Date(y, m - 1, d, ahora.getHours(), ahora.getMinutes(), ahora.getSeconds())
+      .toLocaleString('es-AR');
+  } else {
+    fecha = new Date().toLocaleString('es-AR');
+  }
+
   const entrada = {
     id: Date.now(),
-    fecha: new Date().toLocaleString('es-AR'),
+    fecha,
     descripcion,
     cantidad:  cant,
     ingreso,

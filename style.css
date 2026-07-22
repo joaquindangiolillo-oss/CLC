@@ -1,5 +1,6 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 .hidden { display: none !important; }
+.fecha-manual-hint { font-weight: 400; font-size: 0.8em; color: var(--texto-tenue); }
 
 :root {
   --rojo: #c0392b;
