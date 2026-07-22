@@ -2832,6 +2832,9 @@ function exportarVentasPDF() {
   const { totalARS, totalUYU, totEfec, totTrans, totReg, totAnota, unidRem, unidTote, unidNino, totPegARS, totPegUYU } = _ventasTotales(ventas, pedidosAnota);
   const fmtP = n => '$' + n.toLocaleString('es-AR');
   const pagoLabel = p => ({efectivo:'Efectivo',transferencia:'Transf.',regalo:'Regalo',anota:'Anota'}[p]||p);
+  // Las fechas guardadas incluyen hora ("22/7/2026, 14:05:09"); el reporte
+  // solo debe mostrar la fecha.
+  const soloFecha = f => (f || '').split(',')[0];
 
   const esAnota = filtroVentas === 'anota';
 
@@ -2842,7 +2845,7 @@ function exportarVentasPDF() {
     [...ventas].sort((a,b)=>a.id-b.id).map(h => {
       const mon = (h.moneda||'ARS')==='UYU' ? ' UYU' : '';
       return `<tr>
-        <td class="col-fecha">${h.fecha}</td>
+        <td class="col-fecha">${soloFecha(h.fecha)}</td>
         <td class="col-cliente">${h.nombreAnota || '(sin nombre)'}</td>
         <td>${h.descripcion}${h.cantidad>1?` ×${h.cantidad}`:''}</td>
         <td class="col-r bold">${fmtP((h.precioUnit||0)*h.cantidad)}${mon}</td>
@@ -2851,7 +2854,7 @@ function exportarVentasPDF() {
     + [...pedidosAnota].sort((a,b)=>a.id-b.id).map(p => {
       const mon = (p.moneda||'UYU')==='UYU' ? ' UYU' : '';
       return `<tr>
-        <td class="col-fecha">${p.fecha||''}</td>
+        <td class="col-fecha">${soloFecha(p.fecha)}</td>
         <td class="col-cliente">${p.para || '(sin nombre)'}</td>
         <td>📋 ${pedidoDescItem(p)}</td>
         <td class="col-r bold">${fmtP(pedidoSaldo(p))}${mon}</td>
@@ -2862,7 +2865,7 @@ function exportarVentasPDF() {
   const pedidosRows = [...pedidosAnota].sort((a,b)=>a.id-b.id).map(p => {
     const mon = (p.moneda||'UYU')==='UYU' ? ' UYU' : '';
     return `<tr>
-      <td class="col-fecha">${p.fecha||''}</td>
+      <td class="col-fecha">${soloFecha(p.fecha)}</td>
       <td>📋 ${pedidoDescItem(p)}${p.para?`<br><span class="col-cliente-inline">👤 ${p.para}</span>`:''}</td>
       <td class="col-c">-</td>
       <td class="col-r">-</td>
@@ -2878,7 +2881,7 @@ function exportarVentasPDF() {
       : h.pago==='anota' ? `Adeuda ${fmtP((h.precioUnit||0)*h.cantidad)}${mon}`
       : fmtP(h.ingreso??0)+mon;
     return `<tr>
-      <td class="col-fecha">${h.fecha}</td>
+      <td class="col-fecha">${soloFecha(h.fecha)}</td>
       <td>${h.descripcion}${h.nombreAnota?`<br><span class="col-cliente-inline">👤 ${h.nombreAnota}</span>`:''}</td>
       <td class="col-c">${h.cantidad}</td>
       <td class="col-r">${h.precioUnit?fmtP(h.precioUnit)+mon:'-'}</td>
