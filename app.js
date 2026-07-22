@@ -28,6 +28,12 @@ const TALLES_NINO    = [2, 4, 6, 8, 10, 12, 16];
 
 const LABEL_VARIANTE_NINO = { reposeraRoja: 'Reposera Roja', cabraBlanca: 'Cabra Blanca' };
 
+// Suma las variantes (Reposera Roja + Cabra Blanca) de un talle de niñx.
+// ninosObj es estado.ninos o un stockSnapshot.ninos — ambos con la misma forma.
+function totalNinoTalle(ninosObj, talle) {
+  return VARIANTES_NINO.reduce((s, v) => s + (ninosObj?.[talle]?.[v] ?? 0), 0);
+}
+
 const PRECIOS = { remera: 25000, tote: 16000, remera_uyu: 650, tote_uyu: 400, nino_uyu: 500 };
 
 const LABEL_VARIANTE = {
@@ -1538,21 +1544,19 @@ function renderAuditoria() {
     </td>
   </tr>`;
 
-  // Niños
-  const filasNinos = TALLES_NINO.map(t => {
-    const v = estado.ninos[t] ?? 0;
-    return `<tr>
-      <td class="talle-label">${t}</td>
-      <td>
-        <div class="audit-cell">
-          <span class="audit-actual">${v}</span>
-          <input type="number" class="audit-input" min="0"
-            data-tipo="nino" data-talle="${t}"
-            data-sistema="${v}" placeholder="—" />
-        </div>
-      </td>
-    </tr>`;
-  }).join('');
+  // Niños — filas = variante, columnas = talle (igual estructura que adultos)
+  const filasNinos = VARIANTES_NINO.map(v => `<tr>
+    <td>${LABEL_VARIANTE_NINO[v]}</td>
+    ${TALLES_NINO.map(t => {
+      const val = estado.ninos[t]?.[v] ?? 0;
+      return `<td><div class="audit-cell">
+        <span class="audit-actual">${val}</span>
+        <input type="number" class="audit-input" min="0"
+          data-tipo="nino" data-talle="${t}" data-variante="${v}"
+          data-sistema="${val}" placeholder="—" />
+      </div></td>`;
+    }).join('')}
+  </tr>`).join('');
 
   contenedor.innerHTML = `
     <div class="audit-leyenda">
@@ -1586,10 +1590,10 @@ function renderAuditoria() {
     </div>
 
     <div class="seccion">
-      <h2>Remeras Niñx — Reposera Roja</h2>
+      <h2>Remeras Niñx</h2>
       <div class="tabla-container">
         <table>
-          <thead><tr><th>Talle</th><th>Cantidad</th></tr></thead>
+          <thead><tr><th>Diseño</th>${TALLES_NINO.map(t => `<th>${t}</th>`).join('')}</tr></thead>
           <tbody>${filasNinos}</tbody>
         </table>
       </div>
@@ -1630,8 +1634,8 @@ function leerComparacionAuditoria() {
       desc   = `Tote Bag ${modelo === 'silla' ? 'Reposera' : 'Vereda'}`;
       actual = estado.totes[modelo];
     } else if (tipo === 'nino') {
-      desc   = `Remera Niñx talle ${talle}`;
-      actual = estado.ninos[talle] ?? 0;
+      desc   = `Remera Niñx ${LABEL_VARIANTE_NINO[variante] || ''} talle ${talle}`.replace(/\s+/g, ' ').trim();
+      actual = estado.ninos[talle]?.[variante] ?? 0;
     }
 
     if (val === '') {
@@ -1700,7 +1704,7 @@ function guardarControlDeStock(comparacion) {
   ajustes.forEach(aj => {
     if (aj.tipo === 'adulto')    stockSnapshot.adultos[aj.talle][aj.variante] = aj.nuevo;
     else if (aj.tipo === 'tote') stockSnapshot.totes[aj.modelo]               = aj.nuevo;
-    else if (aj.tipo === 'nino') stockSnapshot.ninos[aj.talle]                = aj.nuevo;
+    else if (aj.tipo === 'nino') stockSnapshot.ninos[aj.talle][aj.variante]   = aj.nuevo;
   });
 
   const entrada = {
@@ -1737,7 +1741,7 @@ function aplicarStockReal(comparacion) {
   ajustes.forEach(aj => {
     if (aj.tipo === 'adulto')    estado.adultos[aj.talle][aj.variante] = aj.nuevo;
     else if (aj.tipo === 'tote') estado.totes[aj.modelo]               = aj.nuevo;
-    else if (aj.tipo === 'nino') estado.ninos[aj.talle]                = aj.nuevo;
+    else if (aj.tipo === 'nino') estado.ninos[aj.talle][aj.variante]   = aj.nuevo;
   });
 
   const stockSnapshot = {
@@ -2456,7 +2460,7 @@ function _stockResumen() {
     VARIANTES.reduce((s, v) => s + (estado.adultos[t]?.[v] ?? 0), 0));
   const totAdultos = totsTalle.reduce((s, q) => s + q, 0);
   const totTotes   = (estado.totes.silla || 0) + (estado.totes.vereda || 0);
-  const totNinos   = TALLES_NINO.reduce((s, t) => s + (estado.ninos[t] ?? 0), 0);
+  const totNinos   = TALLES_NINO.reduce((s, t) => s + totalNinoTalle(estado.ninos, t), 0);
   const ultimaAudit = auditorias.length > 0
     ? [...auditorias].sort((a, b) => b.id - a.id)[0] : null;
   return { totsTalle, totAdultos, totTotes, totNinos, ultimaAudit };
@@ -2498,7 +2502,7 @@ function generarStockPDF() {
       const snapTots  = TALLES_ADULTO.map(t => VARIANTES.reduce((s, v) => s + (ss.adultos[t]?.[v] ?? 0), 0));
       const snapTotA  = snapTots.reduce((s, q) => s + q, 0);
       const snapTotT  = (ss.totes.silla || 0) + (ss.totes.vereda || 0);
-      const snapTotN  = TALLES_NINO.reduce((s, t) => s + (ss.ninos?.[t] ?? 0), 0);
+      const snapTotN  = TALLES_NINO.reduce((s, t) => s + totalNinoTalle(ss.ninos, t), 0);
       snapTables = `
         <h4>👕 Remeras adultos</h4>
         <table><thead><tr><th>Diseño</th>${TALLES_ADULTO.map(t=>`<th>${t}</th>`).join('')}<th>Sub</th></tr></thead>
@@ -2510,7 +2514,7 @@ function generarStockPDF() {
         <tfoot><tr><td>Total</td><td><strong>${snapTotT}</strong></td></tr></tfoot></table>
         <h4>👶 Remeras niñxs</h4>
         <table><thead><tr>${TALLES_NINO.map(t=>`<th>T${t}</th>`).join('')}<th>Total</th></tr></thead>
-        <tbody><tr>${TALLES_NINO.map(t=>`<td>${ss.ninos?.[t]??0}</td>`).join('')}<td><strong>${snapTotN}</strong></td></tr></tbody></table>`;
+        <tbody><tr>${TALLES_NINO.map(t=>`<td>${totalNinoTalle(ss.ninos, t)}</td>`).join('')}<td><strong>${snapTotN}</strong></td></tr></tbody></table>`;
     }
     auditSection = `
       <div class="page-break"></div>
@@ -2566,7 +2570,7 @@ function generarStockPDF() {
   <tfoot><tr><td>Total</td><td>${totTotes}</td></tr></tfoot></table>
   <h3>👶 Remeras Niñxs</h3>
   <table><thead><tr>${TALLES_NINO.map(t=>`<th>T${t}</th>`).join('')}<th>Total</th></tr></thead>
-  <tbody><tr>${TALLES_NINO.map(t=>`<td>${estado.ninos[t]??0}</td>`).join('')}<td><strong>${totNinos}</strong></td></tr></tbody></table>
+  <tbody><tr>${TALLES_NINO.map(t=>`<td>${totalNinoTalle(estado.ninos, t)}</td>`).join('')}<td><strong>${totNinos}</strong></td></tr></tbody></table>
   ${auditSection}
   <p class="footer">Generado desde la app de stock · Cayo la Cabra</p>
   <script>window.onload=()=>window.print()<\/script></body></html>`;
@@ -2605,7 +2609,7 @@ function exportarStockWhatsApp() {
     '',
     'REMERAS NIÑXS',
     TALLES_NINO.map(t => rp('T' + t, nW)).join('') + rp('Total', nW + 1),
-    TALLES_NINO.map(t => rp(estado.ninos[t] ?? 0, nW)).join('') + rp(totNinos, nW + 1),
+    TALLES_NINO.map(t => rp(totalNinoTalle(estado.ninos, t), nW)).join('') + rp(totNinos, nW + 1),
     '',
     `TOTAL GENERAL: ${totGeneral} unidades`,
   ].join('\n');
@@ -2795,7 +2799,7 @@ window.descargarAuditoriaPDF = function(id) {
       VARIANTES.reduce((s, v) => s + (ss.adultos[t]?.[v] ?? 0), 0));
     const totAdulto = totsPorTalle.reduce((s, q) => s + q, 0);
     const totTotes  = (ss.totes.silla || 0) + (ss.totes.vereda || 0);
-    const totNinos  = TALLES_NINO.reduce((s, t) => s + (ss.ninos?.[t] ?? 0), 0);
+    const totNinos  = TALLES_NINO.reduce((s, t) => s + totalNinoTalle(ss.ninos, t), 0);
 
     snapshotSection = `
       <h3>Stock verificado en este control</h3>
@@ -2817,7 +2821,7 @@ window.descargarAuditoriaPDF = function(id) {
       <h4>👶 Remeras Niñxs</h4>
       <table>
         <thead><tr>${TALLES_NINO.map(t=>`<th>T${t}</th>`).join('')}<th>Total</th></tr></thead>
-        <tbody><tr>${TALLES_NINO.map(t=>`<td>${ss.ninos?.[t]??0}</td>`).join('')}<td><strong>${totNinos}</strong></td></tr></tbody>
+        <tbody><tr>${TALLES_NINO.map(t=>`<td>${totalNinoTalle(ss.ninos, t)}</td>`).join('')}<td><strong>${totNinos}</strong></td></tr></tbody>
       </table>`;
   }
 
