@@ -2828,7 +2828,7 @@ function _ventasTotales(ventas, pedidosAnota = []) {
 
 function exportarVentasPDF() {
   const { ventas, pedidosAnota, label } = _ventasRango();
-  const ahora = new Date().toLocaleString('es-AR');
+  const ahora = new Date().toLocaleDateString('es-AR');
   const { totalARS, totalUYU, totEfec, totTrans, totReg, totAnota, unidRem, unidTote, unidNino, totPegARS, totPegUYU } = _ventasTotales(ventas, pedidosAnota);
   const fmtP = n => '$' + n.toLocaleString('es-AR');
   const pagoLabel = p => ({efectivo:'Efectivo',transferencia:'Transf.',regalo:'Regalo',anota:'Anota'}[p]||p);
@@ -2946,7 +2946,7 @@ function exportarVentasPDF() {
 
 function exportarVentasWhatsApp() {
   const { ventas, pedidosAnota, label } = _ventasRango();
-  const ahora = new Date().toLocaleString('es-AR');
+  const ahora = new Date().toLocaleDateString('es-AR');
   const { totalARS, totalUYU, totEfec, totTrans, totReg, totAnota, unidRem, unidTote, unidNino, totPegARS, totPegUYU } = _ventasTotales(ventas, pedidosAnota);
   const fmtP = n => '$' + n.toLocaleString('es-AR');
 
