@@ -31,6 +31,11 @@ function doGet(e) {
       const ingresosRaw   = ingresosSheet ? ingresosSheet.getRange('A1').getValue() : '';
       const arqueosSheet  = ss.getSheetByName('Arqueos');
       const arqueosRaw    = arqueosSheet  ? arqueosSheet.getRange('A1').getValue()  : '';
+      const archivoSheet  = ss.getSheetByName('Archivo');
+      const archivoRaw    = archivoSheet  ? archivoSheet.getRange('A1').getValue()  : '';
+      const metaSheet     = ss.getSheetByName('Meta');
+      const metaRaw       = metaSheet     ? metaSheet.getRange('A1').getValue()     : '';
+      const meta          = metaRaw ? JSON.parse(metaRaw) : {};
 
       const result = {
         stock:      stockRaw    ? JSON.parse(stockRaw)    : null,
@@ -39,6 +44,8 @@ function doGet(e) {
         pedidos:    pedidosRaw  ? JSON.parse(pedidosRaw)  : null,
         ingresos:   ingresosRaw ? JSON.parse(ingresosRaw) : null,
         arqueos:    arqueosRaw  ? JSON.parse(arqueosRaw)  : null,
+        archivo:    archivoRaw  ? JSON.parse(archivoRaw)  : null,
+        cierre:     typeof meta.cierre === 'number' ? meta.cierre : 0,
       };
 
       return ContentService
@@ -116,6 +123,28 @@ function doPost(e) {
         sheet.getRange('A1').setValue(JSON.stringify(body.arqueos));
       } catch(e) { Logger.log('arqueos save error: ' + e); }
       try { actualizarHojaArqueos(ss, body.arqueos); } catch(e) { Logger.log('arqueos sheet error: ' + e); }
+    }
+
+    if (body.archivo !== undefined) {
+      try {
+        let sheet = ss.getSheetByName('Archivo');
+        if (!sheet) sheet = ss.insertSheet('Archivo');
+        sheet.getRange('A1').setValue(JSON.stringify(body.archivo));
+      } catch(e) { Logger.log('archivo save error: ' + e); }
+    }
+
+    if (body.cierre !== undefined) {
+      try {
+        let sheet = ss.getSheetByName('Meta');
+        if (!sheet) sheet = ss.insertSheet('Meta');
+        // Nunca retroceder la marca de cierre (evita que un dispositivo viejo la pise)
+        const raw = sheet.getRange('A1').getValue();
+        const meta = raw ? JSON.parse(raw) : {};
+        if (typeof body.cierre === 'number' && body.cierre > (meta.cierre || 0)) {
+          meta.cierre = body.cierre;
+          sheet.getRange('A1').setValue(JSON.stringify(meta));
+        }
+      } catch(e) { Logger.log('meta save error: ' + e); }
     }
 
     try {

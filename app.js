@@ -60,6 +60,13 @@ const COLOR_VARIANTE = {
   veredaRoja:   'Roja',  veredaNegra:   'Negra',
 };
 
+// Diseños de temporadas anteriores: en la venta rápida se agrupan aparte.
+// Cuando estén los diseños nuevos del próximo carnaval, agregarlos a
+// STOCK_INICIAL, VARIANTES, LABEL_VARIANTE, COL_CLASS, GRUPOS_ADULTO y
+// COLOR_VARIANTE — y NO listarlos en estos sets.
+const VARIANTES_ANTERIORES      = new Set(['veredaRoja', 'veredaNegra', 'reposeraRoja', 'reposeraNegra', 'blanca', 'cabraNegra']);
+const VARIANTES_NINO_ANTERIORES = new Set(['reposeraRoja', 'cabraBlanca']);
+
 // ── Persistencia ──────────────────────────────────────────────────────────────
 function cargarEstado() {
   try {
@@ -212,6 +219,25 @@ function guardarArqueos() {
   pushToCloud();
 }
 
+// Archivo de temporadas cerradas + marca de tiempo del último cierre.
+// Todo registro con id anterior al cierre pertenece a una temporada archivada.
+function cargarArchivo() {
+  try { return JSON.parse(localStorage.getItem('cayo_archivo') || '[]'); }
+  catch (_) { return []; }
+}
+let archivo = cargarArchivo();
+let cierreTemporada = parseInt(localStorage.getItem('cayo_cierre') || '0', 10) || 0;
+function guardarArchivo() {
+  localStorage.setItem('cayo_archivo', JSON.stringify(archivo));
+  localStorage.setItem('cayo_cierre', String(cierreTemporada));
+}
+
+// Mostrar u ocultar pesos argentinos en la parte de ventas (vendiendo en Uruguay)
+let mostrarARS = localStorage.getItem('cayo_mostrar_ars') === '1';
+function aplicarMostrarARS() {
+  document.body.classList.toggle('sin-ars', !mostrarARS);
+}
+
 let ingItemsTemp = [];
 function renderIngItemsChips() {
   const el = document.getElementById('ing-items-agregados');
@@ -323,7 +349,7 @@ async function pushToCloud() {
       method: 'POST',
       mode: 'cors',
       headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-      body: JSON.stringify({ stock: estado, historial, auditorias, pedidos, ingresos, arqueos }),
+      body: JSON.stringify({ stock: estado, historial, auditorias, pedidos, ingresos, arqueos, archivo, cierre: cierreTemporada }),
     });
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
     const result = await resp.json();
@@ -357,24 +383,34 @@ async function sincronizarDesdeNube() {
   const data = await pullFromCloud();
   if (!data) { setSincStatus('error'); return; }
   let changed = false;
+
+  // Cierre de temporada: si otro dispositivo cerró, adoptar la marca y descartar
+  // de las secciones activas todo registro anterior al cierre (ya está en el archivo)
+  if (typeof data.cierre === 'number' && data.cierre > cierreTemporada) {
+    cierreTemporada = data.cierre;
+    localStorage.setItem('cayo_cierre', String(cierreTemporada));
+    changed = true;
+  }
+  const soloActuales = arr => cierreTemporada > 0 ? arr.filter(x => (x.id || 0) > cierreTemporada) : arr;
+
   if (data.stock && typeof data.stock === 'object') {
     estado = data.stock;
     localStorage.setItem('cayo_stock', JSON.stringify(estado));
     changed = true;
   }
   if (Array.isArray(data.historial)) {
-    historial = data.historial;
+    historial = soloActuales(data.historial);
     normalizeHistorial(historial);
     localStorage.setItem('cayo_historial', JSON.stringify(historial));
     changed = true;
   }
   if (Array.isArray(data.auditorias)) {
-    auditorias = data.auditorias;
+    auditorias = soloActuales(data.auditorias);
     localStorage.setItem('cayo_auditorias', JSON.stringify(auditorias));
     changed = true;
   }
   if (Array.isArray(data.pedidos)) {
-    pedidos = data.pedidos;
+    pedidos = soloActuales(data.pedidos);
     normalizePedidos();
     localStorage.setItem('cayo_pedidos', JSON.stringify(pedidos));
     changed = true;
@@ -383,15 +419,22 @@ async function sincronizarDesdeNube() {
     // Merge: combinar ingresos de la nube con los locales (evitar pérdida de datos)
     const idsNube = new Set(data.ingresos.map(i => i.id));
     const soloLocales = ingresos.filter(i => !idsNube.has(i.id));
-    ingresos = [...data.ingresos, ...soloLocales].sort((a, b) => a.id - b.id);
+    ingresos = soloActuales([...data.ingresos, ...soloLocales]).sort((a, b) => a.id - b.id);
     localStorage.setItem('cayo_ingresos', JSON.stringify(ingresos));
     changed = true;
   }
   if (Array.isArray(data.arqueos) && data.arqueos.length > 0) {
     const idsNube = new Set(data.arqueos.map(a => a.id));
     const soloLocales = arqueos.filter(a => !idsNube.has(a.id));
-    arqueos = [...data.arqueos, ...soloLocales].sort((a, b) => a.id - b.id);
+    arqueos = soloActuales([...data.arqueos, ...soloLocales]).sort((a, b) => a.id - b.id);
     localStorage.setItem('cayo_arqueos', JSON.stringify(arqueos));
+    changed = true;
+  }
+  if (Array.isArray(data.archivo) && data.archivo.length > 0) {
+    const idsNube = new Set(data.archivo.map(t => t.id));
+    const soloLocales = archivo.filter(t => !idsNube.has(t.id));
+    archivo = [...data.archivo, ...soloLocales].sort((a, b) => a.id - b.id);
+    localStorage.setItem('cayo_archivo', JSON.stringify(archivo));
     changed = true;
   }
   if (changed) renderTodo();
@@ -702,15 +745,24 @@ function renderVentas() {
   }
   document.getElementById('v-total-ars').textContent = formatPeso(totalARS);
   document.getElementById('v-total-uyu').textContent = formatPeso(totalUYU);
+  // Card de total ARS: oculta si los pesos argentinos están desactivados y no hay datos
+  const cardARS = document.querySelector('.vcard--ars');
+  if (cardARS) cardARS.classList.toggle('hidden', !mostrarARS && totalARS === 0);
   const setMonedaCard = (idARS, idUYU, ars, uyu) => {
     const elARS = document.getElementById(idARS);
     const elUYU = document.getElementById(idUYU);
     if (!elARS || !elUYU) return;
-    elARS.textContent = `🇦🇷 ${formatPeso(ars)}`;
-    if (uyu > 0) {
-      elUYU.textContent = `🇺🇾 ${formatPeso(uyu)} UYU`;
-      elUYU.classList.remove('hidden');
+    if (mostrarARS || ars > 0) {
+      elARS.textContent = `🇦🇷 ${formatPeso(ars)}`;
+      if (uyu > 0) {
+        elUYU.textContent = `🇺🇾 ${formatPeso(uyu)} UYU`;
+        elUYU.classList.remove('hidden');
+      } else {
+        elUYU.classList.add('hidden');
+      }
     } else {
+      // Solo Uruguay: el UYU pasa a ser la línea principal
+      elARS.textContent = `🇺🇾 ${formatPeso(uyu)} UYU`;
       elUYU.classList.add('hidden');
     }
   };
@@ -1025,7 +1077,7 @@ document.querySelectorAll('input[name="moneda-venta"]').forEach(r =>
   r.addEventListener('change', actualizarDisponible)
 );
 
-document.getElementById('btn-venta').addEventListener('click', () => {
+function abrirVentaCompleta() {
   selCategoria.value = '';
   ocultarCampos();
   inputCantidad.value = 1;
@@ -1041,7 +1093,10 @@ document.getElementById('btn-venta').addEventListener('click', () => {
   if (uyu) uyu.checked = true;
   inputPrecioOverride.placeholder = 'Ingresá el precio (UYU)';
   modalVenta.classList.remove('hidden');
-});
+}
+
+// El botón + Registrar abre la venta rápida (la completa queda como enlace adentro)
+document.getElementById('btn-venta').addEventListener('click', () => abrirVentaRapida());
 
 document.getElementById('btn-cancelar-venta').addEventListener('click', () => {
   modalVenta.classList.add('hidden');
@@ -2440,6 +2495,7 @@ document.getElementById('btn-sinc').addEventListener('click', () => {
   document.getElementById('config-url').value = gasUrl;
   document.getElementById('config-status').textContent =
     gasUrl ? '✅ URL configurada. Podés cambiarla o desactivarla.' : '';
+  document.getElementById('config-mostrar-ars').checked = mostrarARS;
   modalConfig.classList.remove('hidden');
 });
 
@@ -2552,6 +2608,7 @@ document.getElementById('btn-cerrar-editar').addEventListener('click', () => {
 });
 
 // ── Init ──────────────────────────────────────────────────────────────────────
+aplicarMostrarARS();
 renderTodo();
 // Auto-desbloquear si este dispositivo está recordado (migra el viejo cayo_admin)
 const rolGuardado = localStorage.getItem('cayo_rol')
@@ -3205,6 +3262,7 @@ function renderFinanzas() {
       </div>` : ''}
   `;
   renderArqueos();
+  renderArchivo();
 }
 
 function renderArqueos() {
@@ -3295,4 +3353,312 @@ document.getElementById('btn-confirmar-arqueo').addEventListener('click', () => 
   document.getElementById(id).addEventListener('click', () => {
     document.getElementById('modal-arqueo').classList.add('hidden');
   });
+});
+
+// ── Venta rápida ──────────────────────────────────────────────────────────────
+// Pensada para vender atendiendo gente: diseño → talle → método de pago (3 toques)
+let vrSel = { cat: 'adulto', variante: null, talle: null, modelo: null, cant: 1 };
+let vrPrecioManual = null; // null = precio de lista UYU
+
+function vrPrecioAuto() {
+  if (vrSel.cat === 'tote') return PRECIOS.tote_uyu;
+  if (vrSel.cat === 'nino') return PRECIOS.nino_uyu;
+  return PRECIOS.remera_uyu;
+}
+function vrPrecio() { return vrPrecioManual != null ? vrPrecioManual : vrPrecioAuto(); }
+
+function vrSeleccionCompleta() {
+  if (vrSel.cat === 'tote') return !!vrSel.modelo;
+  return !!vrSel.variante && vrSel.talle != null;
+}
+function vrDisponible() {
+  if (!vrSeleccionCompleta()) return null;
+  if (vrSel.cat === 'tote') return stockDisponible('tote', { modelo: vrSel.modelo });
+  return stockDisponible(vrSel.cat, { talle: vrSel.talle, variante: vrSel.variante });
+}
+
+function renderVR() {
+  const body = document.getElementById('vr-body');
+  if (!body) return;
+
+  const cats = [
+    { k: 'adulto', lbl: '👕 Adulto' },
+    { k: 'nino',   lbl: '👶 Niñx' },
+    { k: 'tote',   lbl: '👜 Tote' },
+  ];
+  const catsHtml = `<div class="vr-chips vr-cats">${cats.map(c =>
+    `<button type="button" class="vr-chip${vrSel.cat === c.k ? ' vr-sel' : ''}" onclick="vrSetCat('${c.k}')">${c.lbl}</button>`
+  ).join('')}</div>`;
+
+  // Diseños / modelos, con stock a la vista
+  let disenosHtml = '';
+  if (vrSel.cat === 'adulto') {
+    const nuevos     = VARIANTES.filter(v => !VARIANTES_ANTERIORES.has(v));
+    const anteriores = VARIANTES.filter(v => VARIANTES_ANTERIORES.has(v));
+    const chip = v => {
+      const tot = TALLES_ADULTO.reduce((s, t) => s + stockDisponible('adulto', { talle: t, variante: v }), 0);
+      return `<button type="button" class="vr-chip${vrSel.variante === v ? ' vr-sel' : ''}${tot === 0 ? ' vr-off' : ''}" onclick="vrSetVar('${v}')">${LABEL_VARIANTE[v]}<span class="vr-chip-stock">${tot}</span></button>`;
+    };
+    const grupo = (titulo, arr) => arr.length
+      ? `<div class="vr-grupo-label">${titulo}</div><div class="vr-chips">${arr.map(chip).join('')}</div>` : '';
+    disenosHtml = grupo('Diseño', nuevos) + grupo('🕰 Remeras anteriores', anteriores);
+  } else if (vrSel.cat === 'nino') {
+    const chip = v => {
+      const tot = TALLES_NINO.reduce((s, t) => s + stockDisponible('nino', { talle: t, variante: v }), 0);
+      return `<button type="button" class="vr-chip${vrSel.variante === v ? ' vr-sel' : ''}${tot === 0 ? ' vr-off' : ''}" onclick="vrSetVar('${v}')">${LABEL_VARIANTE_NINO[v]}<span class="vr-chip-stock">${tot}</span></button>`;
+    };
+    disenosHtml = `<div class="vr-grupo-label">Diseño</div><div class="vr-chips">${VARIANTES_NINO.map(chip).join('')}</div>`;
+  } else {
+    const chip = (m, lbl) => {
+      const tot = stockDisponible('tote', { modelo: m });
+      return `<button type="button" class="vr-chip${vrSel.modelo === m ? ' vr-sel' : ''}${tot === 0 ? ' vr-off' : ''}" onclick="vrSetModelo('${m}')">${lbl}<span class="vr-chip-stock">${tot}</span></button>`;
+    };
+    disenosHtml = `<div class="vr-grupo-label">Modelo</div><div class="vr-chips">${chip('silla', 'Reposera')}${chip('vereda', 'Vereda')}</div>`;
+  }
+
+  // Talles con stock del diseño elegido
+  let tallesHtml = '';
+  if (vrSel.cat !== 'tote' && vrSel.variante) {
+    const talles = vrSel.cat === 'adulto' ? TALLES_ADULTO : TALLES_NINO;
+    tallesHtml = `<div class="vr-grupo-label">Talle</div><div class="vr-chips vr-talles">${talles.map(t => {
+      const disp = stockDisponible(vrSel.cat, { talle: t, variante: vrSel.variante });
+      return `<button type="button" class="vr-chip vr-chip-talle${String(vrSel.talle) === String(t) ? ' vr-sel' : ''}${disp === 0 ? ' vr-off' : ''}" onclick="vrSetTalle('${t}')">${t}<span class="vr-chip-stock">${disp}</span></button>`;
+    }).join('')}</div>`;
+  }
+
+  const disp     = vrDisponible();
+  const precio   = vrPrecio();
+  const completa = vrSeleccionCompleta();
+  const sinStock = completa && disp < vrSel.cant;
+  const puede    = completa && !sinStock;
+
+  const resumenHtml = `
+    <div class="vr-linea-final">
+      <div class="vr-stepper">
+        <button type="button" class="vr-step-btn" onclick="vrCant(-1)">−</button>
+        <span class="vr-cant">${vrSel.cant}</span>
+        <button type="button" class="vr-step-btn" onclick="vrCant(1)">+</button>
+      </div>
+      <label class="vr-precio-lbl">$ <input type="number" id="vr-precio" class="vr-precio" value="${precio}" min="0" inputmode="numeric" /> c/u</label>
+      <span class="vr-total">Total: <strong id="vr-total-monto">${formatPeso(precio * vrSel.cant)}</strong></span>
+    </div>
+    ${sinStock ? `<p class="vr-sin-stock">⚠️ Sin stock suficiente (disponible: ${disp})</p>` : ''}`;
+
+  const pagosHtml = `
+    <div class="vr-pagos${puede ? '' : ' vr-pagos-off'}">
+      <button type="button" class="vr-pago vr-pago-efectivo" onclick="registrarVR('efectivo')">💵 EFECTIVO</button>
+      <button type="button" class="vr-pago vr-pago-transf" onclick="registrarVR('transferencia')">📲 TRANSFER.</button>
+    </div>
+    <div class="vr-pagos-sec${puede ? '' : ' vr-pagos-off'}">
+      <button type="button" class="vr-pago-mini" onclick="registrarVR('regalo')">🎁 Regalo</button>
+      <button type="button" class="vr-pago-mini" onclick="registrarVR('perdida')">📉 Pérdida</button>
+    </div>
+    ${!completa ? `<p class="vr-hint">Elegí ${vrSel.cat === 'tote' ? 'el modelo' : 'diseño y talle'} y tocá el método de pago — la venta queda registrada al toque.</p>` : ''}`;
+
+  body.innerHTML = catsHtml + disenosHtml + tallesHtml + resumenHtml + pagosHtml;
+
+  const precioInput = document.getElementById('vr-precio');
+  precioInput.addEventListener('input', () => {
+    const v = parseInt(precioInput.value, 10);
+    vrPrecioManual = (!isNaN(v) && v >= 0) ? v : null;
+    document.getElementById('vr-total-monto').textContent = formatPeso(vrPrecio() * vrSel.cant);
+  });
+}
+
+window.vrSetCat = function(cat) {
+  vrSel = { cat, variante: null, talle: null, modelo: null, cant: 1 };
+  vrPrecioManual = null;
+  document.getElementById('vr-error').classList.add('hidden');
+  renderVR();
+};
+window.vrSetVar    = function(v) { vrSel.variante = v; vrSel.talle = null; renderVR(); };
+window.vrSetTalle  = function(t) { vrSel.talle = t; renderVR(); };
+window.vrSetModelo = function(m) { vrSel.modelo = m; renderVR(); };
+window.vrCant      = function(d) { vrSel.cant = Math.max(1, vrSel.cant + d); renderVR(); };
+
+function abrirVentaRapida() {
+  vrSel = { cat: 'adulto', variante: null, talle: null, modelo: null, cant: 1 };
+  vrPrecioManual = null;
+  document.getElementById('vr-error').classList.add('hidden');
+  renderVR();
+  document.getElementById('modal-vr').classList.remove('hidden');
+}
+
+window.registrarVR = function(pago) {
+  const errEl = document.getElementById('vr-error');
+  errEl.classList.add('hidden');
+  if (!vrSeleccionCompleta()) return;
+  const disp = vrDisponible();
+  if (vrSel.cant > disp) {
+    errEl.textContent = `Stock insuficiente. Disponible: ${disp}`;
+    errEl.classList.remove('hidden');
+    return;
+  }
+  const precio = vrPrecio();
+  if ((pago === 'efectivo' || pago === 'transferencia') && (!precio || precio <= 0)) {
+    errEl.textContent = 'Ingresá un precio válido.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+
+  let descripcion = '', _stock;
+  if (vrSel.cat === 'adulto') {
+    estado.adultos[vrSel.talle][vrSel.variante] -= vrSel.cant;
+    descripcion = `Remera ${LABEL_VARIANTE[vrSel.variante]} talle ${vrSel.talle}`;
+    _stock = { tipo: 'adulto', talle: vrSel.talle, variante: vrSel.variante };
+  } else if (vrSel.cat === 'nino') {
+    estado.ninos[vrSel.talle][vrSel.variante] -= vrSel.cant;
+    descripcion = `Remera Niñx ${LABEL_VARIANTE_NINO[vrSel.variante]} talle ${vrSel.talle}`;
+    _stock = { tipo: 'nino', talle: vrSel.talle, variante: vrSel.variante };
+  } else {
+    estado.totes[vrSel.modelo] -= vrSel.cant;
+    descripcion = `Tote Bag ${vrSel.modelo === 'silla' ? 'Reposera' : 'Vereda'}`;
+    _stock = { tipo: 'tote', modelo: vrSel.modelo };
+  }
+
+  const entrada = {
+    id:         Date.now(),
+    fecha:      new Date().toLocaleString('es-AR'),
+    descripcion,
+    cantidad:   vrSel.cant,
+    ingreso:    (pago === 'regalo' || pago === 'perdida') ? 0 : precio * vrSel.cant,
+    pago,
+    moneda:     'UYU',
+    precioUnit: precio,
+    _stock,
+  };
+  historial.unshift(entrada);
+  guardar();
+  renderTodo();
+  mostrarToastVenta(entrada);
+
+  // Lista para la próxima venta: misma categoría y diseño, talle y cantidad en cero
+  vrSel.talle = null;
+  vrSel.cant = 1;
+  vrPrecioManual = null;
+  renderVR();
+};
+
+// Toast de confirmación con deshacer (por si se tocó mal en el apuro)
+let vrToastTimer = null;
+let vrUltimaVentaId = null;
+
+function mostrarToastVenta(entrada) {
+  const t = document.getElementById('vr-toast');
+  if (!t) return;
+  const pagoLbl = { efectivo: '💵 efectivo', transferencia: '📲 transferencia', regalo: '🎁 regalo', perdida: '📉 pérdida' }[entrada.pago] || entrada.pago;
+  const monto = entrada.ingreso > 0 ? ` — ${formatPeso(entrada.ingreso)}` : '';
+  t.querySelector('.vr-toast-txt').textContent =
+    `✅ ${entrada.descripcion}${entrada.cantidad > 1 ? ` ×${entrada.cantidad}` : ''}${monto} (${pagoLbl})`;
+  vrUltimaVentaId = entrada.id;
+  t.classList.remove('hidden');
+  clearTimeout(vrToastTimer);
+  vrToastTimer = setTimeout(() => t.classList.add('hidden'), 7000);
+}
+
+document.getElementById('btn-vr-deshacer').addEventListener('click', () => {
+  const idx = historial.findIndex(h => h.id === vrUltimaVentaId);
+  document.getElementById('vr-toast').classList.add('hidden');
+  if (idx === -1) return;
+  const h = historial[idx];
+  const ref = h._stock;
+  if (ref) {
+    if (ref.tipo === 'adulto')      estado.adultos[ref.talle][ref.variante] += h.cantidad;
+    else if (ref.tipo === 'nino')   estado.ninos[ref.talle][ref.variante] += h.cantidad;
+    else if (ref.tipo === 'tote')   estado.totes[ref.modelo] += h.cantidad;
+  }
+  historial.splice(idx, 1);
+  vrUltimaVentaId = null;
+  guardar();
+  renderTodo();
+  if (!document.getElementById('modal-vr').classList.contains('hidden')) renderVR();
+});
+
+document.getElementById('btn-cerrar-vr').addEventListener('click', () =>
+  document.getElementById('modal-vr').classList.add('hidden'));
+document.getElementById('modal-vr').addEventListener('click', e => {
+  if (e.target === document.getElementById('modal-vr'))
+    document.getElementById('modal-vr').classList.add('hidden');
+});
+document.getElementById('btn-vr-completa').addEventListener('click', () => {
+  document.getElementById('modal-vr').classList.add('hidden');
+  abrirVentaCompleta();
+});
+
+// ── Cierre de temporada y archivo ─────────────────────────────────────────────
+function resumenTemporada(t) {
+  const ventas   = t.historial || [];
+  const cobradas = ventas.filter(h => h.pago === 'efectivo' || h.pago === 'transferencia');
+  const unidades = cobradas.reduce((s, h) => s + (h.cantidad || 0), 0);
+  const rec = mon => ventas.filter(h => (h.moneda || 'ARS') === mon).reduce((s, h) => s + (h.ingreso ?? 0), 0)
+    + (t.pedidos || []).filter(p => (p.moneda || 'UYU') === mon)
+        .reduce((s, p) => s + (p.pagos || []).reduce((ps, pg) => ps + pg.monto, 0), 0);
+  const inv = mon => (t.ingresos || []).filter(i => (i.monedaCosto || 'ARS') === mon)
+    .reduce((s, i) => s + (i.items || []).reduce((is, it) => is + (it.costoUnit != null ? it.costoUnit * (it.cantidad || 1) : 0), 0), 0);
+  const regalos  = ventas.reduce((s, h) => h.pago === 'regalo'  ? s + h.cantidad : s, 0);
+  const perdidas = ventas.reduce((s, h) => h.pago === 'perdida' ? s + h.cantidad : s, 0);
+  return { unidades, recUYU: rec('UYU'), recARS: rec('ARS'), invUYU: inv('UYU'), invARS: inv('ARS'),
+           regalos, perdidas, nVentas: ventas.length, nPedidos: (t.pedidos || []).length };
+}
+
+function renderArchivo() {
+  const lista = document.getElementById('archivo-lista');
+  if (!lista) return;
+  if (archivo.length === 0) {
+    lista.innerHTML = '<p class="historial-vacio" style="padding:0.5rem 0">Sin temporadas archivadas.</p>';
+    return;
+  }
+  lista.innerHTML = [...archivo].reverse().map(t => {
+    const r = resumenTemporada(t);
+    const stat = (lbl, val) => `<div class="arch-stat"><span>${lbl}</span><strong>${val}</strong></div>`;
+    return `<details class="arch-item">
+      <summary class="arch-summary">🗂 ${t.nombre} <span class="arch-fecha">cerrada el ${t.fecha}</span></summary>
+      <div class="arch-stats">
+        ${stat('Unidades cobradas', r.unidades + ' u.')}
+        ${r.recUYU  > 0 ? stat('Recaudado UYU', _fmtMon(r.recUYU, 'UYU')) : ''}
+        ${r.recARS  > 0 ? stat('Recaudado ARS', _fmtMon(r.recARS, 'ARS')) : ''}
+        ${r.invARS  > 0 ? stat('Invertido ARS', _fmtMon(r.invARS, 'ARS')) : ''}
+        ${r.invUYU  > 0 ? stat('Invertido UYU', _fmtMon(r.invUYU, 'UYU')) : ''}
+        ${r.regalos > 0 ? stat('Regalos', r.regalos + ' u.') : ''}
+        ${r.perdidas > 0 ? stat('Pérdidas', r.perdidas + ' u.') : ''}
+        ${stat('Registros', `${r.nVentas} ventas · ${r.nPedidos} pedidos`)}
+      </div>
+    </details>`;
+  }).join('');
+}
+
+document.getElementById('btn-cerrar-temporada').addEventListener('click', () => {
+  if (rol !== 'admin') return;
+  if (historial.length === 0 && pedidos.length === 0 && ingresos.length === 0 && arqueos.length === 0 && auditorias.length === 0) {
+    alert('No hay datos de la temporada actual para archivar.');
+    return;
+  }
+  const nombre = prompt('Nombre para archivar la temporada actual:', 'Temporada ' + new Date().getFullYear());
+  if (!nombre) return;
+  const deudas = pedidos.filter(p => p.estadoFisico !== 'cancelado' && pedidoSaldo(p) > 0).length
+               + historial.filter(h => h.pago === 'anota').length;
+  const aviso = deudas > 0 ? `\n\n⚠️ Ojo: hay ${deudas} deuda(s) pendiente(s) que quedarán dentro del archivo.` : '';
+  if (!confirm(`Se archivan ${historial.length} ventas, ${pedidos.length} pedidos, ${ingresos.length} ingresos, ${arqueos.length} controles de caja y ${auditorias.length} auditorías como "${nombre}".\n\nLa app arranca de cero. El stock físico actual se mantiene.${aviso}\n\n¿Cerrar la temporada?`)) return;
+
+  const id = Date.now();
+  archivo.push({ id, nombre, fecha: new Date().toLocaleString('es-AR'), historial, pedidos, ingresos, arqueos, auditorias });
+  cierreTemporada = id;
+  historial = []; pedidos = []; ingresos = []; arqueos = []; auditorias = [];
+  localStorage.setItem('cayo_historial',  '[]');
+  localStorage.setItem('cayo_pedidos',    '[]');
+  localStorage.setItem('cayo_ingresos',   '[]');
+  localStorage.setItem('cayo_arqueos',    '[]');
+  localStorage.setItem('cayo_auditorias', '[]');
+  guardarArchivo();
+  guardar(); // persiste y sube todo (arrays vacíos + archivo + marca de cierre)
+  renderTodo();
+  renderFinanzas();
+});
+
+// ── Toggle mostrar/ocultar pesos argentinos (config, solo admin) ──────────────
+document.getElementById('config-mostrar-ars').addEventListener('change', function() {
+  mostrarARS = this.checked;
+  localStorage.setItem('cayo_mostrar_ars', mostrarARS ? '1' : '0');
+  aplicarMostrarARS();
+  renderTodo();
 });

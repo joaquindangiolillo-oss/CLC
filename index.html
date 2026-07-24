@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Stock - Cayo la Cabra</title>
-  <link rel="stylesheet" href="style.css?v=46" />
+  <link rel="stylesheet" href="style.css?v=47" />
 </head>
 <body>
   <header>
@@ -297,8 +297,33 @@
         <h2 class="audit-hist-titulo">🧾 Historial de controles de caja</h2>
         <div id="arqueos-historial-lista"></div>
       </div>
+      <div class="audit-historial-section">
+        <h2 class="audit-hist-titulo">🗂 Temporadas anteriores</h2>
+        <p class="fin-nota">Al cerrar una temporada, todas las ventas, pedidos, ingresos y controles pasan al archivo y la app arranca de cero (el stock físico se mantiene).</p>
+        <div id="archivo-lista"></div>
+        <button id="btn-cerrar-temporada" class="btn-secondary" style="margin-top:0.6rem">🎪 Cerrar temporada y arrancar de cero</button>
+      </div>
     </div>
   </main>
+
+  <!-- ── MODAL VENTA RÁPIDA ── -->
+  <div id="modal-vr" class="modal hidden">
+    <div class="modal-content modal-vr-content">
+      <div class="modal-header">
+        <h2>⚡ Venta rápida</h2>
+        <button class="modal-cerrar" id="btn-cerrar-vr" aria-label="Cerrar">✕</button>
+      </div>
+      <div id="vr-body"></div>
+      <p id="vr-error" class="error hidden"></p>
+      <button type="button" id="btn-vr-completa" class="vr-link-completa">⚙️ Venta completa (pegotines, anotar deuda, otra moneda…)</button>
+    </div>
+  </div>
+
+  <!-- Toast de venta registrada con deshacer -->
+  <div id="vr-toast" class="vr-toast hidden">
+    <span class="vr-toast-txt"></span>
+    <button type="button" id="btn-vr-deshacer">↩️ Deshacer</button>
+  </div>
 
   <!-- ── MODAL VENTA ── -->
   <div id="modal-venta" class="modal hidden">
@@ -362,10 +387,10 @@
         <label id="label-precio"><span id="label-precio-txt">Precio unitario ($)</span>
           <input type="number" id="venta-precio-override" min="0" step="1" placeholder="Precio por defecto" />
         </label>
-        <label>Moneda
+        <label class="opcion-moneda-venta">Moneda
           <div class="pago-opciones">
             <label class="pago-opcion"><input type="radio" name="moneda-venta" value="UYU" checked /><span>🇺🇾 Pesos URU</span></label>
-            <label class="pago-opcion"><input type="radio" name="moneda-venta" value="ARS" /><span>🇦🇷 Pesos ARG</span></label>
+            <label class="pago-opcion opcion-ars-venta"><input type="radio" name="moneda-venta" value="ARS" /><span>🇦🇷 Pesos ARG</span></label>
           </div>
         </label>
         <label>Método de pago
@@ -521,6 +546,10 @@
         En <strong>"Quién tiene acceso"</strong> elegí <strong>Cualquier persona</strong>.
       </p>
 
+      <label class="config-label solo-admin" style="flex-direction:row;align-items:center;gap:0.5rem;cursor:pointer">
+        <input type="checkbox" id="config-mostrar-ars" /> Mostrar pesos argentinos (ARS) en ventas
+      </label>
+
       <p id="config-status" class="config-status-text"></p>
       <div class="modal-actions">
         <button id="btn-config-guardar" class="btn-primary">Guardar URL</button>
@@ -589,10 +618,10 @@
       <label class="config-label">Para quién
         <input type="text" id="sol-para" class="config-input" placeholder="Nombre y apellido..." maxlength="80" />
       </label>
-      <label class="config-label">Moneda
+      <label class="config-label opcion-moneda-venta">Moneda
         <div class="pago-opciones">
           <label class="pago-opcion"><input type="radio" name="moneda-sol" value="UYU" checked /><span>🇺🇾 Pesos URU</span></label>
-          <label class="pago-opcion"><input type="radio" name="moneda-sol" value="ARS" /><span>🇦🇷 Pesos ARG</span></label>
+          <label class="pago-opcion opcion-ars-venta"><input type="radio" name="moneda-sol" value="ARS" /><span>🇦🇷 Pesos ARG</span></label>
         </div>
       </label>
 
@@ -698,10 +727,10 @@
         <button class="modal-cerrar" id="btn-cerrar-arqueo" aria-label="Cerrar">✕</button>
       </div>
       <p class="config-desc">Contá el efectivo que te entregaron y verificá las transferencias en la cuenta. Se compara con lo que registró el sistema.</p>
-      <label class="config-label">Moneda
+      <label class="config-label opcion-moneda-venta">Moneda
         <div class="pago-opciones">
           <label class="pago-opcion"><input type="radio" name="arqueo-moneda" value="UYU" checked /><span>🇺🇾 Pesos URU</span></label>
-          <label class="pago-opcion"><input type="radio" name="arqueo-moneda" value="ARS" /><span>🇦🇷 Pesos ARG</span></label>
+          <label class="pago-opcion opcion-ars-venta"><input type="radio" name="arqueo-moneda" value="ARS" /><span>🇦🇷 Pesos ARG</span></label>
         </div>
       </label>
       <div id="arqueo-esperado" class="pago-pedido-info-box"></div>
@@ -745,6 +774,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=46"></script>
+  <script src="app.js?v=47"></script>
 </body>
 </html>
