@@ -29,6 +29,8 @@ function doGet(e) {
       const pedidosRaw    = pedidosSheet  ? pedidosSheet.getRange('A1').getValue()  : '';
       const ingresosSheet = ss.getSheetByName('Ingresos');
       const ingresosRaw   = ingresosSheet ? ingresosSheet.getRange('A1').getValue() : '';
+      const arqueosSheet  = ss.getSheetByName('Arqueos');
+      const arqueosRaw    = arqueosSheet  ? arqueosSheet.getRange('A1').getValue()  : '';
 
       const result = {
         stock:      stockRaw    ? JSON.parse(stockRaw)    : null,
@@ -36,6 +38,7 @@ function doGet(e) {
         auditorias: auditRaw    ? JSON.parse(auditRaw)    : null,
         pedidos:    pedidosRaw  ? JSON.parse(pedidosRaw)  : null,
         ingresos:   ingresosRaw ? JSON.parse(ingresosRaw) : null,
+        arqueos:    arqueosRaw  ? JSON.parse(arqueosRaw)  : null,
       };
 
       return ContentService
@@ -106,6 +109,15 @@ function doPost(e) {
       } catch(e) { Logger.log('ingresos save error: ' + e); }
     }
 
+    if (body.arqueos !== undefined) {
+      try {
+        let sheet = ss.getSheetByName('Arqueos');
+        if (!sheet) sheet = ss.insertSheet('Arqueos');
+        sheet.getRange('A1').setValue(JSON.stringify(body.arqueos));
+      } catch(e) { Logger.log('arqueos save error: ' + e); }
+      try { actualizarHojaArqueos(ss, body.arqueos); } catch(e) { Logger.log('arqueos sheet error: ' + e); }
+    }
+
     try {
       const stockData = body.stock     || leerJSON(ss, 'Stock',    '{}');
       const histData  = body.historial || leerJSON(ss, 'Historial', '[]');
@@ -166,6 +178,7 @@ function actualizarHojaVentas(ss, historial) {
 
   const rows = historial.map(h => {
     const pago = h.pago === 'regalo'        ? '🎁 Regalo'
+               : h.pago === 'perdida'       ? '📉 Pérdida'
                : h.pago === 'transferencia' ? 'Transferencia'
                : h.pago === 'anota'         ? '📝 Anota'
                :                              'Efectivo';
@@ -445,6 +458,57 @@ function actualizarResumen(ss, stock, historial) {
   });
 
   sheet.autoResizeColumns(1, 2);
+}
+
+// ── Hoja "🧾 Arqueos" — controles de caja legibles ────────────────────────────
+function actualizarHojaArqueos(ss, arqueos) {
+  let sheet = ss.getSheetByName('🧾 Arqueos');
+  if (!sheet) sheet = ss.insertSheet('🧾 Arqueos');
+
+  sheet.clearContents();
+  sheet.clearFormats();
+
+  const headers = ['Fecha', 'Moneda', 'Efectivo contado', 'Efectivo esperado', 'Dif. efectivo', 'Transf. verificadas', 'Transf. esperadas', 'Dif. transf.', 'Nota'];
+  const headerRange = sheet.getRange(1, 1, 1, headers.length);
+  headerRange.setValues([headers]);
+  estilizarEncabezado(headerRange);
+
+  const arr = Array.isArray(arqueos) ? arqueos : [];
+  if (arr.length === 0) {
+    sheet.autoResizeColumns(1, headers.length);
+    return;
+  }
+
+  const rows = [...arr].reverse().map(a => [
+    a.fecha  || '',
+    a.moneda || '',
+    a.efectivoContado != null ? a.efectivoContado : '',
+    a.esperadoEfectivo != null ? a.esperadoEfectivo : '',
+    a.efectivoContado != null ? a.efectivoContado - (a.esperadoEfectivo || 0) : '',
+    a.transfContado != null ? a.transfContado : '',
+    a.esperadoTransf != null ? a.esperadoTransf : '',
+    a.transfContado != null ? a.transfContado - (a.esperadoTransf || 0) : '',
+    a.nota || '',
+  ]);
+
+  const dataRange = sheet.getRange(2, 1, rows.length, headers.length);
+  dataRange.setValues(rows);
+
+  rows.forEach((row, i) => {
+    const bg = i % 2 === 0 ? '#2a2a2a' : '#1c1c1c';
+    sheet.getRange(i + 2, 1, 1, headers.length).setBackground(bg).setFontColor('#e8e8e8');
+    // Diferencias en rojo/verde (columnas E y H)
+    [5, 8].forEach(col => {
+      const dif = row[col - 1];
+      if (dif === '') return;
+      const cell = sheet.getRange(i + 2, col);
+      if (dif < 0)      cell.setFontColor('#e74c3c').setFontWeight('bold');
+      else if (dif > 0) cell.setFontColor('#5dade2').setFontWeight('bold');
+      else              cell.setFontColor('#27ae60').setFontWeight('bold');
+    });
+  });
+
+  sheet.autoResizeColumns(1, headers.length);
 }
 
 // ── Hoja "📋 Pedidos" — tabla legible de pedidos ──────────────────────────────

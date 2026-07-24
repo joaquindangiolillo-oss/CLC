@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Stock - Cayo la Cabra</title>
-  <link rel="stylesheet" href="style.css?v=44" />
+  <link rel="stylesheet" href="style.css?v=46" />
 </head>
 <body>
   <header>
@@ -21,7 +21,8 @@
     <button class="tab-btn active" data-tab="stock">📦 Stock</button>
     <button class="tab-btn" data-tab="ventas">💰 Ventas</button>
     <button class="tab-btn" data-tab="pedidos">📋 Pedidos</button>
-    <button class="tab-btn" data-tab="auditoria">✅ Auditoría</button>
+    <button class="tab-btn solo-admin" data-tab="auditoria">✅ Auditoría</button>
+    <button class="tab-btn solo-admin" data-tab="finanzas">📈 Finanzas</button>
   </nav>
 
   <main>
@@ -50,7 +51,7 @@
       <div class="stock-export-bar">
         <button class="btn-exportar-pdf" onclick="generarStockPDF()">📄 PDF del stock</button>
         <button class="btn-exportar-wa"  onclick="exportarStockWhatsApp()">📤 WhatsApp</button>
-        <button class="btn-registrar-ingreso" id="btn-registrar-ingreso">📥 Registrar ingreso</button>
+        <button class="btn-registrar-ingreso solo-admin" id="btn-registrar-ingreso">📥 Registrar ingreso</button>
       </div>
 
       <section class="seccion">
@@ -155,8 +156,17 @@
           <label class="config-label">Cantidad
             <input type="number" id="ing-cantidad" class="config-input" min="1" value="1" />
           </label>
+          <label class="config-label">Costo unitario de compra ($) — opcional
+            <input type="number" id="ing-costo" class="config-input" min="0" step="0.01" placeholder="Lo que costó cada unidad" />
+          </label>
           <button type="button" id="btn-agregar-item-ing" class="btn-agregar-item">＋ Agregar ítem al ingreso</button>
         </div>
+        <label class="config-label">Moneda del costo
+          <div class="pago-opciones">
+            <label class="pago-opcion"><input type="radio" name="ing-moneda-costo" value="ARS" checked /><span>🇦🇷 Pesos ARG</span></label>
+            <label class="pago-opcion"><input type="radio" name="ing-moneda-costo" value="UYU" /><span>🇺🇾 Pesos URU</span></label>
+          </div>
+        </label>
         <label class="config-label">Nota (opcional)
           <input type="text" id="ing-nota" class="config-input" maxlength="200" placeholder="Ej: Importación junio 2026..." />
         </label>
@@ -199,6 +209,10 @@
           <span class="vcard-label">🎁 Regalos</span>
           <span class="vcard-valor" id="v-regalos">0 u.</span>
         </div>
+        <div class="vcard vcard--perdida">
+          <span class="vcard-label">📉 Pérdidas</span>
+          <span class="vcard-valor" id="v-perdidas">0 u.</span>
+        </div>
         <div class="vcard vcard--anota">
           <span class="vcard-label">📝 Anotados (deben)</span>
           <span class="vcard-valor" id="v-anota">$0</span>
@@ -218,6 +232,7 @@
         <button class="filtro-btn" data-filtro="efectivo">Efectivo</button>
         <button class="filtro-btn" data-filtro="transferencia">Transferencia</button>
         <button class="filtro-btn" data-filtro="regalo">Regalos</button>
+        <button class="filtro-btn" data-filtro="perdida">📉 Pérdidas</button>
         <button class="filtro-btn" data-filtro="anota">📝 Anotados</button>
       </div>
 
@@ -268,6 +283,19 @@
       <div class="audit-historial-section">
         <h2 class="audit-hist-titulo">📋 Historial de auditorías</h2>
         <div id="audit-historial-lista"></div>
+      </div>
+    </div>
+
+    <!-- ── TAB FINANZAS ── -->
+    <div id="tab-finanzas" class="tab-content hidden">
+      <div class="finanzas-topbar">
+        <p class="auditoria-desc">Balance real del negocio: lo recaudado contra lo invertido, y control del efectivo y las transferencias que entrega quien vende.</p>
+        <button id="btn-nuevo-arqueo" class="btn-primary">🧾 Control de caja</button>
+      </div>
+      <div id="finanzas-contenido"></div>
+      <div class="audit-historial-section">
+        <h2 class="audit-hist-titulo">🧾 Historial de controles de caja</h2>
+        <div id="arqueos-historial-lista"></div>
       </div>
     </div>
   </main>
@@ -345,6 +373,7 @@
             <label class="pago-opcion"><input type="radio" name="pago" value="efectivo" checked /><span>Efectivo</span></label>
             <label class="pago-opcion"><input type="radio" name="pago" value="transferencia" /><span>Transferencia</span></label>
             <label class="pago-opcion"><input type="radio" name="pago" value="regalo" /><span>🎁 Regalo</span></label>
+            <label class="pago-opcion"><input type="radio" name="pago" value="perdida" /><span>📉 Pérdida</span></label>
             <label class="pago-opcion"><input type="radio" name="pago" value="anota" /><span>📝 Anota</span></label>
           </div>
         </label>
@@ -451,6 +480,7 @@
           <label class="pago-opcion"><input type="radio" name="editar-pago" value="efectivo" /><span>Efectivo</span></label>
           <label class="pago-opcion"><input type="radio" name="editar-pago" value="transferencia" /><span>Transferencia</span></label>
           <label class="pago-opcion"><input type="radio" name="editar-pago" value="regalo" /><span>🎁 Regalo</span></label>
+          <label class="pago-opcion"><input type="radio" name="editar-pago" value="perdida" /><span>📉 Pérdida</span></label>
           <label class="pago-opcion"><input type="radio" name="editar-pago" value="anota" /><span>📝 Anota</span></label>
         </div>
       </label>
@@ -660,6 +690,38 @@
     </div>
   </div>
 
+  <!-- ── MODAL CONTROL DE CAJA ── -->
+  <div id="modal-arqueo" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>🧾 Control de caja</h2>
+        <button class="modal-cerrar" id="btn-cerrar-arqueo" aria-label="Cerrar">✕</button>
+      </div>
+      <p class="config-desc">Contá el efectivo que te entregaron y verificá las transferencias en la cuenta. Se compara con lo que registró el sistema.</p>
+      <label class="config-label">Moneda
+        <div class="pago-opciones">
+          <label class="pago-opcion"><input type="radio" name="arqueo-moneda" value="UYU" checked /><span>🇺🇾 Pesos URU</span></label>
+          <label class="pago-opcion"><input type="radio" name="arqueo-moneda" value="ARS" /><span>🇦🇷 Pesos ARG</span></label>
+        </div>
+      </label>
+      <div id="arqueo-esperado" class="pago-pedido-info-box"></div>
+      <label class="config-label">Efectivo contado ($)
+        <input type="number" id="arqueo-efectivo" class="config-input" min="0" step="1" placeholder="Dejá vacío si no lo contaste" />
+      </label>
+      <label class="config-label">Transferencias verificadas ($)
+        <input type="number" id="arqueo-transf" class="config-input" min="0" step="1" placeholder="Dejá vacío si no las revisaste" />
+      </label>
+      <label class="config-label">Nota (opcional)
+        <input type="text" id="arqueo-nota" class="config-input" maxlength="200" placeholder="Ej: cierre feria domingo..." />
+      </label>
+      <p id="arqueo-error" class="error hidden">Ingresá al menos un valor (efectivo o transferencias).</p>
+      <div class="modal-actions">
+        <button id="btn-confirmar-arqueo" class="btn-primary">Guardar control</button>
+        <button id="btn-cancelar-arqueo" class="btn-secondary">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ── MODAL PIN ── -->
   <div id="modal-pin" class="modal hidden">
     <div class="modal-content">
@@ -667,7 +729,7 @@
         <h2>🔐 Ingresar PIN</h2>
         <button class="modal-cerrar" id="btn-cerrar-pin" aria-label="Cerrar">✕</button>
       </div>
-      <p class="config-desc">Ingresá el PIN para habilitar la edición.</p>
+      <p class="config-desc">Ingresá tu PIN. Según el PIN se habilita el modo <strong>vendedor</strong> (ventas, pedidos y stock) o <strong>administrador</strong> (todo, incluidas finanzas e ingresos de mercadería).</p>
       <label class="config-label">PIN
         <input type="password" id="pin-input" class="config-input" maxlength="8"
           placeholder="●●●●" inputmode="numeric" autocomplete="off" />
@@ -683,6 +745,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=45"></script>
+  <script src="app.js?v=46"></script>
 </body>
 </html>

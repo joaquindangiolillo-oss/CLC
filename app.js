@@ -201,6 +201,17 @@ function guardarIngresos() {
   pushToCloud();
 }
 
+// Controles de caja (arqueos): efectivo contado y transferencias verificadas
+function cargarArqueos() {
+  try { return JSON.parse(localStorage.getItem('cayo_arqueos') || '[]'); }
+  catch (_) { return []; }
+}
+let arqueos = cargarArqueos();
+function guardarArqueos() {
+  localStorage.setItem('cayo_arqueos', JSON.stringify(arqueos));
+  pushToCloud();
+}
+
 let ingItemsTemp = [];
 function renderIngItemsChips() {
   const el = document.getElementById('ing-items-agregados');
@@ -208,7 +219,7 @@ function renderIngItemsChips() {
   if (ingItemsTemp.length === 0) { el.innerHTML = ''; return; }
   el.innerHTML = ingItemsTemp.map((it, i) => `
     <span class="sol-item-chip">
-      ${(it.cantidad > 1 ? `${it.cantidad}× ` : '') + _itemDesc(it)}
+      ${(it.cantidad > 1 ? `${it.cantidad}× ` : '') + _itemDesc(it)}${it.costoUnit != null ? ` — ${formatPeso(it.costoUnit)} c/u` : ''}
       <button type="button" class="sol-chip-rm" onclick="remIngItem(${i})">✕</button>
     </span>
   `).join('');
@@ -312,7 +323,7 @@ async function pushToCloud() {
       method: 'POST',
       mode: 'cors',
       headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-      body: JSON.stringify({ stock: estado, historial, auditorias, pedidos, ingresos }),
+      body: JSON.stringify({ stock: estado, historial, auditorias, pedidos, ingresos, arqueos }),
     });
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
     const result = await resp.json();
@@ -376,33 +387,51 @@ async function sincronizarDesdeNube() {
     localStorage.setItem('cayo_ingresos', JSON.stringify(ingresos));
     changed = true;
   }
+  if (Array.isArray(data.arqueos) && data.arqueos.length > 0) {
+    const idsNube = new Set(data.arqueos.map(a => a.id));
+    const soloLocales = arqueos.filter(a => !idsNube.has(a.id));
+    arqueos = [...data.arqueos, ...soloLocales].sort((a, b) => a.id - b.id);
+    localStorage.setItem('cayo_arqueos', JSON.stringify(arqueos));
+    changed = true;
+  }
   if (changed) renderTodo();
   setSincStatus('ok');
 }
 
-// ── Control de acceso (PIN fijo) ──────────────────────────────────────────────
-const EDIT_PIN = '1122';
-let modoEdicion = false;
+// ── Control de acceso (PIN por rol) ───────────────────────────────────────────
+// admin: acceso total (ingresos de mercadería, costos, finanzas, auditoría)
+// vendedor: registrar ventas/regalos/pérdidas, pedidos y ver stock
+const PIN_ADMIN    = '1122';
+const PIN_VENDEDOR = '2244';
+let rol = 'lectura'; // 'lectura' | 'vendedor' | 'admin'
 
-function setModoEdicion(activo) {
-  modoEdicion = activo;
-  document.body.classList.toggle('modo-lectura', !activo);
+function setRol(nuevo) {
+  rol = nuevo;
+  document.body.classList.toggle('modo-lectura', rol === 'lectura');
+  document.body.classList.toggle('rol-admin',    rol === 'admin');
+  document.body.classList.toggle('rol-vendedor', rol === 'vendedor');
   const btn = document.getElementById('btn-lock');
   if (btn) {
-    btn.textContent = activo ? '🔓' : '🔒';
-    btn.title       = activo ? 'Bloquear edición' : 'Desbloquear edición';
+    btn.textContent = rol === 'lectura' ? '🔒' : rol === 'admin' ? '🔓' : '🛒';
+    btn.title       = rol === 'lectura' ? 'Desbloquear edición'
+                    : rol === 'admin'   ? 'Administrador — tocá para bloquear'
+                    :                     'Vendedor — tocá para bloquear';
   }
+  // Si al cambiar de rol quedó abierta una pestaña solo de admin, volver a Stock
+  const tabActiva = document.querySelector('.tab-btn.active')?.dataset.tab;
+  if (rol !== 'admin' && (tabActiva === 'finanzas' || tabActiva === 'auditoria')) irATab('stock');
 }
 
-// Botón 🔒/🔓
+// Botón 🔒/🔓/🛒
 document.getElementById('btn-lock').addEventListener('click', () => {
-  if (modoEdicion) {
-    if (localStorage.getItem('cayo_admin') === '1') {
+  if (rol !== 'lectura') {
+    if (localStorage.getItem('cayo_rol') || localStorage.getItem('cayo_admin') === '1') {
       if (confirm('¿Querés que este dispositivo deje de recordar el PIN?')) {
+        localStorage.removeItem('cayo_rol');
         localStorage.removeItem('cayo_admin');
       }
     }
-    setModoEdicion(false);
+    setRol('lectura');
     return;
   }
   document.getElementById('pin-input').value = '';
@@ -412,12 +441,14 @@ document.getElementById('btn-lock').addEventListener('click', () => {
 });
 
 function confirmarPin() {
-  if (document.getElementById('pin-input').value === EDIT_PIN) {
+  const pin = document.getElementById('pin-input').value;
+  const nuevoRol = pin === PIN_ADMIN ? 'admin' : pin === PIN_VENDEDOR ? 'vendedor' : null;
+  if (nuevoRol) {
     document.getElementById('modal-pin').classList.add('hidden');
     if (document.getElementById('pin-recordar')?.checked) {
-      localStorage.setItem('cayo_admin', '1');
+      localStorage.setItem('cayo_rol', nuevoRol);
     }
-    setModoEdicion(true);
+    setRol(nuevoRol);
   } else {
     document.getElementById('pin-error').classList.remove('hidden');
     document.getElementById('pin-input').value = '';
@@ -442,6 +473,8 @@ document.getElementById('modal-pin').addEventListener('click', e => {
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
 window.irATab = function(tab) {
+  // Pestañas de administración: bloqueadas para otros roles
+  if ((tab === 'finanzas' || tab === 'auditoria') && rol !== 'admin') tab = 'stock';
   document.querySelectorAll('.tab-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.tab === tab);
   });
@@ -450,6 +483,7 @@ window.irATab = function(tab) {
   if (tab === 'auditoria') { renderAuditoria(); renderHistorialAuditorias(); }
   if (tab === 'ventas')    renderVentas();
   if (tab === 'pedidos')   renderPedidos();
+  if (tab === 'finanzas')  renderFinanzas();
 };
 
 document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -603,11 +637,14 @@ function renderIngresos() {
   const sorted = [...ingresos].reverse();
   lista.innerHTML = sorted.map(ing => {
     const resumen = (ing.items || []).map(it => (it.cantidad > 1 ? `${it.cantidad}× ` : '') + _itemDesc(it)).join(' · ');
+    const invertido = (ing.items || []).reduce((s, it) => s + (it.costoUnit != null ? it.costoUnit * (it.cantidad || 1) : 0), 0);
+    const monCosto = (ing.monedaCosto || 'ARS') === 'UYU' ? ' UYU' : '';
     return `<div class="ing-historial-item">
       <div class="ing-item-main">
         <span class="ing-item-desc">${resumen || '—'}</span>
         <span class="ing-item-fecha">${ing.fecha || ''}</span>
       </div>
+      ${invertido > 0 ? `<div class="ing-item-costo solo-admin">💸 Costo de compra: ${formatPeso(invertido)}${monCosto}</div>` : ''}
       ${ing.nota ? `<div class="ing-item-nota">${ing.nota}</div>` : ''}
     </div>`;
   }).join('');
@@ -645,6 +682,7 @@ function renderVentas() {
   const transfARS = historial.filter(h => h.pago === 'transferencia' && (h.moneda||'ARS') === 'ARS').reduce((s, h) => s + (h.ingreso ?? 0), 0);
   const transfUYU = historial.filter(h => h.pago === 'transferencia' && (h.moneda||'ARS') === 'UYU').reduce((s, h) => s + (h.ingreso ?? 0), 0);
   const totalRegU    = historial.reduce((s, h) => h.pago === 'regalo' ? s + h.cantidad : s, 0);
+  const totalPerdU   = historial.reduce((s, h) => h.pago === 'perdida' ? s + h.cantidad : s, 0);
   const anotaARS = historial.filter(h => h.pago === 'anota' && (h.moneda||'ARS') === 'ARS').reduce((s, h) => s + (h.precioUnit||0) * h.cantidad, 0);
   const anotaUYU = historial.filter(h => h.pago === 'anota' && (h.moneda||'ARS') === 'UYU').reduce((s, h) => s + (h.precioUnit||0) * h.cantidad, 0);
   const pedPendientes = pedidos.filter(p => p.estadoFisico !== 'cancelado' && p.estadoFisico !== 'solicitud' && pedidoSaldo(p) > 0);
@@ -679,6 +717,7 @@ function renderVentas() {
   setMonedaCard('v-efectivo-ars', 'v-efectivo-uyu', efecARS, efecUYU);
   setMonedaCard('v-transf-ars',   'v-transf-uyu',   transfARS, transfUYU);
   document.getElementById('v-regalos').textContent   = `${totalRegU} u.`;
+  document.getElementById('v-perdidas').textContent  = `${totalPerdU} u.`;
   const anotaParts = [];
   if (totalAnotaARS > 0) anotaParts.push(formatPeso(totalAnotaARS));
   if (totalAnotaUYU > 0) anotaParts.push(formatPeso(totalAnotaUYU) + ' UYU');
@@ -788,6 +827,7 @@ function renderVentas() {
   lista.innerHTML = pedidosHtml + filtrados.map(h => {
     const pagoLabel = h.pago === 'transferencia' ? 'Transf.'
                     : h.pago === 'regalo'        ? '🎁 Regalo'
+                    : h.pago === 'perdida'       ? '📉 Pérdida'
                     : h.pago === 'anota'         ? '📝 Anota'
                     : 'Efect.';
     const monedaBadge = h.moneda === 'UYU'
@@ -1058,11 +1098,11 @@ document.getElementById('form-venta').addEventListener('submit', e => {
   // Precio final: override manual o precio por defecto
   const precioFinal = precioEfectivo();
   const moneda      = getMonedaVenta();
-  if (!precioFinal || precioFinal <= 0) {
+  const pago = document.querySelector('input[name="pago"]:checked').value;
+  if ((!precioFinal || precioFinal <= 0) && pago !== 'perdida') {
     mostrarError('Ingresá un precio válido.');
     return;
   }
-  const pago = document.querySelector('input[name="pago"]:checked').value;
 
   // Validar nombre si es Anota
   let nombreAnota = '';
@@ -1071,7 +1111,7 @@ document.getElementById('form-venta').addEventListener('submit', e => {
     if (!nombreAnota) { mostrarError('Ingresá el nombre de quien anota.'); return; }
   }
 
-  const ingreso = (pago === 'regalo' || pago === 'anota') ? 0 : precioFinal * cant;
+  const ingreso = (pago === 'regalo' || pago === 'anota' || pago === 'perdida') ? 0 : precioFinal * cant;
 
   const entrada = {
     id: Date.now(),
@@ -1135,6 +1175,7 @@ function abrirHistorial() {
   const totalEfectivo      = historial.reduce((s, h) => s + (h.pago === 'efectivo'      ? (h.ingreso ?? 0) : 0), 0);
   const totalTransferencia = historial.reduce((s, h) => s + (h.pago === 'transferencia' ? (h.ingreso ?? 0) : 0), 0);
   const totalRegalosUnid   = historial.reduce((s, h) => s + (h.pago === 'regalo' ? h.cantidad : 0), 0);
+  const totalPerdidasUnid  = historial.reduce((s, h) => s + (h.pago === 'perdida' ? h.cantidad : 0), 0);
 
   lblTotal.innerHTML = `
     <span>Vendido: <strong>${totalUnidades} u.</strong></span>
@@ -1142,6 +1183,7 @@ function abrirHistorial() {
     <span>Transf.: <strong>${formatPeso(totalTransferencia)}</strong></span>
     <span>Total: <strong>${formatPeso(totalRecaudado)}</strong></span>
     ${totalRegalosUnid > 0 ? `<span class="hist-regalo-resumen">🎁 Regalos: <strong>${totalRegalosUnid} u.</strong></span>` : ''}
+    ${totalPerdidasUnid > 0 ? `<span class="hist-perdida-resumen">📉 Pérdidas: <strong>${totalPerdidasUnid} u.</strong></span>` : ''}
   `;
 
   const resumen = buildResumen();
@@ -1170,6 +1212,7 @@ function abrirHistorial() {
       : '';
     const pagoLbl = h.pago === 'transferencia' ? 'Transf.'
                   : h.pago === 'regalo'        ? '🎁 Regalo'
+                  : h.pago === 'perdida'       ? '📉 Pérdida'
                   : h.pago === 'anota'         ? '📝 Anota'
                   : 'Efect.';
     const nombreHtml = h.pago === 'anota' && h.nombreAnota
@@ -1437,7 +1480,7 @@ document.getElementById('btn-confirmar-editar').addEventListener('click', () => 
   h.cantidad     = nuevaCant;
   h.pago         = nuevoPago;
   h.precioUnit   = nuevoPrecio;
-  h.ingreso      = (nuevoPago === 'regalo' || nuevoPago === 'anota') ? 0 : nuevoPrecio * nuevaCant;
+  h.ingreso      = (nuevoPago === 'regalo' || nuevoPago === 'anota' || nuevoPago === 'perdida') ? 0 : nuevoPrecio * nuevaCant;
   h._stock       = nuevo_stock;
   h.moneda       = document.querySelector('input[name="editar-moneda"]:checked')?.value || 'ARS';
   if (nuevoPago === 'anota') h.nombreAnota = nuevoNombreAnota;
@@ -2510,8 +2553,10 @@ document.getElementById('btn-cerrar-editar').addEventListener('click', () => {
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 renderTodo();
-// Auto-desbloquear si este dispositivo está recordado
-setModoEdicion(localStorage.getItem('cayo_admin') === '1');
+// Auto-desbloquear si este dispositivo está recordado (migra el viejo cayo_admin)
+const rolGuardado = localStorage.getItem('cayo_rol')
+  || (localStorage.getItem('cayo_admin') === '1' ? 'admin' : 'lectura');
+setRol(rolGuardado === 'admin' || rolGuardado === 'vendedor' ? rolGuardado : 'lectura');
 if (gasUrl) {
   setSincStatus('syncing');
   sincronizarDesdeNube(); // al abrir la app, traer datos frescos de la nube
@@ -2714,6 +2759,7 @@ function _ventasTotales(ventas) {
   const totEfec  = ventas.reduce((s,h)=>s+(h.pago==='efectivo'?(h.ingreso??0):0),0);
   const totTrans = ventas.reduce((s,h)=>s+(h.pago==='transferencia'?(h.ingreso??0):0),0);
   const totReg    = ventas.reduce((s,h)=>h.pago==='regalo'?s+h.cantidad:s,0);
+  const totPerd   = ventas.reduce((s,h)=>h.pago==='perdida'?s+h.cantidad:s,0);
   const totAnota  = ventas.reduce((s,h)=>h.pago==='anota'?s+(h.precioUnit||0)*h.cantidad:s,0);
   const cobradas  = ventas.filter(h=>h.pago==='efectivo'||h.pago==='transferencia');
   const unidRem   = cobradas.filter(h=>h._stock?.tipo==='adulto').reduce((s,h)=>s+h.cantidad,0);
@@ -2722,20 +2768,21 @@ function _ventasTotales(ventas) {
   const pegEntradas = ventas.filter(h=>h._stock?.tipo==='pegotines');
   const totPegARS = pegEntradas.filter(h=>(h.moneda||'ARS')==='ARS').reduce((s,h)=>s+(h.ingreso??0),0);
   const totPegUYU = pegEntradas.filter(h=>(h.moneda||'ARS')==='UYU').reduce((s,h)=>s+(h.ingreso??0),0);
-  return { totalARS, totalUYU, totEfec, totTrans, totReg, totAnota, unidRem, unidTote, unidNino, totPegARS, totPegUYU };
+  return { totalARS, totalUYU, totEfec, totTrans, totReg, totPerd, totAnota, unidRem, unidTote, unidNino, totPegARS, totPegUYU };
 }
 
 function exportarVentasPDF() {
   const { ventas, label } = _ventasRango();
   const ahora = new Date().toLocaleString('es-AR');
-  const { totalARS, totalUYU, totEfec, totTrans, totReg, totAnota, unidRem, unidTote, unidNino, totPegARS, totPegUYU } = _ventasTotales(ventas);
+  const { totalARS, totalUYU, totEfec, totTrans, totReg, totPerd, totAnota, unidRem, unidTote, unidNino, totPegARS, totPegUYU } = _ventasTotales(ventas);
   const fmtP = n => '$' + n.toLocaleString('es-AR');
-  const pagoLabel = p => ({efectivo:'Efectivo',transferencia:'Transf.',regalo:'Regalo',anota:'Anota'}[p]||p);
+  const pagoLabel = p => ({efectivo:'Efectivo',transferencia:'Transf.',regalo:'Regalo',perdida:'Pérdida',anota:'Anota'}[p]||p);
 
   const rows = [...ventas].sort((a,b)=>a.id-b.id).map(h => {
     const mon = (h.moneda||'ARS')==='UYU' ? ' UYU' : '';
-    const pagoColor = h.pago==='regalo'?'#27ae60':h.pago==='anota'?'#e67e22':'#333';
+    const pagoColor = h.pago==='regalo'?'#27ae60':h.pago==='perdida'?'#c0392b':h.pago==='anota'?'#e67e22':'#333';
     const totalTxt = h.pago==='regalo' ? 'Regalo'
+      : h.pago==='perdida' ? 'Pérdida'
       : h.pago==='anota' ? `Adeuda ${fmtP((h.precioUnit||0)*h.cantidad)}${mon}`
       : fmtP(h.ingreso??0)+mon;
     return `<tr>
@@ -2781,6 +2828,7 @@ function exportarVentasPDF() {
     <div class="rb"><div class="rn">${fmtP(totEfec)}</div><div class="rl">Efectivo</div></div>
     <div class="rb"><div class="rn">${fmtP(totTrans)}</div><div class="rl">Transferencia</div></div>
     ${totReg>0?`<div class="rb"><div class="rn">${totReg} u.</div><div class="rl">Regalos</div></div>`:''}
+    ${totPerd>0?`<div class="rb" style="border-color:rgba(192,57,43,0.4)"><div class="rn" style="color:#c0392b">${totPerd} u.</div><div class="rl">Pérdidas</div></div>`:''}
     ${totAnota>0?`<div class="rb"><div class="rn">${fmtP(totAnota)}</div><div class="rl">Anotados (deben)</div></div>`:''}
     ${(totPegARS>0||totPegUYU>0)?`<div class="rb" style="border-color:rgba(155,89,182,0.4)"><div class="rn" style="color:#9b59b6">${totPegARS>0?fmtP(totPegARS):''}${totPegUYU>0?(totPegARS>0?' · ':'')+fmtP(totPegUYU)+' UYU':''}</div><div class="rl">Pegotines</div></div>`:''}
   </div>
@@ -2798,7 +2846,7 @@ function exportarVentasPDF() {
 function exportarVentasWhatsApp() {
   const { ventas, label } = _ventasRango();
   const ahora = new Date().toLocaleString('es-AR');
-  const { totalARS, totalUYU, totEfec, totTrans, totReg, totAnota, unidRem, unidTote, unidNino, totPegARS, totPegUYU } = _ventasTotales(ventas);
+  const { totalARS, totalUYU, totEfec, totTrans, totReg, totPerd, totAnota, unidRem, unidTote, unidNino, totPegARS, totPegUYU } = _ventasTotales(ventas);
   const fmtP = n => '$' + n.toLocaleString('es-AR');
 
   const lines = [
@@ -2812,6 +2860,7 @@ function exportarVentasWhatsApp() {
     `  Efectivo: ${fmtP(totEfec)}`,
     `  Transferencia: ${fmtP(totTrans)}`,
     ...(totReg>0?[`  Regalos: ${totReg} u.`]:[]),
+    ...(totPerd>0?[`  Pérdidas: ${totPerd} u.`]:[]),
     ...(totAnota>0?[`  Anotados (deben): ${fmtP(totAnota)}`]:[]),
     '',
     `📦 *Unidades cobradas: ${unidRem+unidTote+unidNino}*`,
@@ -2927,7 +2976,10 @@ document.getElementById('btn-registrar-ingreso').addEventListener('click', () =>
   renderIngItemsChips();
   document.getElementById('ing-categoria').value = '';
   document.getElementById('ing-cantidad').value  = 1;
+  document.getElementById('ing-costo').value     = '';
   document.getElementById('ing-nota').value      = '';
+  const arsRadio = document.querySelector('input[name="ing-moneda-costo"][value="ARS"]');
+  if (arsRadio) arsRadio.checked = true;
   document.getElementById('ing-error').classList.add('hidden');
   ['ing-campos-adulto','ing-campos-nino','ing-campos-tote'].forEach(id =>
     document.getElementById(id).classList.add('hidden'));
@@ -2968,12 +3020,15 @@ document.getElementById('btn-agregar-item-ing').addEventListener('click', () => 
   } else {
     item.modelo = document.getElementById('ing-modelo').value;
   }
+  const costo = parseFloat(document.getElementById('ing-costo').value);
+  if (!isNaN(costo) && costo > 0) item.costoUnit = costo;
   ingItemsTemp.push(item);
   renderIngItemsChips();
   document.getElementById('ing-categoria').value = '';
   ['ing-campos-adulto','ing-campos-nino','ing-campos-tote'].forEach(id =>
     document.getElementById(id).classList.add('hidden'));
   document.getElementById('ing-cantidad').value = 1;
+  document.getElementById('ing-costo').value = '';
 });
 
 document.getElementById('btn-confirmar-ingreso').addEventListener('click', () => {
@@ -2992,6 +3047,8 @@ document.getElementById('btn-confirmar-ingreso').addEventListener('click', () =>
     } else {
       item.modelo = document.getElementById('ing-modelo').value;
     }
+    const costo = parseFloat(document.getElementById('ing-costo').value);
+    if (!isNaN(costo) && costo > 0) item.costoUnit = costo;
     allItems.push(item);
   }
   if (allItems.length === 0) {
@@ -3015,8 +3072,9 @@ document.getElementById('btn-confirmar-ingreso').addEventListener('click', () =>
   });
 
   const nota = document.getElementById('ing-nota').value.trim();
+  const monedaCosto = document.querySelector('input[name="ing-moneda-costo"]:checked')?.value || 'ARS';
   const fecha = new Date().toLocaleDateString('es-UY', { day:'2-digit', month:'2-digit', year:'numeric' });
-  ingresos.push({ id: Date.now(), fecha, items: allItems, nota });
+  ingresos.push({ id: Date.now(), fecha, items: allItems, nota, monedaCosto });
 
   guardar();
   guardarIngresos();
@@ -3026,4 +3084,215 @@ document.getElementById('btn-confirmar-ingreso').addEventListener('click', () =>
   // Mostrar historial de ingresos si estaba colapsado
   const hist = document.getElementById('ing-historial');
   if (hist && hist.classList.contains('hidden')) hist.classList.remove('hidden');
+});
+
+// ── Tab Finanzas (solo admin) ─────────────────────────────────────────────────
+// Cobrado por método de pago en una moneda: ventas directas + pagos de pedidos
+function _cobradoPorMetodo(moneda, metodo) {
+  const hist = historial
+    .filter(h => h.pago === metodo && (h.moneda || 'ARS') === moneda)
+    .reduce((s, h) => s + (h.ingreso ?? 0), 0);
+  const ped = pedidos
+    .filter(p => (p.moneda || 'UYU') === moneda)
+    .reduce((s, p) => s + (p.pagos || [])
+      .filter(pg => pg.metodo === metodo)
+      .reduce((ps, pg) => ps + pg.monto, 0), 0);
+  return hist + ped;
+}
+
+// Total invertido en mercadería (ingresos con costo cargado) en una moneda
+function _invertido(moneda) {
+  return ingresos
+    .filter(ing => (ing.monedaCosto || 'ARS') === moneda)
+    .reduce((s, ing) => s + (ing.items || [])
+      .reduce((is, it) => is + (it.costoUnit != null ? it.costoUnit * (it.cantidad || 1) : 0), 0), 0);
+}
+
+// Costo promedio de compra por categoría y moneda
+function _costosPromedio() {
+  const acc = {};
+  ingresos.forEach(ing => {
+    const mon = ing.monedaCosto || 'ARS';
+    (ing.items || []).forEach(it => {
+      if (it.costoUnit == null) return;
+      if (!acc[it.tipo]) acc[it.tipo] = {};
+      if (!acc[it.tipo][mon]) acc[it.tipo][mon] = { unidades: 0, costoTotal: 0 };
+      acc[it.tipo][mon].unidades   += it.cantidad || 1;
+      acc[it.tipo][mon].costoTotal += it.costoUnit * (it.cantidad || 1);
+    });
+  });
+  return acc;
+}
+
+const PRECIO_LISTA = {
+  adulto: { ARS: PRECIOS.remera, UYU: PRECIOS.remera_uyu },
+  nino:   { ARS: PRECIOS.remera, UYU: PRECIOS.nino_uyu },
+  tote:   { ARS: PRECIOS.tote,   UYU: PRECIOS.tote_uyu },
+};
+
+function _fmtMon(n, mon) {
+  return (n < 0 ? '-' : '') + formatPeso(Math.abs(n)) + (mon === 'UYU' ? ' UYU' : '');
+}
+
+function renderFinanzas() {
+  const cont = document.getElementById('finanzas-contenido');
+  if (!cont) return;
+
+  const bloques = ['UYU', 'ARS'].map(mon => {
+    const efec   = _cobradoPorMetodo(mon, 'efectivo');
+    const transf = _cobradoPorMetodo(mon, 'transferencia');
+    const rec    = efec + transf;
+    const inv    = _invertido(mon);
+    const bal    = rec - inv;
+    if (rec === 0 && inv === 0) return '';
+    return `
+      <div class="fin-moneda-card">
+        <h3 class="fin-moneda-titulo">${mon === 'UYU' ? '🇺🇾 Pesos uruguayos' : '🇦🇷 Pesos argentinos'}</h3>
+        <div class="fin-grid">
+          <div class="fin-item"><span>💵 Efectivo (debería haber en caja)</span><strong>${_fmtMon(efec, mon)}</strong></div>
+          <div class="fin-item"><span>🏦 Transferencias (deberían estar en cuenta)</span><strong>${_fmtMon(transf, mon)}</strong></div>
+          <div class="fin-item"><span>💰 Recaudado total</span><strong>${_fmtMon(rec, mon)}</strong></div>
+          <div class="fin-item"><span>📥 Invertido en mercadería</span><strong>${_fmtMon(inv, mon)}</strong></div>
+          <div class="fin-item fin-item--balance"><span>📈 Balance (recaudado − invertido)</span>
+            <strong class="${bal >= 0 ? 'fin-pos' : 'fin-neg'}">${_fmtMon(bal, mon)}</strong></div>
+        </div>
+      </div>`;
+  }).join('');
+
+  // Ganancia por unidad según costo promedio de los ingresos y precio de lista
+  const CAT_LABEL = { adulto: '👕 Remera adulto', nino: '👶 Remera niñx', tote: '👜 Tote bag' };
+  const costos = _costosPromedio();
+  const filasMargen = [];
+  Object.entries(costos).forEach(([cat, porMon]) => {
+    Object.entries(porMon).forEach(([mon, d]) => {
+      const costoProm = d.costoTotal / d.unidades;
+      const lista  = PRECIO_LISTA[cat]?.[mon];
+      const margen = lista != null ? lista - costoProm : null;
+      const margenTxt = margen == null ? '—'
+        : `${_fmtMon(Math.round(margen), mon)} (${Math.round(margen / lista * 100)}%)`;
+      filasMargen.push(`<tr>
+        <td>${CAT_LABEL[cat] || cat}</td>
+        <td>${d.unidades}</td>
+        <td>${_fmtMon(Math.round(costoProm), mon)}</td>
+        <td>${lista != null ? _fmtMon(lista, mon) : '—'}</td>
+        <td class="${margen == null ? '' : margen >= 0 ? 'fin-pos' : 'fin-neg'}">${margenTxt}</td>
+      </tr>`);
+    });
+  });
+  const margenHtml = filasMargen.length > 0 ? `
+    <div class="seccion">
+      <h2>Ganancia por unidad</h2>
+      <p class="fin-nota">Costo promedio según los ingresos de mercadería con costo cargado, comparado con el precio de lista en la misma moneda.</p>
+      <div class="tabla-container">
+        <table>
+          <thead><tr><th>Producto</th><th>U. ingresadas</th><th>Costo prom.</th><th>Precio lista</th><th>Ganancia/u.</th></tr></thead>
+          <tbody>${filasMargen.join('')}</tbody>
+        </table>
+      </div>
+    </div>` : `
+    <div class="seccion"><p class="fin-nota">💡 Para ver la ganancia por unidad, cargá el <strong>costo unitario</strong> al registrar ingresos de mercadería.</p></div>`;
+
+  const regalos  = historial.reduce((s, h) => h.pago === 'regalo'  ? s + h.cantidad : s, 0);
+  const perdidas = historial.reduce((s, h) => h.pago === 'perdida' ? s + h.cantidad : s, 0);
+
+  cont.innerHTML = `
+    ${bloques || '<p class="historial-vacio" style="padding:1rem 0">Todavía no hay movimientos de plata registrados.</p>'}
+    ${margenHtml}
+    ${(regalos > 0 || perdidas > 0) ? `
+      <div class="fin-unidades-row">
+        ${regalos  > 0 ? `<span class="fin-chip">🎁 Regalos: ${regalos} u.</span>` : ''}
+        ${perdidas > 0 ? `<span class="fin-chip fin-chip--neg">📉 Pérdidas: ${perdidas} u.</span>` : ''}
+      </div>` : ''}
+  `;
+  renderArqueos();
+}
+
+function renderArqueos() {
+  const lista = document.getElementById('arqueos-historial-lista');
+  if (!lista) return;
+  if (arqueos.length === 0) {
+    lista.innerHTML = '<p class="historial-vacio" style="padding:1rem 0">Sin controles de caja registrados. Usá el botón <strong>🧾 Control de caja</strong> cuando el vendedor te entregue la plata.</p>';
+    return;
+  }
+  lista.innerHTML = [...arqueos].reverse().map(a => {
+    const fila = (icono, lbl, contado, esperado) => {
+      if (contado == null) return '';
+      const dif = contado - esperado;
+      const difTxt = dif === 0 ? '<span class="fin-pos">✅ coincide</span>'
+        : `<span class="${dif < 0 ? 'fin-neg' : 'fin-pos'}">${dif > 0 ? '+' : ''}${_fmtMon(dif, a.moneda)}</span>`;
+      return `<div class="arqueo-fila">
+        <span class="arqueo-lbl">${icono} ${lbl}</span>
+        <span class="arqueo-vals">contado ${_fmtMon(contado, a.moneda)} · esperado ${_fmtMon(esperado, a.moneda)}</span>
+        ${difTxt}
+      </div>`;
+    };
+    return `<div class="arqueo-item">
+      <div class="arqueo-header">
+        <span class="arqueo-fecha">${a.fecha}</span>
+        <span class="moneda-badge ${a.moneda === 'UYU' ? 'moneda-uyu' : 'moneda-ars'}">${a.moneda}</span>
+      </div>
+      ${fila('💵', 'Efectivo', a.efectivoContado, a.esperadoEfectivo)}
+      ${fila('🏦', 'Transferencias', a.transfContado, a.esperadoTransf)}
+      ${a.nota ? `<div class="ing-item-nota">${a.nota}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+// ── Modal Control de Caja ─────────────────────────────────────────────────────
+function actualizarArqueoEsperado() {
+  const mon    = document.querySelector('input[name="arqueo-moneda"]:checked')?.value || 'UYU';
+  const efec   = _cobradoPorMetodo(mon, 'efectivo');
+  const transf = _cobradoPorMetodo(mon, 'transferencia');
+  document.getElementById('arqueo-esperado').innerHTML =
+    `Según el sistema (histórico):<br>
+     💵 Efectivo: <strong>${_fmtMon(efec, mon)}</strong> &nbsp;·&nbsp;
+     🏦 Transferencias: <strong>${_fmtMon(transf, mon)}</strong>`;
+}
+
+document.getElementById('btn-nuevo-arqueo').addEventListener('click', () => {
+  document.getElementById('arqueo-efectivo').value = '';
+  document.getElementById('arqueo-transf').value   = '';
+  document.getElementById('arqueo-nota').value     = '';
+  document.getElementById('arqueo-error').classList.add('hidden');
+  const uyuRadio = document.querySelector('input[name="arqueo-moneda"][value="UYU"]');
+  if (uyuRadio) uyuRadio.checked = true;
+  actualizarArqueoEsperado();
+  document.getElementById('modal-arqueo').classList.remove('hidden');
+});
+
+document.querySelectorAll('input[name="arqueo-moneda"]').forEach(r =>
+  r.addEventListener('change', actualizarArqueoEsperado)
+);
+
+document.getElementById('btn-confirmar-arqueo').addEventListener('click', () => {
+  const mon       = document.querySelector('input[name="arqueo-moneda"]:checked')?.value || 'UYU';
+  const efecStr   = document.getElementById('arqueo-efectivo').value.trim();
+  const transfStr = document.getElementById('arqueo-transf').value.trim();
+  const efec   = efecStr   === '' ? null : parseFloat(efecStr);
+  const transf = transfStr === '' ? null : parseFloat(transfStr);
+  const efecOk   = efec   != null && !isNaN(efec)   && efec   >= 0;
+  const transfOk = transf != null && !isNaN(transf) && transf >= 0;
+  if (!efecOk && !transfOk) {
+    document.getElementById('arqueo-error').classList.remove('hidden');
+    return;
+  }
+  arqueos.push({
+    id:               Date.now(),
+    fecha:            new Date().toLocaleString('es-AR'),
+    moneda:           mon,
+    efectivoContado:  efecOk   ? efec   : null,
+    transfContado:    transfOk ? transf : null,
+    esperadoEfectivo: _cobradoPorMetodo(mon, 'efectivo'),
+    esperadoTransf:   _cobradoPorMetodo(mon, 'transferencia'),
+    nota:             document.getElementById('arqueo-nota').value.trim(),
+  });
+  guardarArqueos();
+  document.getElementById('modal-arqueo').classList.add('hidden');
+  renderFinanzas();
+});
+
+['btn-cancelar-arqueo', 'btn-cerrar-arqueo'].forEach(id => {
+  document.getElementById(id).addEventListener('click', () => {
+    document.getElementById('modal-arqueo').classList.add('hidden');
+  });
 });

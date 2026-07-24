@@ -1332,3 +1332,72 @@ td .stock-reservas { display: flex; flex-wrap: wrap; gap: 0.2rem; justify-conten
   color: var(--texto-tenue);
   font-size: 0.95rem;
 }
+
+/* ── ROLES: vendedor vs administrador (v46) ─────────────────────────────────── */
+/* Todo lo marcado .solo-admin (ingresos de mercadería, costos, finanzas,
+   auditoría) solo es visible con PIN de administrador */
+body:not(.rol-admin) .solo-admin { display: none !important; }
+.rol-vendedor .btn-lock { border-color: rgba(52,152,219,0.6); }
+
+/* ── Pérdidas de mercadería ─────────────────────────────────────────────────── */
+.vcard--perdida { border-color: rgba(231,76,60,0.3); }
+.vcard--perdida .vcard-valor { color: var(--acento); }
+.hist-pago--perdida   { background: rgba(231,76,60,0.15); color: var(--acento); }
+.hist-perdida-resumen { color: var(--acento); }
+
+/* ── Tab Finanzas ───────────────────────────────────────────────────────────── */
+.finanzas-topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1rem;
+}
+.fin-moneda-card {
+  background: var(--fondo-card); border: 1px solid var(--borde);
+  border-radius: 10px; padding: 0.9rem 1rem; margin-bottom: 1rem;
+}
+.fin-moneda-titulo {
+  font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--texto-tenue); margin-bottom: 0.6rem;
+}
+.fin-grid { display: flex; flex-direction: column; gap: 0.35rem; }
+.fin-item {
+  display: flex; justify-content: space-between; align-items: baseline;
+  gap: 0.75rem; font-size: 0.9rem; padding: 0.3rem 0;
+  border-bottom: 1px dashed var(--borde);
+}
+.fin-item:last-child { border-bottom: none; }
+.fin-item span { color: var(--texto-tenue); }
+.fin-item--balance {
+  border-top: 1px solid var(--borde); padding-top: 0.5rem; margin-top: 0.25rem;
+  font-size: 1rem;
+}
+.fin-pos { color: var(--verde); }
+.fin-neg { color: var(--acento); }
+.fin-nota { font-size: 0.82rem; color: var(--texto-tenue); margin-bottom: 0.6rem; }
+.fin-unidades-row { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+.fin-chip {
+  font-size: 0.82rem; padding: 0.3rem 0.7rem; border-radius: 999px;
+  background: rgba(155,89,182,0.15); color: #c39bd3;
+}
+.fin-chip--neg { background: rgba(231,76,60,0.15); color: var(--acento); }
+
+/* Controles de caja (arqueos) */
+.arqueo-item {
+  background: var(--fondo-card); border: 1px solid var(--borde);
+  border-radius: 10px; padding: 0.7rem 0.9rem; margin-bottom: 0.6rem;
+}
+.arqueo-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 0.4rem;
+}
+.arqueo-fecha { font-size: 0.78rem; color: var(--texto-tenue); }
+.arqueo-fila {
+  display: flex; justify-content: space-between; align-items: baseline;
+  gap: 0.6rem; flex-wrap: wrap; font-size: 0.85rem; padding: 0.2rem 0;
+}
+.arqueo-lbl  { font-weight: 600; }
+.arqueo-vals { color: var(--texto-tenue); font-size: 0.8rem; }
+
+/* Costo de compra en historial de ingresos */
+.ing-item-costo {
+  font-size: 0.8rem; color: #f39c12; margin-top: 0.2rem;
+}
