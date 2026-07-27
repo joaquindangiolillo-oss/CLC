@@ -623,9 +623,23 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 
 // ── Render Stock ──────────────────────────────────────────────────────────────
 function claseStock(n) {
+  if (n < 0)   return 'stock-neg';
   if (n === 0) return 'stock-0';
   if (n <= 2)  return 'stock-low';
   return '';
+}
+
+// El sistema puede estar mal (conteo, error de carga): se permite vender algo
+// que figura en 0 o con menos stock del pedido, avisando antes. Si se confirma,
+// la venta descuenta igual y el stock queda en negativo.
+function confirmarVentaSinStock(disponible, cant) {
+  return confirm(
+    `⚠️ SIN STOCK EN EL SISTEMA\n\n` +
+    `De este ítem figuran ${disponible} y estás por vender ${cant}.\n` +
+    `Puede ser un error de conteo o de carga de ventas.\n\n` +
+    `Si continuás, la venta se registra igual y el stock queda en ${disponible - cant}.\n\n` +
+    `¿Registrar la venta?`
+  );
 }
 
 function renderAdultos() {
@@ -1129,7 +1143,7 @@ function actualizarDisponible() {
     }
   } else if (disp !== null) {
     pDisponible.textContent = `Disponible: ${disp}`;
-    pDisponible.style.color = disp === 0 ? 'var(--acento)' : 'var(--verde)';
+    pDisponible.style.color = disp <= 0 ? 'var(--acento)' : 'var(--verde)';
     if (precio > 0) {
       pUnit.textContent       = `Precio: ${formatPeso(precio)} c/u`;
       pTotalVenta.textContent = `Total: ${formatPeso(precio * cant)}`;
@@ -1225,7 +1239,7 @@ document.getElementById('form-venta').addEventListener('submit', e => {
     const talle    = selTalleAdulto.value;
     const variante = selVarianteAdulto.value;
     disponible = stockDisponible('adulto', { talle, variante });
-    if (cant > disponible) { mostrarError(`Stock insuficiente. Disponible: ${disponible}`); return; }
+    if (cant > disponible && !confirmarVentaSinStock(disponible, cant)) return;
     estado.adultos[talle][variante] -= cant;
     descripcion = `Remera ${LABEL_VARIANTE[variante]} talle ${talle}`;
     precio      = PRECIOS.remera;
@@ -1235,7 +1249,7 @@ document.getElementById('form-venta').addEventListener('submit', e => {
     const talle   = selTalleNino.value;
     const variante = document.getElementById('venta-variante-nino').value || 'reposeraRoja';
     disponible  = stockDisponible('nino', { talle, variante });
-    if (cant > disponible) { mostrarError(`Stock insuficiente. Disponible: ${disponible}`); return; }
+    if (cant > disponible && !confirmarVentaSinStock(disponible, cant)) return;
     estado.ninos[talle][variante] -= cant;
     descripcion = `Remera Niñx ${LABEL_VARIANTE_NINO[variante]} talle ${talle}`;
     precio      = PRECIOS.remera;
@@ -1244,7 +1258,7 @@ document.getElementById('form-venta').addEventListener('submit', e => {
   } else if (cat === 'tote') {
     const modelo = selTote.value;
     disponible   = stockDisponible('tote', { modelo });
-    if (cant > disponible) { mostrarError(`Stock insuficiente. Disponible: ${disponible}`); return; }
+    if (cant > disponible && !confirmarVentaSinStock(disponible, cant)) return;
     estado.totes[modelo] -= cant;
     descripcion = `Tote Bag ${modelo === 'silla' ? 'Reposera' : 'Vereda'}`;
     precio      = PRECIOS.tote;
@@ -1585,15 +1599,13 @@ document.getElementById('btn-confirmar-editar').addEventListener('click', () => 
     const talle    = selEditTalleAdulto.value;
     const variante = selEditVariante.value;
     const disp     = estado.adultos[talle]?.[variante] ?? 0;
-    if (nuevaCant > disp) {
+    if (nuevaCant > disp && !confirmarVentaSinStock(disp, nuevaCant)) {
       if (refViejo) {
         const { tipo, talle: t, variante: v, modelo: m } = refViejo;
         if (tipo === 'adulto') estado.adultos[t][v] -= h.cantidad;
         else if (tipo === 'nino') { if (estado.ninos[t]) estado.ninos[t][v || 'reposeraRoja'] -= h.cantidad; }
         else if (tipo === 'tote') estado.totes[m] -= h.cantidad;
       }
-      errEl.textContent = `Stock insuficiente para ${LABEL_VARIANTE[variante]} talle ${talle}. Disponible: ${disp}`;
-      errEl.classList.remove('hidden');
       return;
     }
     estado.adultos[talle][variante] -= nuevaCant;
@@ -1604,15 +1616,13 @@ document.getElementById('btn-confirmar-editar').addEventListener('click', () => 
     const talle    = selEditTalleNino.value;
     const varNino  = document.getElementById('editar-variante-nino')?.value || 'reposeraRoja';
     const disp     = estado.ninos[talle]?.[varNino] ?? 0;
-    if (nuevaCant > disp) {
+    if (nuevaCant > disp && !confirmarVentaSinStock(disp, nuevaCant)) {
       if (refViejo) {
         const { tipo, talle: t, variante: v, modelo: m } = refViejo;
         if (tipo === 'adulto') estado.adultos[t][v] -= h.cantidad;
         else if (tipo === 'nino') { if (estado.ninos[t]) estado.ninos[t][v || 'reposeraRoja'] -= h.cantidad; }
         else if (tipo === 'tote') estado.totes[m] -= h.cantidad;
       }
-      errEl.textContent = `Stock insuficiente para talle ${talle}. Disponible: ${disp}`;
-      errEl.classList.remove('hidden');
       return;
     }
     estado.ninos[talle][varNino] -= nuevaCant;
@@ -1622,15 +1632,13 @@ document.getElementById('btn-confirmar-editar').addEventListener('click', () => 
   } else if (nuevaCat === 'tote') {
     const modelo = selEditTote.value;
     const disp   = estado.totes[modelo] ?? 0;
-    if (nuevaCant > disp) {
+    if (nuevaCant > disp && !confirmarVentaSinStock(disp, nuevaCant)) {
       if (refViejo) {
         const { tipo, talle: t, variante: v, modelo: m } = refViejo;
         if (tipo === 'adulto') estado.adultos[t][v] -= h.cantidad;
         else if (tipo === 'nino') estado.ninos[t] -= h.cantidad;
         else if (tipo === 'tote') estado.totes[m] -= h.cantidad;
       }
-      errEl.textContent = `Stock insuficiente. Disponible: ${disp}`;
-      errEl.classList.remove('hidden');
       return;
     }
     estado.totes[modelo] -= nuevaCant;
@@ -3594,7 +3602,7 @@ function renderVR() {
   const precio   = vrPrecio();
   const completa = vrSeleccionCompleta();
   const sinStock = completa && disp < vrSel.cant;
-  const puede    = completa && !sinStock;
+  const puede    = completa; // sin stock también se puede vender (pide confirmación)
 
   const resumenHtml = `
     <div class="vr-linea-final">
@@ -3606,7 +3614,7 @@ function renderVR() {
       <label class="vr-precio-lbl">$ <input type="number" id="vr-precio" class="vr-precio" value="${precio}" min="0" inputmode="numeric" /> c/u</label>
       <span class="vr-total">Total: <strong id="vr-total-monto">${formatPeso(precio * vrSel.cant)}</strong></span>
     </div>
-    ${sinStock ? `<p class="vr-sin-stock">⚠️ Sin stock suficiente (disponible: ${disp})</p>` : ''}`;
+    ${sinStock ? `<p class="vr-sin-stock">⚠️ Sin stock en el sistema (figuran ${disp}) — podés vender igual, te va a pedir confirmación</p>` : ''}`;
 
   const pagosHtml = `
     <div class="vr-pagos${puede ? '' : ' vr-pagos-off'}">
@@ -3653,11 +3661,7 @@ window.registrarVR = function(pago) {
   errEl.classList.add('hidden');
   if (!vrSeleccionCompleta()) return;
   const disp = vrDisponible();
-  if (vrSel.cant > disp) {
-    errEl.textContent = `Stock insuficiente. Disponible: ${disp}`;
-    errEl.classList.remove('hidden');
-    return;
-  }
+  if (vrSel.cant > disp && !confirmarVentaSinStock(disp, vrSel.cant)) return;
   const precio = vrPrecio();
   if ((pago === 'efectivo' || pago === 'transferencia') && (!precio || precio <= 0)) {
     errEl.textContent = 'Ingresá un precio válido.';

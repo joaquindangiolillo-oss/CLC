@@ -148,6 +148,7 @@ tbody tr:hover { background: #242424; }
 
 .stock-0   { color: var(--acento); font-weight: 700; }
 .stock-low { color: #e67e22; }
+.stock-neg { color: #c0392b; font-weight: 800; }
 
 tfoot td { background: #141414; font-weight: 700; border-top: 2px solid var(--borde); }
 .talle-label  { font-weight: 700; }
