@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>PRUEBA · Stock - Cayo la Cabra</title>
+  <link rel="stylesheet" href="style.css?v=48" />
+</head>
+<body>
+  <div id="banner-prueba" style="background:#e67e22;color:#fff;text-align:center;padding:6px 10px;font-weight:700;font-size:0.8rem;letter-spacing:.3px;">🧪 VERSIÓN DE PRUEBA — datos separados, no afecta la app real</div>
+  <header>
+    <h1>🐐 Cayo la Cabra</h1>
+    <div class="header-actions">
+      <button id="btn-venta" class="btn-primary">+ Registrar</button>
+      <button id="btn-historial" class="btn-secondary">Historial</button>
+      <button id="btn-lock" class="btn-lock" title="Desbloquear edición">🔒</button>
+      <button id="btn-sinc" class="btn-sinc" title="Sincronización entre dispositivos"><span id="sinc-icon">☁️</span></button>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="stock">📦 Stock</button>
+    <button class="tab-btn" data-tab="ventas">💰 Ventas</button>
+    <button class="tab-btn" data-tab="pedidos">📋 Pedidos</button>
+    <button class="tab-btn solo-admin" data-tab="auditoria">✅ Auditoría</button>
+    <button class="tab-btn solo-admin" data-tab="finanzas">📈 Finanzas</button>
+  </nav>
+
+  <main>
+    <!-- ── TAB STOCK ── -->
+    <div id="tab-stock" class="tab-content">
+      <section class="totales-card">
+        <div class="total-item">
+          <span class="total-label">Remeras adulto</span>
+          <span class="total-valor" id="total-remeras">0</span>
+        </div>
+        <div class="total-item">
+          <span class="total-label">Tote bags</span>
+          <span class="total-valor" id="total-totes">0</span>
+        </div>
+        <div class="total-item">
+          <span class="total-label">Remeras niñx</span>
+          <span class="total-valor" id="total-ninos">0</span>
+        </div>
+        <button class="total-item total-item--green total-item--clickable" id="card-recaudado" onclick="irATab('ventas')" title="Ver ventas" style="display:none">
+          <span class="total-label">Recaudado 👉</span>
+          <span class="recaudado-linea" id="recaudado-ars"></span>
+          <span class="recaudado-linea" id="recaudado-uyu"></span>
+        </button>
+      </section>
+
+      <div class="stock-export-bar">
+        <button class="btn-exportar-pdf" onclick="generarStockPDF()">📄 PDF del stock</button>
+        <button class="btn-exportar-wa"  onclick="exportarStockWhatsApp()">📤 WhatsApp</button>
+        <button class="btn-registrar-ingreso solo-admin" id="btn-registrar-ingreso">📥 Registrar ingreso</button>
+      </div>
+
+      <section class="seccion">
+        <h2>Remeras Adulto</h2>
+        <div class="tabla-container">
+          <table>
+            <thead>
+              <tr><th>Diseño</th><th>Color</th><th>S</th><th>M</th><th>L</th><th>XL</th><th>XXL</th><th>Subtotal</th></tr>
+            </thead>
+            <tbody id="tbody-adultos"></tbody>
+            <tfoot id="tfoot-adultos"></tfoot>
+          </table>
+        </div>
+      </section>
+
+      <section class="seccion">
+        <h2>Tote Bags</h2>
+        <div class="tabla-container">
+          <table>
+            <thead><tr><th>Producto</th><th>Cantidad</th></tr></thead>
+            <tbody id="tbody-totes"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="seccion">
+        <h2>Remeras Niñx</h2>
+        <div class="tabla-container">
+          <table>
+            <thead><tr><th>Talle</th><th>Reposera Roja</th><th>Cabra Blanca</th></tr></thead>
+            <tbody id="tbody-ninos"></tbody>
+            <tfoot id="tfoot-ninos"></tfoot>
+          </table>
+        </div>
+      </section>
+
+      <section class="seccion ing-historial-seccion">
+        <button class="ing-historial-toggle" onclick="this.nextElementSibling.classList.toggle('hidden'); this.classList.toggle('abierto')">
+          📦 Historial de ingresos <span class="ing-toggle-icon">▼</span>
+        </button>
+        <div id="ing-historial" class="hidden">
+          <div id="ing-historial-lista"></div>
+        </div>
+      </section>
+    </div>
+
+    <!-- ── MODAL REGISTRAR INGRESO ── -->
+    <div id="modal-ingreso" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>📥 Registrar ingreso de mercadería</h2>
+          <button class="modal-cerrar" id="btn-cerrar-ingreso" aria-label="Cerrar">✕</button>
+        </div>
+        <div class="sol-seccion-items">
+          <div id="ing-items-agregados" class="sol-items-agregados"></div>
+          <label class="config-label">Categoría
+            <select id="ing-categoria" class="config-input">
+              <option value="">— Seleccioná —</option>
+              <option value="adulto">Remera Adulto</option>
+              <option value="nino">Remera Niñx</option>
+              <option value="tote">Tote Bag</option>
+            </select>
+          </label>
+          <div id="ing-campos-adulto" class="campos hidden">
+            <label class="config-label">Diseño
+              <select id="ing-variante" class="config-input">
+                <option value="veredaRoja">Vereda Roja</option>
+                <option value="veredaNegra">Vereda Negra</option>
+                <option value="reposeraRoja">Reposera Roja</option>
+                <option value="reposeraNegra">Reposera Negra</option>
+                <option value="blanca">Cabra Blanca</option>
+                <option value="cabraNegra">Cabra Negra</option>
+              </select>
+            </label>
+            <label class="config-label">Talle
+              <select id="ing-talle-adulto" class="config-input">
+                <option value="S">S</option><option value="M">M</option><option value="L">L</option><option value="XL">XL</option><option value="XXL">XXL</option>
+              </select>
+            </label>
+          </div>
+          <div id="ing-campos-nino" class="campos hidden">
+            <label class="config-label">Diseño
+              <select id="ing-variante-nino" class="config-input">
+                <option value="reposeraRoja">Reposera Roja</option>
+                <option value="cabraBlanca">Cabra Blanca</option>
+              </select>
+            </label>
+            <label class="config-label">Talle
+              <select id="ing-talle-nino" class="config-input">
+                <option value="2">2</option><option value="4">4</option><option value="6">6</option><option value="8">8</option><option value="10">10</option><option value="12">12</option><option value="16">16</option>
+              </select>
+            </label>
+          </div>
+          <div id="ing-campos-tote" class="campos hidden">
+            <label class="config-label">Modelo
+              <select id="ing-modelo" class="config-input">
+                <option value="silla">Reposera</option>
+                <option value="vereda">Vereda</option>
+              </select>
+            </label>
+          </div>
+          <label class="config-label">Cantidad
+            <input type="number" id="ing-cantidad" class="config-input" min="1" value="1" />
+          </label>
+          <label class="config-label">Costo unitario de compra ($) — opcional
+            <input type="number" id="ing-costo" class="config-input" min="0" step="0.01" placeholder="Lo que costó cada unidad" />
+          </label>
+          <button type="button" id="btn-agregar-item-ing" class="btn-agregar-item">＋ Agregar ítem al ingreso</button>
+        </div>
+        <label class="config-label">Moneda del costo
+          <div class="pago-opciones">
+            <label class="pago-opcion"><input type="radio" name="ing-moneda-costo" value="UYU" checked /><span>🇺🇾 Pesos URU</span></label>
+            <label class="pago-opcion"><input type="radio" name="ing-moneda-costo" value="ARS" /><span>🇦🇷 Pesos ARG</span></label>
+          </div>
+        </label>
+        <label class="config-label">Nota (opcional)
+          <input type="text" id="ing-nota" class="config-input" maxlength="200" placeholder="Ej: Importación junio 2026..." />
+        </label>
+        <p id="ing-error" class="error hidden"></p>
+        <div class="modal-actions">
+          <button id="btn-confirmar-ingreso" class="btn-primary">Registrar ingreso</button>
+          <button id="btn-cancelar-ingreso" class="btn-secondary">Cancelar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── TAB VENTAS ── -->
+    <div id="tab-ventas" class="tab-content hidden">
+      <!-- Resumen -->
+      <section class="ventas-resumen-cards">
+        <div class="vcard vcard--vendido">
+          <span class="vcard-label">📦 Vendidas (cobradas)</span>
+          <span class="vcard-valor" id="v-unidades">0</span>
+          <span class="vcard-desglose" id="v-unidades-desglose"></span>
+        </div>
+        <div class="vcard vcard--ars">
+          <span class="vcard-label">🇦🇷 Total ARS</span>
+          <span class="vcard-valor" id="v-total-ars">$0</span>
+        </div>
+        <div class="vcard vcard--uyu">
+          <span class="vcard-label">🇺🇾 Total UYU</span>
+          <span class="vcard-valor" id="v-total-uyu">$0</span>
+        </div>
+        <div class="vcard vcard--efectivo">
+          <span class="vcard-label">💵 Efectivo</span>
+          <span class="vcard-valor vcard-moneda-linea" id="v-efectivo-ars">$0</span>
+          <span class="vcard-moneda-linea vcard-moneda-uyu hidden" id="v-efectivo-uyu"></span>
+        </div>
+        <div class="vcard vcard--transf">
+          <span class="vcard-label">🏦 Transferencia</span>
+          <span class="vcard-valor vcard-moneda-linea" id="v-transf-ars">$0</span>
+          <span class="vcard-moneda-linea vcard-moneda-uyu hidden" id="v-transf-uyu"></span>
+        </div>
+        <div class="vcard vcard--regalo">
+          <span class="vcard-label">🎁 Regalos</span>
+          <span class="vcard-valor" id="v-regalos">0 u.</span>
+        </div>
+        <div class="vcard vcard--perdida">
+          <span class="vcard-label">📉 Pérdidas</span>
+          <span class="vcard-valor" id="v-perdidas">0 u.</span>
+        </div>
+        <div class="vcard vcard--anota">
+          <span class="vcard-label">📝 Anotados (deben)</span>
+          <span class="vcard-valor" id="v-anota">$0</span>
+        </div>
+        <div class="vcard vcard--pegotines hidden" id="vcard-pegotines">
+          <span class="vcard-label">🎟️ Pegotines</span>
+          <span class="vcard-valor" id="v-pegotines-plata">$0</span>
+        </div>
+      </section>
+
+      <!-- Anotados panel -->
+      <div id="anotados-panel" class="anotados-panel hidden"></div>
+
+      <!-- Filtros -->
+      <div class="ventas-filtros">
+        <button class="filtro-btn active" data-filtro="todos">Todos</button>
+        <button class="filtro-btn" data-filtro="efectivo">Efectivo</button>
+        <button class="filtro-btn" data-filtro="transferencia">Transferencia</button>
+        <button class="filtro-btn" data-filtro="regalo">Regalos</button>
+        <button class="filtro-btn" data-filtro="perdida">📉 Pérdidas</button>
+        <button class="filtro-btn" data-filtro="anota">📝 Anotados</button>
+      </div>
+
+      <!-- Exportar ventas -->
+      <div class="ventas-export-bar">
+        <div class="ventas-export-fechas">
+          <label class="export-fecha-lbl">Desde <input type="date" id="export-desde" class="export-fecha-input"></label>
+          <label class="export-fecha-lbl">Hasta <input type="date" id="export-hasta" class="export-fecha-input"></label>
+        </div>
+        <div class="ventas-export-btns">
+          <button class="btn-exportar-pdf" onclick="exportarVentasPDF()">📄 PDF</button>
+          <button class="btn-exportar-wa"  onclick="exportarVentasWhatsApp()">📤 WhatsApp</button>
+        </div>
+      </div>
+
+      <!-- Lista -->
+      <div id="ventas-lista"></div>
+    </div>
+
+    <!-- ── TAB PEDIDOS ── -->
+    <div id="tab-pedidos" class="tab-content hidden">
+      <div class="pedidos-topbar">
+        <button id="btn-nueva-solicitud" class="btn-primary">+ Nueva solicitud</button>
+        <div id="pedidos-saldo-summary" class="pedidos-saldo-summary hidden"></div>
+      </div>
+      <div class="pedidos-subtabs">
+        <button class="pedidos-subtab active" data-estado="activos">Activos</button>
+        <button class="pedidos-subtab" data-estado="entregados">Entregados</button>
+        <button class="pedidos-subtab" data-estado="completados">Completados</button>
+        <button class="pedidos-subtab" data-estado="cancelados">Cancelados</button>
+      </div>
+      <div id="pedidos-contenido"></div>
+    </div>
+
+    <!-- ── TAB AUDITORÍA ── -->
+    <div id="tab-auditoria" class="tab-content hidden">
+      <div class="auditoria-header">
+        <p class="auditoria-desc">Contá el stock físico y comparalo con el sistema. Solo ingresá los valores que difieren.</p>
+        <div class="audit-header-btns">
+          <label class="audit-ciego-label" title="Ocultá los valores del sistema mientras contás para evitar sesgo">
+            <input type="checkbox" id="audit-modo-ciego" />
+            <span>👁 Modo ciego</span>
+          </label>
+          <button id="btn-guardar-auditoria" class="btn-primary">Guardar auditoría</button>
+        </div>
+      </div>
+      <div id="auditoria-contenido"></div>
+      <div class="audit-historial-section">
+        <h2 class="audit-hist-titulo">📋 Historial de auditorías</h2>
+        <div id="audit-historial-lista"></div>
+      </div>
+    </div>
+
+    <!-- ── TAB FINANZAS ── -->
+    <div id="tab-finanzas" class="tab-content hidden">
+      <div class="finanzas-topbar">
+        <p class="auditoria-desc">Balance real del negocio: lo recaudado contra lo invertido, y control del efectivo y las transferencias que entrega quien vende.</p>
+        <button id="btn-nuevo-arqueo" class="btn-primary">🧾 Control de caja</button>
+      </div>
+      <div id="finanzas-contenido"></div>
+      <div class="audit-historial-section">
+        <h2 class="audit-hist-titulo">🧾 Historial de controles de caja</h2>
+        <div id="arqueos-historial-lista"></div>
+      </div>
+      <div class="audit-historial-section">
+        <h2 class="audit-hist-titulo">🗂 Temporadas anteriores</h2>
+        <p class="fin-nota">Al cerrar una temporada, todas las ventas, pedidos, ingresos y controles pasan al archivo y la app arranca de cero (el stock físico se mantiene).</p>
+        <div id="archivo-lista"></div>
+        <button id="btn-cerrar-temporada" class="btn-secondary" style="margin-top:0.6rem">🎪 Cerrar temporada y arrancar de cero</button>
+      </div>
+    </div>
+  </main>
+
+  <!-- ── MODAL VENTA RÁPIDA ── -->
+  <div id="modal-vr" class="modal hidden">
+    <div class="modal-content modal-vr-content">
+      <div class="modal-header">
+        <h2>⚡ Venta rápida</h2>
+        <button class="modal-cerrar" id="btn-cerrar-vr" aria-label="Cerrar">✕</button>
+      </div>
+      <div id="vr-body"></div>
+      <p id="vr-error" class="error hidden"></p>
+      <button type="button" id="btn-vr-completa" class="vr-link-completa">⚙️ Venta completa (pegotines, anotar deuda, otra moneda…)</button>
+    </div>
+  </div>
+
+  <!-- Toast de venta registrada con deshacer -->
+  <div id="vr-toast" class="vr-toast hidden">
+    <span class="vr-toast-txt"></span>
+    <button type="button" id="btn-vr-deshacer">↩️ Deshacer</button>
+  </div>
+
+  <!-- ── MODAL VENTA ── -->
+  <div id="modal-venta" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Registrar Venta</h2>
+        <button class="modal-cerrar" id="btn-cerrar-venta" aria-label="Cerrar">✕</button>
+      </div>
+      <form id="form-venta">
+        <label>Categoría
+          <select id="venta-categoria" required>
+            <option value="">— Elegir —</option>
+            <option value="adulto">Remera Adulto</option>
+            <option value="nino">Remera Niñx</option>
+            <option value="tote">Tote Bag</option>
+            <option value="pegotines">🎟️ Pegotines</option>
+          </select>
+        </label>
+        <div id="campos-adulto" class="campos hidden">
+          <label>Talle
+            <select id="venta-talle-adulto">
+              <option value="S">S</option><option value="M">M</option><option value="L">L</option><option value="XL">XL</option><option value="XXL">XXL</option>
+            </select>
+          </label>
+          <label>Diseño / Color
+            <select id="venta-variante-adulto">
+              <option value="veredaRoja">Vereda Roja</option>
+              <option value="veredaNegra">Vereda Negra</option>
+              <option value="reposeraRoja">Reposera Roja</option>
+              <option value="reposeraNegra">Reposera Negra</option>
+              <option value="blanca">Cabra Blanca</option>
+              <option value="cabraNegra">Cabra Negra</option>
+            </select>
+          </label>
+        </div>
+        <div id="campos-nino" class="campos hidden">
+          <label>Diseño
+            <select id="venta-variante-nino">
+              <option value="reposeraRoja">Reposera Roja</option>
+              <option value="cabraBlanca">Cabra Blanca</option>
+            </select>
+          </label>
+          <label>Talle
+            <select id="venta-talle-nino">
+              <option value="2">2</option><option value="4">4</option><option value="6">6</option>
+              <option value="8">8</option><option value="10">10</option><option value="12">12</option><option value="16">16</option>
+            </select>
+          </label>
+        </div>
+        <div id="campos-tote" class="campos hidden">
+          <label>Modelo
+            <select id="venta-tote">
+              <option value="silla">Reposera</option>
+              <option value="vereda">Vereda</option>
+            </select>
+          </label>
+        </div>
+        <label id="label-cantidad">Cantidad
+          <input type="number" id="venta-cantidad" min="1" value="1" required />
+        </label>
+        <label id="label-precio"><span id="label-precio-txt">Precio unitario ($)</span>
+          <input type="number" id="venta-precio-override" min="0" step="1" placeholder="Precio por defecto" />
+        </label>
+        <label class="opcion-moneda-venta">Moneda
+          <div class="pago-opciones">
+            <label class="pago-opcion"><input type="radio" name="moneda-venta" value="UYU" checked /><span>🇺🇾 Pesos URU</span></label>
+            <label class="pago-opcion opcion-ars-venta"><input type="radio" name="moneda-venta" value="ARS" /><span>🇦🇷 Pesos ARG</span></label>
+          </div>
+        </label>
+        <label>Método de pago
+          <div class="pago-opciones">
+            <label class="pago-opcion"><input type="radio" name="pago" value="efectivo" checked /><span>Efectivo</span></label>
+            <label class="pago-opcion"><input type="radio" name="pago" value="transferencia" /><span>Transferencia</span></label>
+            <label class="pago-opcion"><input type="radio" name="pago" value="regalo" /><span>🎁 Regalo</span></label>
+            <label class="pago-opcion"><input type="radio" name="pago" value="perdida" /><span>📉 Pérdida</span></label>
+            <label class="pago-opcion"><input type="radio" name="pago" value="anota" /><span>📝 Anota</span></label>
+          </div>
+        </label>
+        <div id="campos-anota-nombre" class="campos hidden">
+          <label>Nombre (quién anota)
+            <input type="text" id="venta-nombre-anota" maxlength="60" placeholder="Ej: Juan García..." list="anota-nombres-list" autocomplete="off" />
+            <datalist id="anota-nombres-list"></datalist>
+          </label>
+        </div>
+        <div class="venta-resumen">
+          <span id="venta-precio-unit"></span>
+          <span id="venta-total-venta"></span>
+        </div>
+        <p id="venta-disponible" class="disponible"></p>
+        <p id="venta-error" class="error hidden"></p>
+        <div class="modal-actions">
+          <button type="submit" class="btn-primary">Confirmar</button>
+          <button type="button" id="btn-cancelar-venta" class="btn-secondary">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── MODAL HISTORIAL ── -->
+  <div id="modal-historial" class="modal hidden">
+    <div class="modal-content modal-wide">
+      <div class="modal-header">
+        <h2>Historial de Ventas</h2>
+        <button class="modal-cerrar" id="btn-cerrar-historial" aria-label="Cerrar">✕</button>
+      </div>
+      <p id="historial-total-recaudado" class="hist-total-label"></p>
+      <div id="lista-historial"></div>
+    </div>
+  </div>
+
+  <!-- ── MODAL EDITAR REGISTRO ── -->
+  <div id="modal-editar" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Editar registro</h2>
+        <button class="modal-cerrar" id="btn-cerrar-editar" aria-label="Cerrar">✕</button>
+      </div>
+      <p id="editar-info" class="editar-desc"></p>
+      <label>Categoría
+        <select id="editar-categoria">
+          <option value="adulto">Remera Adulto</option>
+          <option value="nino">Remera Niñx</option>
+          <option value="tote">Tote Bag</option>
+        </select>
+      </label>
+      <div id="editar-campos-adulto" class="campos">
+        <label>Talle
+          <select id="editar-talle-adulto">
+            <option value="S">S</option><option value="M">M</option><option value="L">L</option><option value="XL">XL</option><option value="XXL">XXL</option>
+          </select>
+        </label>
+        <label>Diseño / Color
+          <select id="editar-variante-adulto">
+            <option value="veredaRoja">Vereda Roja</option>
+            <option value="veredaNegra">Vereda Negra</option>
+            <option value="reposeraRoja">Reposera Roja</option>
+            <option value="reposeraNegra">Reposera Negra</option>
+            <option value="blanca">Cabra Blanca</option>
+            <option value="cabraNegra">Cabra Negra</option>
+          </select>
+        </label>
+      </div>
+      <div id="editar-campos-nino" class="campos hidden">
+        <label>Diseño
+          <select id="editar-variante-nino">
+            <option value="reposeraRoja">Reposera Roja</option>
+            <option value="cabraBlanca">Cabra Blanca</option>
+          </select>
+        </label>
+        <label>Talle
+          <select id="editar-talle-nino">
+            <option value="2">2</option><option value="4">4</option><option value="6">6</option>
+            <option value="8">8</option><option value="10">10</option><option value="12">12</option><option value="16">16</option>
+          </select>
+        </label>
+      </div>
+      <div id="editar-campos-tote" class="campos hidden">
+        <label>Modelo
+          <select id="editar-tote">
+            <option value="silla">Reposera</option>
+            <option value="vereda">Vereda</option>
+          </select>
+        </label>
+      </div>
+      <label>Cantidad
+        <input type="number" id="editar-cantidad" min="1" value="1" />
+      </label>
+      <label>Precio unitario ($)
+        <input type="number" id="editar-precio" min="0" step="1" />
+      </label>
+      <label>Moneda
+        <div class="pago-opciones">
+          <label class="pago-opcion"><input type="radio" name="editar-moneda" value="UYU" /><span>🇺🇾 Pesos URU</span></label>
+          <label class="pago-opcion"><input type="radio" name="editar-moneda" value="ARS" /><span>🇦🇷 Pesos ARG</span></label>
+        </div>
+      </label>
+      <label>Método de pago
+        <div class="pago-opciones">
+          <label class="pago-opcion"><input type="radio" name="editar-pago" value="efectivo" /><span>Efectivo</span></label>
+          <label class="pago-opcion"><input type="radio" name="editar-pago" value="transferencia" /><span>Transferencia</span></label>
+          <label class="pago-opcion"><input type="radio" name="editar-pago" value="regalo" /><span>🎁 Regalo</span></label>
+          <label class="pago-opcion"><input type="radio" name="editar-pago" value="perdida" /><span>📉 Pérdida</span></label>
+          <label class="pago-opcion"><input type="radio" name="editar-pago" value="anota" /><span>📝 Anota</span></label>
+        </div>
+      </label>
+      <div id="editar-campos-anota-nombre" class="campos hidden">
+        <label>Nombre (quién anota)
+          <input type="text" id="editar-nombre-anota" maxlength="60" placeholder="Ej: Juan García..." />
+        </label>
+      </div>
+      <div class="venta-resumen">
+        <span id="editar-precio-unit"></span>
+        <span id="editar-total-venta"></span>
+      </div>
+      <p id="editar-error" class="error hidden"></p>
+      <div class="modal-actions">
+        <button id="btn-confirmar-editar" class="btn-primary">Guardar</button>
+        <button id="btn-cancelar-editar" class="btn-secondary">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODAL CONFIGURACIÓN SYNC ── -->
+  <div id="modal-config" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>☁️ Sincronización</h2>
+        <button class="modal-cerrar" id="btn-cerrar-config" aria-label="Cerrar">✕</button>
+      </div>
+      <p class="config-desc">
+        Compartí los datos entre el celular y la PC usando Google Sheets.
+        Necesitás configurarlo una sola vez por dispositivo.
+      </p>
+      <label class="config-label">URL del script de Google
+        <input type="url" id="config-url" class="config-input"
+          placeholder="https://script.google.com/macros/s/..." />
+      </label>
+      <p class="config-ayuda">
+        💡 La URL la obtenés en Apps Script → Implementar → Nueva implementación.<br>
+        En <strong>"Quién tiene acceso"</strong> elegí <strong>Cualquier persona</strong>.
+      </p>
+
+      <label class="config-label solo-admin" style="flex-direction:row;align-items:center;gap:0.5rem;cursor:pointer">
+        <input type="checkbox" id="config-mostrar-ars" /> Mostrar pesos argentinos (ARS) en ventas
+      </label>
+
+      <p id="config-status" class="config-status-text"></p>
+      <div class="modal-actions">
+        <button id="btn-config-guardar" class="btn-primary">Guardar URL</button>
+        <button id="btn-config-subir" class="btn-secondary">⬆️ Subir datos ahora</button>
+        <button id="btn-config-borrar" class="btn-secondary">Desactivar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODAL BLOQUEO AUDITORÍA ── -->
+  <div id="modal-audit-bloqueo" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>⚠️ Saldo neto con diferencias</h2>
+        <button class="modal-cerrar" id="btn-cerrar-audit-bloqueo" aria-label="Cerrar">✕</button>
+      </div>
+      <p class="audit-bloqueo-desc">El conteo tiene diferencias que no cierran dentro de cada categoría. Para guardar, el saldo neto de remeras adultos, totes y niñxs debe ser <strong>cero</strong> por separado.</p>
+      <div id="audit-bloqueo-netos" class="audit-bloqueo-netos"></div>
+      <p class="audit-bloqueo-hint">¿Qué querés hacer?</p>
+      <div class="modal-actions">
+        <button id="btn-bloqueo-editar" class="btn-primary">✏️ Editar saldos</button>
+        <button id="btn-bloqueo-ventas" class="btn-secondary">💰 Ingresar ventas</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODAL RESULTADO AUDITORÍA ── -->
+  <div id="modal-resultado-auditoria" class="modal hidden">
+    <div class="modal-content modal-wide">
+      <div class="modal-header">
+        <h2>📊 Resultado de auditoría</h2>
+        <button class="modal-cerrar" id="btn-cerrar-resultado" aria-label="Cerrar">✕</button>
+      </div>
+      <div id="resultado-body" class="resultado-body"></div>
+      <div id="resultado-motivo-section" class="hidden" style="margin-top:0.75rem">
+        <label class="config-label">Motivo del ajuste neto
+          <select id="resultado-motivo-select" class="config-input">
+            <option value="">— Seleccioná el motivo —</option>
+            <option value="Merma / pérdida">📉 Merma / pérdida</option>
+            <option value="Mercadería dañada">🔨 Mercadería dañada</option>
+            <option value="Error de conteo anterior">🔄 Corrección de error de conteo</option>
+            <option value="Recepción de nuevo stock">📦 Recepción de nuevo stock</option>
+            <option value="Devolución">↩️ Devolución</option>
+            <option value="Otro">📝 Otro</option>
+          </select>
+        </label>
+        <label class="config-label" id="resultado-detalle-label" style="display:none">Descripción breve
+          <input type="text" id="resultado-detalle" class="config-input" placeholder="Ej: se dañaron 2 remeras en la lluvia..." maxlength="200" />
+        </label>
+        <p id="resultado-error" class="error hidden">Seleccioná un motivo para confirmar.</p>
+      </div>
+      <div class="modal-actions">
+        <button id="btn-confirmar-resultado" class="btn-primary">✅ Confirmar y guardar</button>
+        <button id="btn-cancelar-resultado"  class="btn-secondary">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODAL NUEVA SOLICITUD ── -->
+  <div id="modal-solicitud" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>📋 Nueva solicitud</h2>
+        <button class="modal-cerrar" id="btn-cerrar-solicitud" aria-label="Cerrar">✕</button>
+      </div>
+      <label class="config-label">Para quién
+        <input type="text" id="sol-para" class="config-input" placeholder="Nombre y apellido..." maxlength="80" />
+      </label>
+      <label class="config-label opcion-moneda-venta">Moneda
+        <div class="pago-opciones">
+          <label class="pago-opcion"><input type="radio" name="moneda-sol" value="UYU" checked /><span>🇺🇾 Pesos URU</span></label>
+          <label class="pago-opcion opcion-ars-venta"><input type="radio" name="moneda-sol" value="ARS" /><span>🇦🇷 Pesos ARG</span></label>
+        </div>
+      </label>
+
+      <div class="sol-seccion-items">
+        <div id="sol-items-agregados" class="sol-items-agregados"></div>
+        <label class="config-label">Categoría
+          <select id="sol-categoria" class="config-input">
+            <option value="">— Seleccioná —</option>
+            <option value="adulto">Remera Adulto</option>
+            <option value="nino">Remera Niñx</option>
+            <option value="tote">Tote Bag</option>
+          </select>
+        </label>
+        <div id="sol-campos-adulto" class="campos hidden">
+          <label class="config-label">Diseño
+            <select id="sol-variante" class="config-input">
+              <option value="veredaRoja">Vereda Roja</option>
+              <option value="veredaNegra">Vereda Negra</option>
+              <option value="reposeraRoja">Reposera Roja</option>
+              <option value="reposeraNegra">Reposera Negra</option>
+              <option value="blanca">Cabra Blanca</option>
+              <option value="cabraNegra">Cabra Negra</option>
+            </select>
+          </label>
+          <label class="config-label">Talle
+            <select id="sol-talle-adulto" class="config-input">
+              <option value="S">S</option><option value="M">M</option><option value="L">L</option><option value="XL">XL</option><option value="XXL">XXL</option>
+            </select>
+          </label>
+        </div>
+        <div id="sol-campos-nino" class="campos hidden">
+          <label class="config-label">Diseño
+            <select id="sol-variante-nino" class="config-input">
+              <option value="reposeraRoja">Reposera Roja</option>
+              <option value="cabraBlanca">Cabra Blanca</option>
+            </select>
+          </label>
+          <label class="config-label">Talle
+            <select id="sol-talle-nino" class="config-input">
+              <option value="2">2</option><option value="4">4</option><option value="6">6</option><option value="8">8</option><option value="10">10</option><option value="12">12</option><option value="16">16</option>
+            </select>
+          </label>
+        </div>
+        <div id="sol-campos-tote" class="campos hidden">
+          <label class="config-label">Modelo
+            <select id="sol-modelo" class="config-input">
+              <option value="silla">Reposera</option>
+              <option value="vereda">Vereda</option>
+            </select>
+          </label>
+        </div>
+        <label class="config-label">Cantidad
+          <input type="number" id="sol-cantidad" class="config-input" min="1" value="1" />
+        </label>
+        <button type="button" id="btn-agregar-item-sol" class="btn-agregar-item">＋ Agregar ítem a la solicitud</button>
+        <div id="sol-stock-info" class="sol-stock-info"></div>
+      </div>
+
+      <label class="config-label">Precio total ($)
+        <input type="number" id="sol-precio" class="config-input" min="0" step="1" placeholder="0" data-autoset="true" />
+      </label>
+      <label class="config-label">Notas (opcional)
+        <input type="text" id="sol-notas" class="config-input" maxlength="200" placeholder="Ej: urgente para el domingo..." />
+      </label>
+      <p id="sol-error" class="error hidden"></p>
+      <div class="modal-actions">
+        <button id="btn-confirmar-solicitud" class="btn-primary">Crear solicitud</button>
+        <button id="btn-cancelar-solicitud" class="btn-secondary">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODAL PAGO PEDIDO ── -->
+  <div id="modal-pago-pedido" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>💰 Registrar pago</h2>
+        <button class="modal-cerrar" id="btn-cerrar-pago-pedido" aria-label="Cerrar">✕</button>
+      </div>
+      <div id="pago-pedido-info" class="pago-pedido-info-box"></div>
+      <label class="config-label" style="margin-top:0.5rem">Monto ($)
+        <input type="number" id="pago-pedido-monto" class="config-input" min="1" step="1" />
+      </label>
+      <label class="config-label">Método
+        <select id="pago-pedido-metodo" class="config-input">
+          <option value="efectivo">💵 Efectivo</option>
+          <option value="transferencia">📲 Transferencia</option>
+        </select>
+      </label>
+      <p id="pago-pedido-error" class="error hidden">Ingresá un monto válido.</p>
+      <div class="modal-actions">
+        <button id="btn-confirmar-pago-pedido" class="btn-primary">Confirmar pago</button>
+        <button id="btn-cancelar-pago-pedido" class="btn-secondary">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODAL CONTROL DE CAJA ── -->
+  <div id="modal-arqueo" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>🧾 Control de caja</h2>
+        <button class="modal-cerrar" id="btn-cerrar-arqueo" aria-label="Cerrar">✕</button>
+      </div>
+      <p class="config-desc">Contá el efectivo que te entregaron y verificá las transferencias en la cuenta. Se compara con lo que registró el sistema.</p>
+      <label class="config-label opcion-moneda-venta">Moneda
+        <div class="pago-opciones">
+          <label class="pago-opcion"><input type="radio" name="arqueo-moneda" value="UYU" checked /><span>🇺🇾 Pesos URU</span></label>
+          <label class="pago-opcion opcion-ars-venta"><input type="radio" name="arqueo-moneda" value="ARS" /><span>🇦🇷 Pesos ARG</span></label>
+        </div>
+      </label>
+      <div id="arqueo-esperado" class="pago-pedido-info-box"></div>
+      <label class="config-label">Efectivo contado ($)
+        <input type="number" id="arqueo-efectivo" class="config-input" min="0" step="1" placeholder="Dejá vacío si no lo contaste" />
+      </label>
+      <label class="config-label">Transferencias verificadas ($)
+        <input type="number" id="arqueo-transf" class="config-input" min="0" step="1" placeholder="Dejá vacío si no las revisaste" />
+      </label>
+      <label class="config-label">Nota (opcional)
+        <input type="text" id="arqueo-nota" class="config-input" maxlength="200" placeholder="Ej: cierre feria domingo..." />
+      </label>
+      <p id="arqueo-error" class="error hidden">Ingresá al menos un valor (efectivo o transferencias).</p>
+      <div class="modal-actions">
+        <button id="btn-confirmar-arqueo" class="btn-primary">Guardar control</button>
+        <button id="btn-cancelar-arqueo" class="btn-secondary">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODAL PIN ── -->
+  <div id="modal-pin" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>🔐 Ingresar PIN</h2>
+        <button class="modal-cerrar" id="btn-cerrar-pin" aria-label="Cerrar">✕</button>
+      </div>
+      <p class="config-desc">Ingresá tu PIN. Según el PIN se habilita el modo <strong>vendedor</strong> (ventas, pedidos y stock) o <strong>administrador</strong> (todo, incluidas finanzas e ingresos de mercadería).</p>
+      <label class="config-label">PIN
+        <input type="password" id="pin-input" class="config-input" maxlength="8"
+          placeholder="●●●●" inputmode="numeric" autocomplete="off" />
+      </label>
+      <label class="config-label" style="flex-direction:row;align-items:center;gap:0.5rem;cursor:pointer">
+        <input type="checkbox" id="pin-recordar" /> Recordar en este dispositivo
+      </label>
+      <p id="pin-error" class="error hidden">PIN incorrecto. Intentá de nuevo.</p>
+      <div class="modal-actions">
+        <button id="btn-confirmar-pin" class="btn-primary">Desbloquear</button>
+        <button id="btn-cancelar-pin"  class="btn-secondary">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js?v=48"></script>
+</body>
+</html>
