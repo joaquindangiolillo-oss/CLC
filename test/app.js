@@ -528,7 +528,9 @@ async function sincronizarDesdeNube() {
 
 // ── Control de acceso (PIN por rol) ───────────────────────────────────────────
 // admin: acceso total (ingresos de mercadería, costos, finanzas, auditoría)
-// vendedor: registrar ventas/regalos/pérdidas, pedidos y ver stock
+// vendedor: registrar ventas/regalos/pérdidas, pedidos, ver stock, hacer el
+//   conteo de auditoría (sin ajustar stock) y ver en finanzas el efectivo,
+//   las transferencias y lo recaudado (sin invertido ni balance)
 const PIN_ADMIN    = '1122';
 const PIN_VENDEDOR = '2244';
 let rol = 'lectura'; // 'lectura' | 'vendedor' | 'admin'
@@ -545,9 +547,10 @@ function setRol(nuevo) {
                     : rol === 'admin'   ? 'Administrador — tocá para bloquear'
                     :                     'Vendedor — tocá para bloquear';
   }
-  // Si al cambiar de rol quedó abierta una pestaña solo de admin, volver a Stock
+  // Si al cambiar de rol quedó abierta una pestaña que este rol no puede ver,
+  // volver a Stock (auditoría y finanzas requieren vendedor o admin)
   const tabActiva = document.querySelector('.tab-btn.active')?.dataset.tab;
-  if (rol !== 'admin' && (tabActiva === 'finanzas' || tabActiva === 'auditoria')) irATab('stock');
+  if (rol === 'lectura' && (tabActiva === 'finanzas' || tabActiva === 'auditoria')) irATab('stock');
 }
 
 // Botón 🔒/🔓/🛒
@@ -601,8 +604,8 @@ document.getElementById('modal-pin').addEventListener('click', e => {
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
 window.irATab = function(tab) {
-  // Pestañas de administración: bloqueadas para otros roles
-  if ((tab === 'finanzas' || tab === 'auditoria') && rol !== 'admin') tab = 'stock';
+  // Auditoría y finanzas: requieren vendedor o admin (en lectura quedan bloqueadas)
+  if ((tab === 'finanzas' || tab === 'auditoria') && rol === 'lectura') tab = 'stock';
   document.querySelectorAll('.tab-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.tab === tab);
   });
@@ -3370,8 +3373,8 @@ function renderFinanzas() {
           <div class="fin-item"><span>💵 Efectivo (debería haber en caja)</span><strong>${_fmtMon(efec, mon)}</strong></div>
           <div class="fin-item"><span>🏦 Transferencias (deberían estar en cuenta)</span><strong>${_fmtMon(transf, mon)}</strong></div>
           <div class="fin-item"><span>💰 Recaudado total</span><strong>${_fmtMon(rec, mon)}</strong></div>
-          <div class="fin-item"><span>📥 Invertido en mercadería</span><strong>${_fmtMon(inv, mon)}</strong></div>
-          <div class="fin-item fin-item--balance"><span>📈 Balance (recaudado − invertido)</span>
+          <div class="fin-item solo-admin"><span>📥 Invertido en mercadería</span><strong>${_fmtMon(inv, mon)}</strong></div>
+          <div class="fin-item fin-item--balance solo-admin"><span>📈 Balance (recaudado − invertido)</span>
             <strong class="${bal >= 0 ? 'fin-pos' : 'fin-neg'}">${_fmtMon(bal, mon)}</strong></div>
         </div>
       </div>`;
@@ -3398,7 +3401,7 @@ function renderFinanzas() {
     });
   });
   const margenHtml = filasMargen.length > 0 ? `
-    <div class="seccion">
+    <div class="seccion solo-admin">
       <h2>Ganancia por unidad</h2>
       <p class="fin-nota">Costo promedio según los ingresos de mercadería con costo cargado, comparado con el precio de lista en la misma moneda.</p>
       <div class="tabla-container">
@@ -3408,7 +3411,7 @@ function renderFinanzas() {
         </table>
       </div>
     </div>` : `
-    <div class="seccion"><p class="fin-nota">💡 Para ver la ganancia por unidad, cargá el <strong>costo unitario</strong> al registrar ingresos de mercadería.</p></div>`;
+    <div class="seccion solo-admin"><p class="fin-nota">💡 Para ver la ganancia por unidad, cargá el <strong>costo unitario</strong> al registrar ingresos de mercadería.</p></div>`;
 
   const regalos  = historial.reduce((s, h) => h.pago === 'regalo'  ? s + h.cantidad : s, 0);
   const perdidas = historial.reduce((s, h) => h.pago === 'perdida' ? s + h.cantidad : s, 0);

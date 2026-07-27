@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>PRUEBA · Stock - Cayó la Cabra</title>
-  <link rel="stylesheet" href="style.css?v=49" />
+  <link rel="stylesheet" href="style.css?v=50" />
 </head>
 <body>
   <div id="banner-prueba" style="background:#e67e22;color:#fff;text-align:center;padding:6px 10px;font-weight:700;font-size:0.8rem;letter-spacing:.3px;">🧪 VERSIÓN DE PRUEBA — datos separados, no afecta la app real</div>
@@ -22,8 +22,8 @@
     <button class="tab-btn active" data-tab="stock">📦 Stock</button>
     <button class="tab-btn" data-tab="ventas">💰 Ventas</button>
     <button class="tab-btn" data-tab="pedidos">📋 Pedidos</button>
-    <button class="tab-btn solo-admin" data-tab="auditoria">✅ Auditoría</button>
-    <button class="tab-btn solo-admin" data-tab="finanzas">📈 Finanzas</button>
+    <button class="tab-btn solo-staff" data-tab="auditoria">✅ Auditoría</button>
+    <button class="tab-btn solo-staff" data-tab="finanzas">📈 Finanzas</button>
   </nav>
 
   <main>
@@ -283,7 +283,7 @@
             <span>👁 Modo ciego</span>
           </label>
           <button id="btn-guardar-auditoria" class="btn-primary">Guardar auditoría</button>
-          <button id="btn-ajustar-stock" class="btn-secondary" title="Usa lo que cargaste para corregir el stock real del sistema">📌 Ajustar stock real</button>
+          <button id="btn-ajustar-stock" class="btn-secondary solo-admin" title="Usa lo que cargaste para corregir el stock real del sistema">📌 Ajustar stock real</button>
         </div>
       </div>
       <div id="auditoria-contenido"></div>
@@ -296,15 +296,16 @@
     <!-- ── TAB FINANZAS ── -->
     <div id="tab-finanzas" class="tab-content hidden">
       <div class="finanzas-topbar">
-        <p class="auditoria-desc">Balance real del negocio: lo recaudado contra lo invertido, y control del efectivo y las transferencias que entrega quien vende.</p>
-        <button id="btn-nuevo-arqueo" class="btn-primary">🧾 Control de caja</button>
+        <p class="auditoria-desc solo-admin">Balance real del negocio: lo recaudado contra lo invertido, y control del efectivo y las transferencias que entrega quien vende.</p>
+        <p class="auditoria-desc solo-vendedor">Lo que se recaudó: el efectivo que debería haber en caja y las transferencias que deberían estar en la cuenta.</p>
+        <button id="btn-nuevo-arqueo" class="btn-primary solo-admin">🧾 Control de caja</button>
       </div>
       <div id="finanzas-contenido"></div>
-      <div class="audit-historial-section">
+      <div class="audit-historial-section solo-admin">
         <h2 class="audit-hist-titulo">🧾 Historial de controles de caja</h2>
         <div id="arqueos-historial-lista"></div>
       </div>
-      <div class="audit-historial-section">
+      <div class="audit-historial-section solo-admin">
         <h2 class="audit-hist-titulo">🗂 Temporadas anteriores</h2>
         <p class="fin-nota">Al cerrar una temporada, todas las ventas, pedidos, ingresos y controles pasan al archivo y la app arranca de cero (el stock físico se mantiene).</p>
         <div id="archivo-lista"></div>
@@ -735,6 +736,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=49"></script>
+  <script src="app.js?v=50"></script>
 </body>
 </html>

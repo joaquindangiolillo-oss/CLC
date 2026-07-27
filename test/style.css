@@ -1351,9 +1351,13 @@ td .stock-reservas { display: flex; flex-wrap: wrap; gap: 0.2rem; justify-conten
 }
 
 /* ── ROLES: vendedor vs administrador (v46) ─────────────────────────────────── */
-/* Todo lo marcado .solo-admin (ingresos de mercadería, costos, finanzas,
-   auditoría) solo es visible con PIN de administrador */
+/* .solo-admin (costos, invertido, balance, ajustes de stock, control de caja,
+   temporadas) solo es visible con PIN de administrador.
+   .solo-staff (auditoría, finanzas parciales) es visible para admin y vendedor.
+   .solo-vendedor solo se muestra en el rol vendedor. */
 body:not(.rol-admin) .solo-admin { display: none !important; }
+body:not(.rol-admin):not(.rol-vendedor) .solo-staff { display: none !important; }
+body:not(.rol-vendedor) .solo-vendedor { display: none !important; }
 .rol-vendedor .btn-lock { border-color: rgba(52,152,219,0.6); }
 
 /* ── Pérdidas de mercadería ─────────────────────────────────────────────────── */
