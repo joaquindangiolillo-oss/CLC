@@ -1,5 +1,6 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 .hidden { display: none !important; }
+.fecha-manual-hint { font-weight: 400; font-size: 0.8em; color: var(--texto-tenue); }
 
 :root {
   --rojo: #c0392b;
@@ -444,6 +445,22 @@ button.total-item {
 }
 .filtro-btn:hover  { color: var(--texto); }
 .filtro-btn.active { background: var(--acento); border-color: var(--acento); color: #fff; }
+
+.ventas-filtros-moneda { margin-top: -0.5rem; }
+.filtro-moneda-btn {
+  background: var(--fondo-card);
+  border: 1px solid var(--borde);
+  border-radius: 20px;
+  color: var(--texto-tenue);
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 0.4rem 1rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  min-height: 36px;
+}
+.filtro-moneda-btn:hover  { color: var(--texto); }
+.filtro-moneda-btn.active { background: var(--verde); border-color: var(--verde); color: #fff; }
 
 /* LISTA VENTAS */
 #ventas-lista { font-size: 0.9rem; }

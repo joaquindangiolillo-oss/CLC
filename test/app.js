@@ -11,22 +11,38 @@ const STOCK_INICIAL = {
   },
   totes: { silla: 9, vereda: 5 },
   ninos: {
-    2:  { reposeraRoja: 1, cabraBlanca: 0 },
-    4:  { reposeraRoja: 2, cabraBlanca: 0 },
-    6:  { reposeraRoja: 2, cabraBlanca: 0 },
-    8:  { reposeraRoja: 1, cabraBlanca: 0 },
-    10: { reposeraRoja: 3, cabraBlanca: 0 },
-    12: { reposeraRoja: 1, cabraBlanca: 0 },
-    16: { reposeraRoja: 2, cabraBlanca: 0 },
+    2:  { reposeraRoja: 1, cabraNegra: 0 },
+    4:  { reposeraRoja: 2, cabraNegra: 0 },
+    6:  { reposeraRoja: 2, cabraNegra: 0 },
+    8:  { reposeraRoja: 1, cabraNegra: 0 },
+    10: { reposeraRoja: 3, cabraNegra: 0 },
+    12: { reposeraRoja: 1, cabraNegra: 0 },
+    16: { reposeraRoja: 2, cabraNegra: 0 },
   },
 };
 
 const VARIANTES      = ['reposeraRoja', 'reposeraNegra', 'blanca', 'cabraNegra', 'veredaRoja', 'veredaNegra'];
-const VARIANTES_NINO = ['reposeraRoja', 'cabraBlanca'];
+const VARIANTES_NINO = ['reposeraRoja', 'cabraNegra'];
 const TALLES_ADULTO  = ['S', 'M', 'L', 'XL', 'XXL'];
 const TALLES_NINO    = [2, 4, 6, 8, 10, 12, 16];
 
-const LABEL_VARIANTE_NINO = { reposeraRoja: 'Reposera Roja', cabraBlanca: 'Cabra Blanca' };
+const LABEL_VARIANTE_NINO = { reposeraRoja: 'Reposera Roja', cabraNegra: 'Cabra Negra' };
+
+// Suma las variantes (Reposera Roja + Cabra Negra) de un talle de niñx.
+// ninosObj es estado.ninos o un stockSnapshot.ninos — ambos con la misma forma.
+function totalNinoTalle(ninosObj, talle) {
+  return VARIANTES_NINO.reduce((s, v) => s + (ninosObj?.[talle]?.[v] ?? 0), 0);
+}
+
+// Defensa para mostrar valores de auditorías guardadas antes de la corrección
+// del bug de niñx: si el valor guardado quedó como objeto (el bug viejo), lo
+// suma en vez de mostrarlo tal cual. Para valores ya numéricos no cambia nada.
+function mostrarCantidadGuardada(valor) {
+  if (valor && typeof valor === 'object') {
+    return Object.values(valor).reduce((s, n) => s + (Number(n) || 0), 0);
+  }
+  return valor;
+}
 
 const PRECIOS = { remera: 25000, tote: 16000, remera_uyu: 650, tote_uyu: 400, nino_uyu: 500 };
 
@@ -68,34 +84,52 @@ const VARIANTES_ANTERIORES      = new Set(['veredaRoja', 'veredaNegra', 'reposer
 const VARIANTES_NINO_ANTERIORES = new Set(['reposeraRoja', 'cabraBlanca']);
 
 // ── Persistencia ──────────────────────────────────────────────────────────────
+// Migra un objeto de stock (local o recién bajado de la nube) a la forma
+// actual: cabraNegra en adultos, ninos como objeto por variante, y el
+// renombre de la variante niñx "cabraBlanca" -> "cabraNegra" (estaba mal
+// declarada). Devuelve true si modificó algo.
+function migrarStock(st) {
+  let changed = false;
+  // Migración: agregar cabraNegra a talles adulto que no lo tienen
+  if (st.adultos) {
+    TALLES_ADULTO.forEach(t => {
+      if (st.adultos[t] && st.adultos[t].cabraNegra === undefined) {
+        st.adultos[t].cabraNegra = 0;
+        changed = true;
+      }
+    });
+  }
+  // Migración: ninos de número plano a objeto por variante
+  if (st.ninos) {
+    TALLES_NINO.forEach(t => {
+      if (typeof st.ninos[t] === 'number') {
+        st.ninos[t] = { reposeraRoja: st.ninos[t], cabraNegra: 0 };
+        changed = true;
+      } else if (st.ninos[t] && st.ninos[t].cabraNegra === undefined) {
+        st.ninos[t].cabraNegra = 0;
+        changed = true;
+      }
+    });
+  }
+  // Migración: variante niñx renombrada de "cabraBlanca" a "cabraNegra" (estaba mal declarada)
+  if (st.ninos) {
+    TALLES_NINO.forEach(t => {
+      if (st.ninos[t] && st.ninos[t].cabraBlanca !== undefined) {
+        st.ninos[t].cabraNegra = (st.ninos[t].cabraNegra || 0) + st.ninos[t].cabraBlanca;
+        delete st.ninos[t].cabraBlanca;
+        changed = true;
+      }
+    });
+  }
+  return changed;
+}
+
 function cargarEstado() {
   try {
     const raw = localStorage.getItem('cayotest_stock');
     if (raw) {
       const st = JSON.parse(raw);
-      let changed = false;
-      // Migración: agregar cabraNegra a talles adulto que no lo tienen
-      if (st.adultos) {
-        TALLES_ADULTO.forEach(t => {
-          if (st.adultos[t] && st.adultos[t].cabraNegra === undefined) {
-            st.adultos[t].cabraNegra = 0;
-            changed = true;
-          }
-        });
-      }
-      // Migración: ninos de número plano a objeto por variante
-      if (st.ninos) {
-        TALLES_NINO.forEach(t => {
-          if (typeof st.ninos[t] === 'number') {
-            st.ninos[t] = { reposeraRoja: st.ninos[t], cabraBlanca: 0 };
-            changed = true;
-          } else if (st.ninos[t] && st.ninos[t].cabraBlanca === undefined) {
-            st.ninos[t].cabraBlanca = 0;
-            changed = true;
-          }
-        });
-      }
-      if (changed) localStorage.setItem('cayotest_stock', JSON.stringify(st));
+      if (migrarStock(st)) localStorage.setItem('cayotest_stock', JSON.stringify(st));
       return st;
     }
   } catch (_) {}
@@ -120,6 +154,15 @@ function normalizeHistorial(arr) {
     // Migración: "Remera Blanca talle X" → "Remera Cabra Blanca talle X"
     if (h.descripcion && /^Remera Blanca talle /.test(h.descripcion)) {
       h.descripcion = h.descripcion.replace('Remera Blanca talle ', 'Remera Cabra Blanca talle ');
+      changed = true;
+    }
+    // Migración: diseño niñx renombrado de "Cabra Blanca" a "Cabra Negra" (estaba mal declarado)
+    if (h._stock && h._stock.tipo === 'nino' && h._stock.variante === 'cabraBlanca') {
+      h._stock.variante = 'cabraNegra';
+      changed = true;
+    }
+    if (h.descripcion && /Niñx Cabra Blanca/.test(h.descripcion)) {
+      h.descripcion = h.descripcion.replace(/Niñx Cabra Blanca/g, 'Niñx Cabra Negra');
       changed = true;
     }
   });
@@ -176,8 +219,24 @@ function cargarAuditorias() {
     return raw ? JSON.parse(raw) : [];
   } catch (_) { return []; }
 }
+// Migración: diseño niñx renombrado de "cabraBlanca" a "cabraNegra" en snapshots de auditorías (locales o de la nube)
+function migrarAuditorias(list) {
+  let changed = false;
+  list.forEach(a => {
+    const ninosSnap = a.stockSnapshot?.ninos;
+    if (!ninosSnap) return;
+    Object.values(ninosSnap).forEach(t => {
+      if (t && typeof t === 'object' && t.cabraBlanca !== undefined) {
+        t.cabraNegra = (t.cabraNegra || 0) + t.cabraBlanca;
+        delete t.cabraBlanca;
+        changed = true;
+      }
+    });
+  });
+  return changed;
+}
 let auditorias       = cargarAuditorias();
-let auditComparacion = null; // { ajustes, coincidencias, sinContar, diferenciaNeta }
+if (migrarAuditorias(auditorias)) localStorage.setItem('cayotest_auditorias', JSON.stringify(auditorias));
 
 function cargarPedidos() {
   try { return JSON.parse(localStorage.getItem('cayotest_pedidos') || '[]'); }
@@ -191,6 +250,13 @@ function normalizePedidos() {
       p.items = [{ tipo: p.tipo, talle: p.talle, variante: p.variante, modelo: p.modelo, cantidad: p.cantidad || 1 }];
       changed = true;
     }
+    // Migración: diseño niñx renombrado de "cabraBlanca" a "cabraNegra" (estaba mal declarado)
+    (p.items || []).forEach(it => {
+      if (it.tipo === 'nino' && it.variante === 'cabraBlanca') {
+        it.variante = 'cabraNegra';
+        changed = true;
+      }
+    });
   });
   if (changed) guardarPedidos();
 }
@@ -207,6 +273,20 @@ function guardarIngresos() {
   localStorage.setItem('cayotest_ingresos', JSON.stringify(ingresos));
   pushToCloud();
 }
+function normalizeIngresos() {
+  let changed = false;
+  ingresos.forEach(ing => {
+    // Migración: diseño niñx renombrado de "cabraBlanca" a "cabraNegra" (estaba mal declarado)
+    (ing.items || []).forEach(it => {
+      if (it.tipo === 'nino' && it.variante === 'cabraBlanca') {
+        it.variante = 'cabraNegra';
+        changed = true;
+      }
+    });
+  });
+  if (changed) guardarIngresos();
+}
+normalizeIngresos();
 
 // Controles de caja (arqueos): efectivo contado y transferencias verificadas
 function cargarArqueos() {
@@ -383,6 +463,7 @@ async function sincronizarDesdeNube() {
   const data = await pullFromCloud();
   if (!data) { setSincStatus('error'); return; }
   let changed = false;
+  let migro = false; // si alguna migración de datos vieja tuvo que corregir algo recién bajado de la nube
 
   // Cierre de temporada: si otro dispositivo cerró, adoptar la marca y descartar
   // de las secciones activas todo registro anterior al cierre (ya está en el archivo)
@@ -395,17 +476,19 @@ async function sincronizarDesdeNube() {
 
   if (data.stock && typeof data.stock === 'object') {
     estado = data.stock;
+    if (migrarStock(estado)) migro = true;
     localStorage.setItem('cayotest_stock', JSON.stringify(estado));
     changed = true;
   }
   if (Array.isArray(data.historial)) {
     historial = soloActuales(data.historial);
-    normalizeHistorial(historial);
+    if (normalizeHistorial(historial)) migro = true;
     localStorage.setItem('cayotest_historial', JSON.stringify(historial));
     changed = true;
   }
   if (Array.isArray(data.auditorias)) {
     auditorias = soloActuales(data.auditorias);
+    if (migrarAuditorias(auditorias)) migro = true;
     localStorage.setItem('cayotest_auditorias', JSON.stringify(auditorias));
     changed = true;
   }
@@ -420,6 +503,7 @@ async function sincronizarDesdeNube() {
     const idsNube = new Set(data.ingresos.map(i => i.id));
     const soloLocales = ingresos.filter(i => !idsNube.has(i.id));
     ingresos = soloActuales([...data.ingresos, ...soloLocales]).sort((a, b) => a.id - b.id);
+    normalizeIngresos();
     localStorage.setItem('cayotest_ingresos', JSON.stringify(ingresos));
     changed = true;
   }
@@ -438,6 +522,7 @@ async function sincronizarDesdeNube() {
     changed = true;
   }
   if (changed) renderTodo();
+  if (migro) pushToCloud(); // corrige en la nube lo que se acaba de migrar localmente
   setSincStatus('ok');
 }
 
@@ -616,9 +701,9 @@ function renderNinos() {
   // Migración defensiva
   TALLES_NINO.forEach(t => {
     if (typeof estado.ninos[t] === 'number') {
-      estado.ninos[t] = { reposeraRoja: estado.ninos[t], cabraBlanca: 0 };
+      estado.ninos[t] = { reposeraRoja: estado.ninos[t], cabraNegra: 0 };
     } else if (!estado.ninos[t]) {
-      estado.ninos[t] = { reposeraRoja: 0, cabraBlanca: 0 };
+      estado.ninos[t] = { reposeraRoja: 0, cabraNegra: 0 };
     } else {
       VARIANTES_NINO.forEach(v => { if (estado.ninos[t][v] === undefined) estado.ninos[t][v] = 0; });
     }
@@ -705,6 +790,15 @@ function renderTodo() {
 
 // ── Tab Ventas ────────────────────────────────────────────────────────────────
 let filtroVentas = 'todos';
+let filtroMoneda = 'todas';
+
+// Aplica el filtro de medio de pago y de moneda activos a una lista de ventas.
+// Usado tanto por la lista en pantalla como por los exports (PDF/WhatsApp).
+function aplicarFiltrosVentas(lista) {
+  let r = filtroVentas === 'todos' ? lista : lista.filter(h => h.pago === filtroVentas);
+  if (filtroMoneda !== 'todas') r = r.filter(h => (h.moneda || 'ARS') === filtroMoneda);
+  return r;
+}
 
 function renderVentas() {
   // Totales globales separados por moneda
@@ -832,9 +926,7 @@ function renderVentas() {
     }
   }
 
-  const filtrados = filtroVentas === 'todos'
-    ? historial
-    : historial.filter(h => h.pago === filtroVentas);
+  const filtrados = aplicarFiltrosVentas(historial);
 
   // Con filtro "anota" también mostramos pedidos con saldo pendiente
   const pedidosAnota = filtroVentas === 'anota'
@@ -929,6 +1021,15 @@ document.querySelectorAll('.filtro-btn').forEach(btn => {
   });
 });
 
+document.querySelectorAll('.filtro-moneda-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.filtro-moneda-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    filtroMoneda = btn.dataset.moneda;
+    renderVentas();
+  });
+});
+
 // ── Modal Venta ───────────────────────────────────────────────────────────────
 const modalVenta       = document.getElementById('modal-venta');
 const selCategoria     = document.getElementById('venta-categoria');
@@ -938,6 +1039,7 @@ const camposTote       = document.getElementById('campos-tote');
 const selTalleAdulto   = document.getElementById('venta-talle-adulto');
 const selVarianteAdulto = document.getElementById('venta-variante-adulto');
 const selTalleNino     = document.getElementById('venta-talle-nino');
+const selVarianteNino  = document.getElementById('venta-variante-nino');
 const selTote          = document.getElementById('venta-tote');
 const inputCantidad      = document.getElementById('venta-cantidad');
 const inputPrecioOverride = document.getElementById('venta-precio-override');
@@ -1000,7 +1102,7 @@ function actualizarDisponible() {
   if (cat === 'adulto') {
     disp = stockDisponible('adulto', { talle: selTalleAdulto.value, variante: selVarianteAdulto.value });
   } else if (cat === 'nino') {
-    disp = stockDisponible('nino', { talle: selTalleNino.value });
+    disp = stockDisponible('nino', { talle: selTalleNino.value, variante: selVarianteNino.value });
   } else if (cat === 'tote') {
     disp = stockDisponible('tote', { modelo: selTote.value });
   }
@@ -1053,7 +1155,7 @@ selCategoria.addEventListener('change', () => {
   actualizarDisponible();
 });
 
-[selTalleAdulto, selVarianteAdulto, selTalleNino, selTote, inputCantidad, inputPrecioOverride].forEach(el =>
+[selTalleAdulto, selVarianteAdulto, selTalleNino, selVarianteNino, selTote, inputCantidad, inputPrecioOverride].forEach(el =>
   el.addEventListener('change', actualizarDisponible)
 );
 inputCantidad.addEventListener('input', actualizarDisponible);
@@ -1084,6 +1186,7 @@ function abrirVentaCompleta() {
   inputPrecioOverride.value = '';
   document.getElementById('venta-nombre-anota').value = '';
   document.getElementById('campos-anota-nombre').classList.add('hidden');
+  document.getElementById('venta-fecha-manual').value = '';
   pDisponible.textContent = '';
   pError.classList.add('hidden');
   document.getElementById('venta-precio-unit').textContent  = '';
@@ -1168,9 +1271,28 @@ document.getElementById('form-venta').addEventListener('submit', e => {
 
   const ingreso = (pago === 'regalo' || pago === 'anota' || pago === 'perdida') ? 0 : precioFinal * cant;
 
+  // Fecha manual (para cargar ventas atrasadas) o la de ahora si no se eligió una.
+  // fechaTs es la que se usa para filtrar por rango de fechas (los exports de
+  // ventas filtran por esto, no por "id" — "id" siempre es el momento real de
+  // carga, para no romper el orden ni las búsquedas por id en otras partes).
+  const fechaManual = document.getElementById('venta-fecha-manual').value; // 'YYYY-MM-DD' o ''
+  let fecha, fechaTs;
+  if (fechaManual) {
+    const [y, m, d] = fechaManual.split('-').map(Number);
+    const ahora = new Date();
+    const fechaObj = new Date(y, m - 1, d, ahora.getHours(), ahora.getMinutes(), ahora.getSeconds());
+    fecha   = fechaObj.toLocaleString('es-AR');
+    fechaTs = fechaObj.getTime();
+  } else {
+    const ahora = new Date();
+    fecha   = ahora.toLocaleString('es-AR');
+    fechaTs = ahora.getTime();
+  }
+
   const entrada = {
     id: Date.now(),
-    fecha: new Date().toLocaleString('es-AR'),
+    fecha,
+    fechaTs,
     descripcion,
     cantidad:  cant,
     ingreso,
@@ -1624,21 +1746,19 @@ function renderAuditoria() {
     </td>
   </tr>`;
 
-  // Niños
-  const filasNinos = TALLES_NINO.map(t => {
-    const v = estado.ninos[t] ?? 0;
-    return `<tr>
-      <td class="talle-label">${t}</td>
-      <td>
-        <div class="audit-cell">
-          <span class="audit-actual">${v}</span>
-          <input type="number" class="audit-input" min="0"
-            data-tipo="nino" data-talle="${t}"
-            data-sistema="${v}" placeholder="—" />
-        </div>
-      </td>
-    </tr>`;
-  }).join('');
+  // Niños — filas = variante, columnas = talle (igual estructura que adultos)
+  const filasNinos = VARIANTES_NINO.map(v => `<tr>
+    <td>${LABEL_VARIANTE_NINO[v]}</td>
+    ${TALLES_NINO.map(t => {
+      const val = estado.ninos[t]?.[v] ?? 0;
+      return `<td><div class="audit-cell">
+        <span class="audit-actual">${val}</span>
+        <input type="number" class="audit-input" min="0"
+          data-tipo="nino" data-talle="${t}" data-variante="${v}"
+          data-sistema="${val}" placeholder="—" />
+      </div></td>`;
+    }).join('')}
+  </tr>`).join('');
 
   contenedor.innerHTML = `
     <div class="audit-leyenda">
@@ -1672,10 +1792,10 @@ function renderAuditoria() {
     </div>
 
     <div class="seccion">
-      <h2>Remeras Niñx — Reposera Roja</h2>
+      <h2>Remeras Niñx</h2>
       <div class="tabla-container">
         <table>
-          <thead><tr><th>Talle</th><th>Cantidad</th></tr></thead>
+          <thead><tr><th>Diseño</th>${TALLES_NINO.map(t => `<th>${t}</th>`).join('')}</tr></thead>
           <tbody>${filasNinos}</tbody>
         </table>
       </div>
@@ -1692,7 +1812,10 @@ function renderAuditoria() {
   }
 }
 
-document.getElementById('btn-guardar-auditoria').addEventListener('click', () => {
+// Lee los campos cargados en la pantalla de Auditoría y arma la comparación
+// contra el stock actual del sistema. Usado tanto para guardar el registro
+// como para aplicar el ajuste al stock real.
+function leerComparacionAuditoria() {
   const ajustes       = [];
   const coincidencias = [];
   const sinContar     = [];
@@ -1713,8 +1836,8 @@ document.getElementById('btn-guardar-auditoria').addEventListener('click', () =>
       desc   = `Tote Bag ${modelo === 'silla' ? 'Reposera' : 'Vereda'}`;
       actual = estado.totes[modelo];
     } else if (tipo === 'nino') {
-      desc   = `Remera Niñx talle ${talle}`;
-      actual = estado.ninos[talle] ?? 0;
+      desc   = `Remera Niñx ${LABEL_VARIANTE_NINO[variante] || ''} talle ${talle}`.replace(/\s+/g, ' ').trim();
+      actual = estado.ninos[talle]?.[variante] ?? 0;
     }
 
     if (val === '') {
@@ -1735,47 +1858,94 @@ document.getElementById('btn-guardar-auditoria').addEventListener('click', () =>
     }
   });
 
-  // No se ingresó nada
-  if (ajustes.length === 0 && coincidencias.length === 0) {
-    alert('No ingresaste ningún valor. Completá los campos con el conteo físico.');
-    return;
-  }
+  if (ajustes.length === 0 && coincidencias.length === 0) return null;
 
-  // Validación: saldo neto por categoría debe ser 0
   const netoAdulto = ajustes.filter(a => a.tipo === 'adulto').reduce((s, a) => s + a.diff, 0);
   const netoTote   = ajustes.filter(a => a.tipo === 'tote').reduce((s, a) => s + a.diff, 0);
   const netoNino   = ajustes.filter(a => a.tipo === 'nino').reduce((s, a) => s + a.diff, 0);
 
-  if (netoAdulto !== 0 || netoTote !== 0 || netoNino !== 0) {
-    const fmtNeto = n => {
-      if (n === 0) return '<span class="audit-net-ok">✅ 0</span>';
-      const s = n > 0 ? `+${n}` : String(n);
-      return `<span class="${n < 0 ? 'audit-net-neg' : 'audit-net-pos'}">${s} u.</span>`;
-    };
-    document.getElementById('audit-bloqueo-netos').innerHTML = `
-      <div class="audit-bloqueo-fila"><span>👕 Remeras adultos</span>${fmtNeto(netoAdulto)}</div>
-      <div class="audit-bloqueo-fila"><span>👜 Tote Bags</span>${fmtNeto(netoTote)}</div>
-      <div class="audit-bloqueo-fila"><span>👶 Remeras niñxs</span>${fmtNeto(netoNino)}</div>
-    `;
-    // Guardamos la comparación por si vuelven a editar
-    auditComparacion = { ajustes, coincidencias, sinContar, diferenciaNeta: netoAdulto + netoTote + netoNino };
-    document.getElementById('modal-audit-bloqueo').classList.remove('hidden');
+  return { ajustes, coincidencias, sinContar, diferenciaNeta: netoAdulto + netoTote + netoNino };
+}
+
+document.getElementById('btn-guardar-auditoria').addEventListener('click', () => {
+  const comparacion = leerComparacionAuditoria();
+  if (!comparacion) {
+    alert('No ingresaste ningún valor. Completá los campos con el conteo físico.');
     return;
   }
-
-  mostrarResultadoAuditoria({ ajustes, coincidencias, sinContar, diferenciaNeta: 0 });
+  guardarControlDeStock(comparacion);
 });
 
-function aplicarAjustesAuditoria(motivo, motivoDetalle) {
-  const { ajustes, diferenciaNeta } = auditComparacion;
+document.getElementById('btn-ajustar-stock').addEventListener('click', () => {
+  const comparacion = leerComparacionAuditoria();
+  if (!comparacion) {
+    alert('No ingresaste ningún valor. Completá los campos con el conteo físico.');
+    return;
+  }
+  if (comparacion.ajustes.length === 0) {
+    alert('No hay diferencias entre lo cargado y el sistema — no hay nada que ajustar.');
+    return;
+  }
+  const detalle = comparacion.ajustes.map(a => `• ${a.desc}: ${a.anterior} → ${a.nuevo}`).join('\n');
+  const ok = confirm(`Esto va a CAMBIAR el stock real del sistema:\n\n${detalle}\n\n¿Confirmás?`);
+  if (!ok) return;
+  aplicarStockReal(comparacion);
+});
+
+// Guarda el control de stock como registro puro: no modifica estado.adultos/totes/ninos,
+// solo deja constancia de lo contado vs. lo que había en el sistema en ese momento.
+function guardarControlDeStock(comparacion) {
+  const { ajustes, coincidencias, sinContar, diferenciaNeta } = comparacion;
+
+  // Foto de lo contado: valor físico donde se contó, valor de sistema donde no.
+  const stockSnapshot = {
+    adultos: JSON.parse(JSON.stringify(estado.adultos)),
+    totes:   JSON.parse(JSON.stringify(estado.totes)),
+    ninos:   JSON.parse(JSON.stringify(estado.ninos)),
+  };
+  ajustes.forEach(aj => {
+    if (aj.tipo === 'adulto')    stockSnapshot.adultos[aj.talle][aj.variante] = aj.nuevo;
+    else if (aj.tipo === 'tote') stockSnapshot.totes[aj.modelo]               = aj.nuevo;
+    else if (aj.tipo === 'nino') stockSnapshot.ninos[aj.talle][aj.variante]   = aj.nuevo;
+  });
+
+  const entrada = {
+    id:            Date.now(),
+    fecha:         new Date().toLocaleString('es-AR'),
+    ajustes:       ajustes.map(a => ({ desc: a.desc, anterior: a.anterior, nuevo: a.nuevo, diff: a.diff })),
+    diferenciaNeta,
+    motivo:        null,
+    motivoDetalle: '',
+    stockSnapshot,
+  };
+
+  auditorias.push(entrada);
+  localStorage.setItem('cayotest_auditorias', JSON.stringify(auditorias));
+
+  renderAuditoria();
+  renderHistorialAuditorias();
+
+  // Banner de confirmación
+  const banner = document.createElement('div');
+  banner.className = 'audit-guardado-banner';
+  banner.textContent = ajustes.length > 0
+    ? `✅ Control guardado — ${ajustes.length} diferencia${ajustes.length !== 1 ? 's' : ''} registrada${ajustes.length !== 1 ? 's' : ''} (stock del sistema sin modificar)`
+    : `✅ Control guardado — sin diferencias`;
+  document.querySelector('.audit-historial-section').prepend(banner);
+  setTimeout(() => banner.remove(), 4000);
+}
+
+// Aplica lo cargado al stock real del sistema (uso explícito, tras confirmación),
+// y deja registro del ajuste en el historial de auditorías.
+function aplicarStockReal(comparacion) {
+  const { ajustes, diferenciaNeta } = comparacion;
 
   ajustes.forEach(aj => {
     if (aj.tipo === 'adulto')    estado.adultos[aj.talle][aj.variante] = aj.nuevo;
     else if (aj.tipo === 'tote') estado.totes[aj.modelo]               = aj.nuevo;
-    else if (aj.tipo === 'nino') estado.ninos[aj.talle]                = aj.nuevo;
+    else if (aj.tipo === 'nino') estado.ninos[aj.talle][aj.variante]   = aj.nuevo;
   });
 
-  // Snapshot del stock verificado (después de aplicar ajustes)
   const stockSnapshot = {
     adultos: JSON.parse(JSON.stringify(estado.adultos)),
     totes:   JSON.parse(JSON.stringify(estado.totes)),
@@ -1787,27 +1957,22 @@ function aplicarAjustesAuditoria(motivo, motivoDetalle) {
     fecha:         new Date().toLocaleString('es-AR'),
     ajustes:       ajustes.map(a => ({ desc: a.desc, anterior: a.anterior, nuevo: a.nuevo, diff: a.diff })),
     diferenciaNeta,
-    motivo:        motivo || null,
-    motivoDetalle: motivoDetalle || '',
+    motivo:        'Ajuste manual de stock real',
+    motivoDetalle: '',
     stockSnapshot,
   };
 
   auditorias.push(entrada);
   localStorage.setItem('cayotest_auditorias', JSON.stringify(auditorias));
-  auditComparacion = null;
 
   guardar();
   renderTodo();
   renderAuditoria();
   renderHistorialAuditorias();
 
-  // Banner de confirmación
   const banner = document.createElement('div');
   banner.className = 'audit-guardado-banner';
-  const motivoTxt = motivo ? ` · ${motivo}` : '';
-  banner.textContent = ajustes.length > 0
-    ? `✅ Auditoría guardada — ${ajustes.length} ajuste${ajustes.length !== 1 ? 's' : ''}${motivoTxt}`
-    : `✅ Auditoría guardada — sin diferencias`;
+  banner.textContent = `✅ Stock real actualizado — ${ajustes.length} ítem${ajustes.length !== 1 ? 's' : ''} corregido${ajustes.length !== 1 ? 's' : ''}`;
   document.querySelector('.audit-historial-section').prepend(banner);
   setTimeout(() => banner.remove(), 4000);
 }
@@ -1837,11 +2002,14 @@ function renderHistorialAuditorias() {
           <span></span><span></span>
         </div>`
       : a.ajustes.map(aj => {
-          const d    = aj.diff > 0 ? `+${aj.diff}` : String(aj.diff);
-          const dcls = aj.diff < 0 ? 'audit-aj-neg' : 'audit-aj-pos';
+          const anterior = mostrarCantidadGuardada(aj.anterior);
+          const nuevo    = mostrarCantidadGuardada(aj.nuevo);
+          const diff     = typeof aj.diff === 'number' && !isNaN(aj.diff) ? aj.diff : nuevo - anterior;
+          const d    = diff > 0 ? `+${diff}` : String(diff);
+          const dcls = diff < 0 ? 'audit-aj-neg' : 'audit-aj-pos';
           return `<div class="audit-aj-fila">
             <span class="audit-aj-desc">${aj.desc}</span>
-            <span class="audit-aj-vals">${aj.anterior} → ${aj.nuevo}</span>
+            <span class="audit-aj-vals">${anterior} → ${nuevo}</span>
             <span class="audit-aj-diff ${dcls}">${d}</span>
           </div>`;
         }).join('');
@@ -1869,11 +2037,18 @@ function renderHistorialAuditorias() {
         ? `<span class="snap-item">Reposera: ${ss.totes.silla || 0}</span><span class="snap-item">Vereda: ${ss.totes.vereda || 0}</span>`
         : '<span class="snap-item snap-cero">sin stock</span>';
 
-      // Niñxs
-      const ninoEntries = Object.entries(ss.ninos || {}).filter(([,q]) => q > 0);
-      const ninosRow = ninoEntries.length > 0
-        ? ninoEntries.map(([t, q]) => `<span class="snap-item">T${t}:${q}</span>`).join('')
-        : '<span class="snap-item snap-cero">sin stock</span>';
+      // Niñxs: total + desglose por variante (mismo criterio que adultos)
+      const totNino = TALLES_NINO.reduce((s, t) => s + totalNinoTalle(ss.ninos, t), 0);
+      const ninoRows = VARIANTES_NINO.map(v => {
+        const tot = TALLES_NINO.reduce((s, t) => s + (ss.ninos[t]?.[v] ?? 0), 0);
+        if (tot === 0) return '';
+        const talleDetalle = TALLES_NINO.map(t => {
+          const q = ss.ninos[t]?.[v] ?? 0;
+          return q > 0 ? `T${t}:${q}` : '';
+        }).filter(Boolean).join(' ');
+        return `<span class="snap-item"><strong>${LABEL_VARIANTE_NINO[v]}</strong> ${tot} (${talleDetalle})</span>`;
+      }).filter(Boolean).join('');
+      const ninosRow = ninoRows || '<span class="snap-item snap-cero">sin stock</span>';
 
       snapshotHtml = `
         <div class="audit-snapshot">
@@ -1887,7 +2062,7 @@ function renderHistorialAuditorias() {
             <div class="snap-items">${totesRow}</div>
           </div>
           <div class="audit-snapshot-fila">
-            <span class="snap-cat">👶 Niñxs (${ninoEntries.reduce((s,[,q])=>s+q,0)} u.)</span>
+            <span class="snap-cat">👶 Niñxs (${totNino} u.)</span>
             <div class="snap-items">${ninosRow}</div>
           </div>
         </div>`;
@@ -1923,130 +2098,6 @@ window.toggleAuditItem = function(id) {
   const open = det.classList.toggle('audit-collapsed');
   ico.textContent = open ? '▼' : '▲';
 };
-
-// ── Modal resultado auditoría ─────────────────────────────────────────────────
-function mostrarResultadoAuditoria(comparacion) {
-  auditComparacion = comparacion;
-  const { ajustes, coincidencias, sinContar, diferenciaNeta } = comparacion;
-
-  let html = '';
-
-  if (ajustes.length > 0) {
-    html += `<div class="resultado-seccion">
-      <h3 class="resultado-titulo resultado-titulo--diff">🔴 Diferencias (${ajustes.length})</h3>
-      ${ajustes.map(a => {
-        const d    = a.diff > 0 ? `+${a.diff}` : String(a.diff);
-        const dcls = a.diff < 0 ? 'audit-aj-neg' : 'audit-aj-pos';
-        return `<div class="audit-aj-fila">
-          <span class="audit-aj-desc">${a.desc}</span>
-          <span class="audit-aj-vals">${a.anterior} → ${a.nuevo}</span>
-          <span class="audit-aj-diff ${dcls}">${d}</span>
-        </div>`;
-      }).join('')}
-    </div>`;
-  }
-
-  if (coincidencias.length > 0) {
-    html += `<div class="resultado-seccion">
-      <h3 class="resultado-titulo resultado-titulo--ok">✅ Coincidencias (${coincidencias.length})</h3>
-      ${coincidencias.map(c => `<div class="audit-aj-fila">
-        <span class="audit-aj-desc">${c.desc}</span>
-        <span class="audit-aj-vals">${c.valor} u. — ok</span>
-        <span></span>
-      </div>`).join('')}
-    </div>`;
-  }
-
-  if (sinContar.length > 0) {
-    html += `<div class="resultado-seccion">
-      <h3 class="resultado-titulo resultado-titulo--sc">⚪ Sin contar (${sinContar.length})</h3>
-      ${sinContar.map(s => `<div class="audit-aj-fila">
-        <span class="audit-aj-desc">${s.desc}</span>
-        <span class="audit-aj-vals" style="color:var(--texto-tenue);font-style:italic">no contado</span>
-        <span></span>
-      </div>`).join('')}
-    </div>`;
-  }
-
-  if (ajustes.length === 0) {
-    html = `<p class="resultado-ok-msg">✅ Todo lo contado coincide con el sistema.</p>` + html;
-  }
-
-  if (diferenciaNeta !== 0) {
-    const signo = diferenciaNeta > 0 ? '+' : '';
-    const cls   = diferenciaNeta < 0 ? 'audit-net-neg' : 'audit-net-pos';
-    html += `<div class="resultado-neto">
-      Diferencia neta: <strong class="${cls}">${signo}${diferenciaNeta} u.</strong>
-    </div>`;
-  } else if (ajustes.length > 0) {
-    html += `<div class="resultado-neto resultado-neto--ok">
-      Diferencia neta: <strong>0 u.</strong> — redistribución interna ✅
-    </div>`;
-  }
-
-  document.getElementById('resultado-body').innerHTML = html;
-
-  const motivoSection = document.getElementById('resultado-motivo-section');
-  if (diferenciaNeta !== 0) {
-    motivoSection.classList.remove('hidden');
-    document.getElementById('resultado-motivo-select').value = '';
-    document.getElementById('resultado-detalle-label').style.display = 'none';
-    document.getElementById('resultado-detalle').value = '';
-    document.getElementById('resultado-error').classList.add('hidden');
-  } else {
-    motivoSection.classList.add('hidden');
-  }
-
-  document.getElementById('modal-resultado-auditoria').classList.remove('hidden');
-}
-
-document.getElementById('resultado-motivo-select').addEventListener('change', () => {
-  document.getElementById('resultado-detalle-label').style.display =
-    document.getElementById('resultado-motivo-select').value ? 'flex' : 'none';
-  document.getElementById('resultado-error').classList.add('hidden');
-});
-
-document.getElementById('btn-confirmar-resultado').addEventListener('click', () => {
-  if (!auditComparacion) return;
-  if (auditComparacion.diferenciaNeta !== 0) {
-    const motivo = document.getElementById('resultado-motivo-select').value;
-    if (!motivo) { document.getElementById('resultado-error').classList.remove('hidden'); return; }
-    const detalle = document.getElementById('resultado-detalle').value.trim();
-    document.getElementById('modal-resultado-auditoria').classList.add('hidden');
-    aplicarAjustesAuditoria(motivo, detalle);
-  } else {
-    document.getElementById('modal-resultado-auditoria').classList.add('hidden');
-    aplicarAjustesAuditoria(null, '');
-  }
-});
-
-['btn-cancelar-resultado', 'btn-cerrar-resultado'].forEach(id => {
-  document.getElementById(id).addEventListener('click', () => {
-    document.getElementById('modal-resultado-auditoria').classList.add('hidden');
-    auditComparacion = null;
-  });
-});
-
-// ── Modal bloqueo auditoría ───────────────────────────────────────────────────
-['btn-cerrar-audit-bloqueo', 'btn-bloqueo-editar'].forEach(id => {
-  document.getElementById(id).addEventListener('click', () => {
-    document.getElementById('modal-audit-bloqueo').classList.add('hidden');
-    auditComparacion = null;
-  });
-});
-
-document.getElementById('btn-bloqueo-ventas').addEventListener('click', () => {
-  document.getElementById('modal-audit-bloqueo').classList.add('hidden');
-  auditComparacion = null;
-  irATab('ventas');
-});
-
-document.getElementById('modal-resultado-auditoria').addEventListener('click', e => {
-  if (e.target === document.getElementById('modal-resultado-auditoria')) {
-    document.getElementById('modal-resultado-auditoria').classList.add('hidden');
-    auditComparacion = null;
-  }
-});
 
 // Modo ciego — oculta/muestra los valores del sistema
 document.getElementById('audit-modo-ciego').addEventListener('change', function() {
@@ -2625,7 +2676,7 @@ function _stockResumen() {
     VARIANTES.reduce((s, v) => s + (estado.adultos[t]?.[v] ?? 0), 0));
   const totAdultos = totsTalle.reduce((s, q) => s + q, 0);
   const totTotes   = (estado.totes.silla || 0) + (estado.totes.vereda || 0);
-  const totNinos   = TALLES_NINO.reduce((s, t) => s + (estado.ninos[t] ?? 0), 0);
+  const totNinos   = TALLES_NINO.reduce((s, t) => s + totalNinoTalle(estado.ninos, t), 0);
   const ultimaAudit = auditorias.length > 0
     ? [...auditorias].sort((a, b) => b.id - a.id)[0] : null;
   return { totsTalle, totAdultos, totTotes, totNinos, ultimaAudit };
@@ -2643,6 +2694,12 @@ function generarStockPDF() {
     return `<tr><td>${LABEL_VARIANTE[v]}</td>${cells}<td><strong>${sub}</strong></td></tr>`;
   }).join('');
 
+  const ninoRows = VARIANTES_NINO.map(v => {
+    const cells = TALLES_NINO.map(t => `<td>${estado.ninos[t]?.[v] ?? 0}</td>`).join('');
+    const sub = TALLES_NINO.reduce((s, t) => s + (estado.ninos[t]?.[v] ?? 0), 0);
+    return `<tr><td>${LABEL_VARIANTE_NINO[v]}</td>${cells}<td><strong>${sub}</strong></td></tr>`;
+  }).join('');
+
   // Sección último control
   let auditSection = '';
   if (ultimaAudit) {
@@ -2650,7 +2707,12 @@ function generarStockPDF() {
     let snapTables;
     const ajustesList = ultimaAudit.ajustes || [];
     if (ajustesList.length > 0) {
-      const filas = ajustesList.map(a => `<tr><td>${a.desc}</td><td>${a.anterior}</td><td>${a.nuevo}</td><td>${a.diff > 0 ? '+' : ''}${a.diff}</td></tr>`).join('');
+      const filas = ajustesList.map(a => {
+        const anterior = mostrarCantidadGuardada(a.anterior);
+        const nuevo    = mostrarCantidadGuardada(a.nuevo);
+        const diff     = typeof a.diff === 'number' && !isNaN(a.diff) ? a.diff : nuevo - anterior;
+        return `<tr><td>${a.desc}</td><td>${anterior}</td><td>${nuevo}</td><td>${diff > 0 ? '+' : ''}${diff}</td></tr>`;
+      }).join('');
       snapTables = `<p class="no-snap" style="margin-bottom:8px">Este control no tiene foto completa del stock. Se muestran los ajustes registrados:</p>
         <table><thead><tr><th>Artículo</th><th>Antes</th><th>Después</th><th>Diferencia</th></tr></thead>
         <tbody>${filas}</tbody></table>`;
@@ -2664,10 +2726,15 @@ function generarStockPDF() {
         const sub = TALLES_ADULTO.reduce((s, t) => s + (ss.adultos[t]?.[v] ?? 0), 0);
         return `<tr><td>${LABEL_VARIANTE[v]}</td>${cells}<td><strong>${sub}</strong></td></tr>`;
       }).join('');
+      const snapNinoRows = VARIANTES_NINO.map(v => {
+        const cells = TALLES_NINO.map(t => `<td>${ss.ninos[t]?.[v] ?? 0}</td>`).join('');
+        const sub = TALLES_NINO.reduce((s, t) => s + (ss.ninos[t]?.[v] ?? 0), 0);
+        return `<tr><td>${LABEL_VARIANTE_NINO[v]}</td>${cells}<td><strong>${sub}</strong></td></tr>`;
+      }).join('');
       const snapTots  = TALLES_ADULTO.map(t => VARIANTES.reduce((s, v) => s + (ss.adultos[t]?.[v] ?? 0), 0));
       const snapTotA  = snapTots.reduce((s, q) => s + q, 0);
       const snapTotT  = (ss.totes.silla || 0) + (ss.totes.vereda || 0);
-      const snapTotN  = TALLES_NINO.reduce((s, t) => s + (ss.ninos?.[t] ?? 0), 0);
+      const snapTotN  = TALLES_NINO.reduce((s, t) => s + totalNinoTalle(ss.ninos, t), 0);
       snapTables = `
         <h4>👕 Remeras adultos</h4>
         <table><thead><tr><th>Diseño</th>${TALLES_ADULTO.map(t=>`<th>${t}</th>`).join('')}<th>Sub</th></tr></thead>
@@ -2678,8 +2745,9 @@ function generarStockPDF() {
         <tbody><tr><td>Reposera</td><td>${ss.totes.silla||0}</td></tr><tr><td>Vereda</td><td>${ss.totes.vereda||0}</td></tr></tbody>
         <tfoot><tr><td>Total</td><td><strong>${snapTotT}</strong></td></tr></tfoot></table>
         <h4>👶 Remeras niñxs</h4>
-        <table><thead><tr>${TALLES_NINO.map(t=>`<th>T${t}</th>`).join('')}<th>Total</th></tr></thead>
-        <tbody><tr>${TALLES_NINO.map(t=>`<td>${ss.ninos?.[t]??0}</td>`).join('')}<td><strong>${snapTotN}</strong></td></tr></tbody></table>`;
+        <table><thead><tr><th>Diseño</th>${TALLES_NINO.map(t=>`<th>T${t}</th>`).join('')}<th>Sub</th></tr></thead>
+        <tbody>${snapNinoRows}</tbody>
+        <tfoot><tr><td>Total</td>${TALLES_NINO.map(t=>`<td>${totalNinoTalle(ss.ninos, t)}</td>`).join('')}<td><strong>${snapTotN}</strong></td></tr></tfoot></table>`;
     }
     auditSection = `
       <div class="page-break"></div>
@@ -2716,9 +2784,9 @@ function generarStockPDF() {
     @media print{body{padding:4px}.page-break{page-break-before:always;border:none;margin:0}}`;
 
   const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
-  <title>Stock Cayo la Cabra — ${ahora}</title>
+  <title>Stock Cayó la Cabra — ${ahora}</title>
   <style>${css}</style></head><body>
-  <div class="encabezado"><h1>🐐 Cayo la Cabra — Stock</h1><span class="fecha">Generado: ${ahora}</span></div>
+  <div class="encabezado"><h1>🐐 Cayó la Cabra — Stock</h1><span class="fecha">Generado: ${ahora}</span></div>
   <div class="resumen">
     <div class="res-box"><div class="res-num">${totAdultos}</div><div class="res-lbl">Remeras adultos</div></div>
     <div class="res-box"><div class="res-num">${totTotes}</div><div class="res-lbl">Tote Bags</div></div>
@@ -2734,10 +2802,11 @@ function generarStockPDF() {
   <tbody><tr><td>Reposera</td><td>${estado.totes.silla||0}</td></tr><tr><td>Vereda</td><td>${estado.totes.vereda||0}</td></tr></tbody>
   <tfoot><tr><td>Total</td><td>${totTotes}</td></tr></tfoot></table>
   <h3>👶 Remeras Niñxs</h3>
-  <table><thead><tr>${TALLES_NINO.map(t=>`<th>T${t}</th>`).join('')}<th>Total</th></tr></thead>
-  <tbody><tr>${TALLES_NINO.map(t=>`<td>${estado.ninos[t]??0}</td>`).join('')}<td><strong>${totNinos}</strong></td></tr></tbody></table>
+  <table><thead><tr><th>Diseño</th>${TALLES_NINO.map(t=>`<th>T${t}</th>`).join('')}<th>Subtotal</th></tr></thead>
+  <tbody>${ninoRows}</tbody>
+  <tfoot><tr><td>Total</td>${TALLES_NINO.map(t=>`<td>${totalNinoTalle(estado.ninos, t)}</td>`).join('')}<td>${totNinos}</td></tr></tfoot></table>
   ${auditSection}
-  <p class="footer">Generado desde la app de stock · Cayo la Cabra</p>
+  <p class="footer">Generado desde la app de stock · Cayó la Cabra</p>
   <script>window.onload=()=>window.print()<\/script></body></html>`;
 
   const w = window.open('', '_blank');
@@ -2773,14 +2842,20 @@ function exportarStockWhatsApp() {
     `Reposera: ${rp(estado.totes.silla || 0, 2)}   Vereda: ${rp(estado.totes.vereda || 0, 2)}   Total: ${totTotes}`,
     '',
     'REMERAS NIÑXS',
-    TALLES_NINO.map(t => rp('T' + t, nW)).join('') + rp('Total', nW + 1),
-    TALLES_NINO.map(t => rp(estado.ninos[t] ?? 0, nW)).join('') + rp(totNinos, nW + 1),
+    lp('', lW) + TALLES_NINO.map(t => rp('T' + t, nW)).join('') + rp('Total', nW + 1),
+    ...VARIANTES_NINO.map(v => {
+      const sub = TALLES_NINO.reduce((s, t) => s + (estado.ninos[t]?.[v] ?? 0), 0);
+      return lp(LABEL_VARIANTE_NINO[v], lW)
+        + TALLES_NINO.map(t => rp(estado.ninos[t]?.[v] ?? 0, nW)).join('')
+        + rp(sub, nW + 1);
+    }),
+    lp('TOTAL', lW) + TALLES_NINO.map(t => rp(totalNinoTalle(estado.ninos, t), nW)).join('') + rp(totNinos, nW + 1),
     '',
     `TOTAL GENERAL: ${totGeneral} unidades`,
   ].join('\n');
 
   const lines = [
-    '*🐐 Cayo la Cabra — Stock*',
+    '*🐐 Cayó la Cabra — Stock*',
     `📅 ${ahora}`,
     '',
     '```',
@@ -2801,41 +2876,105 @@ function _ventasRango() {
   const hastaEl = document.getElementById('export-hasta');
   const desde = desdeEl?.value ? new Date(desdeEl.value + 'T00:00:00').getTime() : 0;
   const hasta = hastaEl?.value ? new Date(hastaEl.value + 'T23:59:59').getTime() : Infinity;
-  const ventas = historial.filter(h => h.id >= desde && h.id <= hasta);
+  const enRango = historial.filter(h => {
+    const ts = h.fechaTs ?? h.id;
+    return ts >= desde && ts <= hasta;
+  });
+  const ventas = aplicarFiltrosVentas(enRango);
+
+  // Con filtro "anota" también incluimos las solicitudes/pedidos con saldo
+  // pendiente — igual que en la lista en pantalla, porque buena parte de lo
+  // "anotado" vive ahí y no como venta con pago=anota.
+  const pedidosAnota = filtroVentas === 'anota'
+    ? pedidos.filter(p => {
+        if (p.estadoFisico === 'cancelado' || p.estadoFisico === 'solicitud') return false;
+        if (pedidoSaldo(p) <= 0) return false;
+        if ((p.id ?? 0) < desde || (p.id ?? 0) > hasta) return false;
+        if (filtroMoneda !== 'todas' && (p.moneda || 'UYU') !== filtroMoneda) return false;
+        return true;
+      })
+    : [];
+
   const desdeTxt = desdeEl?.value ? new Date(desdeEl.value + 'T00:00:00').toLocaleDateString('es-AR') : null;
   const hastaTxt = hastaEl?.value ? new Date(hastaEl.value + 'T00:00:00').toLocaleDateString('es-AR') : null;
-  const label = (desdeTxt || hastaTxt)
+  const fechaLabel = (desdeTxt || hastaTxt)
     ? `${desdeTxt || '...'} → ${hastaTxt || '...'}`
     : 'Todas las fechas';
-  return { ventas, label };
+  const filtroLabels = {
+    efectivo: 'Efectivo', transferencia: 'Transferencia', regalo: 'Regalos', anota: 'Anotados',
+  };
+  const extra = [];
+  if (filtroVentas !== 'todos') extra.push(filtroLabels[filtroVentas] || filtroVentas);
+  if (filtroMoneda !== 'todas') extra.push(filtroMoneda === 'UYU' ? '🇺🇾 UYU' : '🇦🇷 ARS');
+  const label = extra.length ? `${fechaLabel} · ${extra.join(' · ')}` : fechaLabel;
+  return { ventas, pedidosAnota, label };
 }
 
-function _ventasTotales(ventas) {
+function _ventasTotales(ventas, pedidosAnota = []) {
   const totalARS = ventas.filter(h => (h.moneda||'ARS')==='ARS').reduce((s,h)=>s+(h.ingreso??0),0);
   const totalUYU = ventas.filter(h => (h.moneda||'ARS')==='UYU').reduce((s,h)=>s+(h.ingreso??0),0);
   const totEfec  = ventas.reduce((s,h)=>s+(h.pago==='efectivo'?(h.ingreso??0):0),0);
   const totTrans = ventas.reduce((s,h)=>s+(h.pago==='transferencia'?(h.ingreso??0):0),0);
   const totReg    = ventas.reduce((s,h)=>h.pago==='regalo'?s+h.cantidad:s,0);
   const totPerd   = ventas.reduce((s,h)=>h.pago==='perdida'?s+h.cantidad:s,0);
-  const totAnota  = ventas.reduce((s,h)=>h.pago==='anota'?s+(h.precioUnit||0)*h.cantidad:s,0);
+  const totAnota  = ventas.reduce((s,h)=>h.pago==='anota'?s+(h.precioUnit||0)*h.cantidad:s,0)
+                   + pedidosAnota.reduce((s,p)=>s+pedidoSaldo(p),0);
   const cobradas  = ventas.filter(h=>h.pago==='efectivo'||h.pago==='transferencia');
   const unidRem   = cobradas.filter(h=>h._stock?.tipo==='adulto').reduce((s,h)=>s+h.cantidad,0);
   const unidTote  = cobradas.filter(h=>h._stock?.tipo==='tote').reduce((s,h)=>s+h.cantidad,0);
   const unidNino  = cobradas.filter(h=>h._stock?.tipo==='nino').reduce((s,h)=>s+h.cantidad,0);
-  const pegEntradas = ventas.filter(h=>h._stock?.tipo==='pegotines');
-  const totPegARS = pegEntradas.filter(h=>(h.moneda||'ARS')==='ARS').reduce((s,h)=>s+(h.ingreso??0),0);
-  const totPegUYU = pegEntradas.filter(h=>(h.moneda||'ARS')==='UYU').reduce((s,h)=>s+(h.ingreso??0),0);
-  return { totalARS, totalUYU, totEfec, totTrans, totReg, totPerd, totAnota, unidRem, unidTote, unidNino, totPegARS, totPegUYU };
+  return { totalARS, totalUYU, totEfec, totTrans, totReg, totPerd, totAnota, unidRem, unidTote, unidNino };
 }
 
 function exportarVentasPDF() {
-  const { ventas, label } = _ventasRango();
-  const ahora = new Date().toLocaleString('es-AR');
-  const { totalARS, totalUYU, totEfec, totTrans, totReg, totPerd, totAnota, unidRem, unidTote, unidNino, totPegARS, totPegUYU } = _ventasTotales(ventas);
+  const { ventas, pedidosAnota, label } = _ventasRango();
+  const ahora = new Date().toLocaleDateString('es-AR');
+  const { totalARS, totalUYU, totEfec, totTrans, totReg, totPerd, totAnota, unidRem, unidTote, unidNino } = _ventasTotales(ventas, pedidosAnota);
   const fmtP = n => '$' + n.toLocaleString('es-AR');
   const pagoLabel = p => ({efectivo:'Efectivo',transferencia:'Transf.',regalo:'Regalo',perdida:'Pérdida',anota:'Anota'}[p]||p);
+  // Las fechas guardadas incluyen hora ("22/7/2026, 14:05:09"); el reporte
+  // solo debe mostrar la fecha.
+  const soloFecha = f => (f || '').split(',')[0];
 
-  const rows = [...ventas].sort((a,b)=>a.id-b.id).map(h => {
+  const esAnota = filtroVentas === 'anota';
+
+  // Vista "Anotados": tabla propia con el nombre del deudor en su propia
+  // columna, grande y en negrita — sin columnas de Cant./Precio u./Pago que
+  // no aplican a una deuda (por eso quedaban con "-").
+  const anotaRows = esAnota ? (
+    [...ventas].sort((a,b)=>a.id-b.id).map(h => {
+      const mon = (h.moneda||'ARS')==='UYU' ? ' UYU' : '';
+      return `<tr>
+        <td class="col-fecha">${soloFecha(h.fecha)}</td>
+        <td class="col-cliente">${h.nombreAnota || '(sin nombre)'}</td>
+        <td>${h.descripcion}${h.cantidad>1?` ×${h.cantidad}`:''}</td>
+        <td class="col-r bold">${fmtP((h.precioUnit||0)*h.cantidad)}${mon}</td>
+      </tr>`;
+    }).join('')
+    + [...pedidosAnota].sort((a,b)=>a.id-b.id).map(p => {
+      const mon = (p.moneda||'UYU')==='UYU' ? ' UYU' : '';
+      return `<tr>
+        <td class="col-fecha">${soloFecha(p.fecha)}</td>
+        <td class="col-cliente">${p.para || '(sin nombre)'}</td>
+        <td>📋 ${pedidoDescItem(p)}</td>
+        <td class="col-r bold">${fmtP(pedidoSaldo(p))}${mon}</td>
+      </tr>`;
+    }).join('')
+  ) : '';
+
+  const pedidosRows = [...pedidosAnota].sort((a,b)=>a.id-b.id).map(p => {
+    const mon = (p.moneda||'UYU')==='UYU' ? ' UYU' : '';
+    return `<tr>
+      <td class="col-fecha">${soloFecha(p.fecha)}</td>
+      <td>📋 ${pedidoDescItem(p)}${p.para?`<br><span class="col-cliente-inline">👤 ${p.para}</span>`:''}</td>
+      <td class="col-c">-</td>
+      <td class="col-r">-</td>
+      <td class="col-r bold">Adeuda ${fmtP(pedidoSaldo(p))}${mon}</td>
+      <td class="col-c" style="color:#e67e22">Pedido</td>
+    </tr>`;
+  }).join('');
+
+  const rows = pedidosRows + [...ventas].sort((a,b)=>a.id-b.id).map(h => {
     const mon = (h.moneda||'ARS')==='UYU' ? ' UYU' : '';
     const pagoColor = h.pago==='regalo'?'#27ae60':h.pago==='perdida'?'#c0392b':h.pago==='anota'?'#e67e22':'#333';
     const totalTxt = h.pago==='regalo' ? 'Regalo'
@@ -2843,8 +2982,8 @@ function exportarVentasPDF() {
       : h.pago==='anota' ? `Adeuda ${fmtP((h.precioUnit||0)*h.cantidad)}${mon}`
       : fmtP(h.ingreso??0)+mon;
     return `<tr>
-      <td class="col-fecha">${h.fecha}</td>
-      <td>${h.descripcion}${h.nombreAnota?`<br><small>👤 ${h.nombreAnota}</small>`:''}</td>
+      <td class="col-fecha">${soloFecha(h.fecha)}</td>
+      <td>${h.descripcion}${h.nombreAnota?`<br><span class="col-cliente-inline">👤 ${h.nombreAnota}</span>`:''}</td>
       <td class="col-c">${h.cantidad}</td>
       <td class="col-r">${h.precioUnit?fmtP(h.precioUnit)+mon:'-'}</td>
       <td class="col-r bold">${totalTxt}</td>
@@ -2868,32 +3007,38 @@ function exportarVentasPDF() {
     tr:nth-child(even) td{background:#fafafa}
     .col-fecha{white-space:nowrap;color:#555}.col-c{text-align:center}.col-r{text-align:right}
     .bold{font-weight:700}small{color:#888;font-size:8px}
+    .col-cliente{font-weight:800;font-size:12px;color:#111;white-space:nowrap}
+    .col-cliente-inline{display:block;font-weight:800;font-size:11px;color:#111;margin-top:2px}
     .footer{margin-top:10px;color:#bbb;font-size:8px;border-top:1px solid #eee;padding-top:5px}
     @media print{body{padding:4px}}`;
 
   const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
-  <title>Ventas — Cayo la Cabra</title><style>${css}</style></head><body>
+  <title>Ventas — Cayó la Cabra</title><style>${css}</style></head><body>
   <div class="enc">
-    <div><h1>🐐 Cayo la Cabra — Ventas</h1>
+    <div><h1>🐐 Cayó la Cabra — Ventas</h1>
     <div style="color:#666;font-size:9px;margin-top:2px">Período: ${label}</div></div>
-    <div class="meta">Generado: ${ahora}<br>${ventas.length} venta${ventas.length!==1?'s':''}</div>
+    <div class="meta">Generado: ${ahora}<br>${ventas.length + pedidosAnota.length} registro${(ventas.length + pedidosAnota.length)!==1?'s':''}</div>
   </div>
   <div class="res">
     <div class="rb dark"><div class="rn">${unidRem+unidTote+unidNino}</div><div class="rl">Unidades cobradas</div></div>
-    <div class="rb"><div class="rn">${fmtP(totalARS)}</div><div class="rl">Total ARS</div></div>
+    ${totalARS>0?`<div class="rb"><div class="rn">${fmtP(totalARS)}</div><div class="rl">Total ARS</div></div>`:''}
     ${totalUYU>0?`<div class="rb"><div class="rn">${fmtP(totalUYU)} UYU</div><div class="rl">Total UYU</div></div>`:''}
-    <div class="rb"><div class="rn">${fmtP(totEfec)}</div><div class="rl">Efectivo</div></div>
-    <div class="rb"><div class="rn">${fmtP(totTrans)}</div><div class="rl">Transferencia</div></div>
+    ${totEfec>0?`<div class="rb"><div class="rn">${fmtP(totEfec)}</div><div class="rl">Efectivo</div></div>`:''}
+    ${totTrans>0?`<div class="rb"><div class="rn">${fmtP(totTrans)}</div><div class="rl">Transferencia</div></div>`:''}
     ${totReg>0?`<div class="rb"><div class="rn">${totReg} u.</div><div class="rl">Regalos</div></div>`:''}
     ${totPerd>0?`<div class="rb" style="border-color:rgba(192,57,43,0.4)"><div class="rn" style="color:#c0392b">${totPerd} u.</div><div class="rl">Pérdidas</div></div>`:''}
     ${totAnota>0?`<div class="rb"><div class="rn">${fmtP(totAnota)}</div><div class="rl">Anotados (deben)</div></div>`:''}
-    ${(totPegARS>0||totPegUYU>0)?`<div class="rb" style="border-color:rgba(155,89,182,0.4)"><div class="rn" style="color:#9b59b6">${totPegARS>0?fmtP(totPegARS):''}${totPegUYU>0?(totPegARS>0?' · ':'')+fmtP(totPegUYU)+' UYU':''}</div><div class="rl">Pegotines</div></div>`:''}
   </div>
+  ${esAnota ? `
+  <table>
+    <thead><tr><th>Fecha</th><th>Cliente</th><th>Detalle</th><th>Adeuda</th></tr></thead>
+    <tbody>${anotaRows.length ? anotaRows : '<tr><td colspan="4" style="text-align:center;padding:12px;color:#999">Nadie anotado en este período</td></tr>'}</tbody>
+  </table>` : `
   <table>
     <thead><tr><th>Fecha</th><th>Artículo</th><th>Cant.</th><th>Precio u.</th><th>Total</th><th>Pago</th></tr></thead>
     <tbody>${rows.length ? rows : '<tr><td colspan="6" style="text-align:center;padding:12px;color:#999">Sin ventas en este período</td></tr>'}</tbody>
-  </table>
-  <p class="footer">Generado desde la app de stock · Cayo la Cabra</p>
+  </table>`}
+  <p class="footer">Generado desde la app de stock · Cayó la Cabra</p>
   <script>window.onload=()=>window.print()<\/script></body></html>`;
 
   const w = window.open('', '_blank');
@@ -2901,30 +3046,37 @@ function exportarVentasPDF() {
 }
 
 function exportarVentasWhatsApp() {
-  const { ventas, label } = _ventasRango();
-  const ahora = new Date().toLocaleString('es-AR');
-  const { totalARS, totalUYU, totEfec, totTrans, totReg, totPerd, totAnota, unidRem, unidTote, unidNino, totPegARS, totPegUYU } = _ventasTotales(ventas);
+  const { ventas, pedidosAnota, label } = _ventasRango();
+  const ahora = new Date().toLocaleDateString('es-AR');
+  const { totalARS, totalUYU, totEfec, totTrans, totReg, totPerd, totAnota, unidRem, unidTote, unidNino } = _ventasTotales(ventas, pedidosAnota);
   const fmtP = n => '$' + n.toLocaleString('es-AR');
 
+  const ventasAnota = ventas.filter(h => h.pago === 'anota');
+
   const lines = [
-    '*🐐 Cayo la Cabra — Ventas*',
+    '*🐐 Cayó la Cabra — Ventas*',
     `📅 Período: ${label}`,
-    `${ventas.length} venta${ventas.length!==1?'s':''}`,
+    `${ventas.length + pedidosAnota.length} registro${(ventas.length + pedidosAnota.length)!==1?'s':''}`,
     '',
     '💰 *Totales*',
-    `  ARS: ${fmtP(totalARS)}`,
+    ...(totalARS>0?[`  ARS: ${fmtP(totalARS)}`]:[]),
     ...(totalUYU>0?[`  UYU: ${fmtP(totalUYU)}`]:[]),
-    `  Efectivo: ${fmtP(totEfec)}`,
-    `  Transferencia: ${fmtP(totTrans)}`,
+    ...(totEfec>0?[`  Efectivo: ${fmtP(totEfec)}`]:[]),
+    ...(totTrans>0?[`  Transferencia: ${fmtP(totTrans)}`]:[]),
     ...(totReg>0?[`  Regalos: ${totReg} u.`]:[]),
     ...(totPerd>0?[`  Pérdidas: ${totPerd} u.`]:[]),
     ...(totAnota>0?[`  Anotados (deben): ${fmtP(totAnota)}`]:[]),
+    ...((ventasAnota.length || pedidosAnota.length) ? [
+      '',
+      '📝 *Anotados*',
+      ...ventasAnota.map(h => `  👤 *${h.nombreAnota || '(sin nombre)'}* — ${h.descripcion}: Adeuda ${fmtP((h.precioUnit||0)*h.cantidad)}${(h.moneda||'ARS')==='UYU'?' UYU':''}`),
+      ...pedidosAnota.map(p => `  👤 *${p.para || '(sin nombre)'}* — ${pedidoDescItem(p)}: Adeuda ${fmtP(pedidoSaldo(p))}${(p.moneda||'UYU')==='UYU'?' UYU':''}`),
+    ] : []),
     '',
     `📦 *Unidades cobradas: ${unidRem+unidTote+unidNino}*`,
     ...(unidRem>0?[`  Remeras adultos: ${unidRem}`]:[]),
     ...(unidTote>0?[`  Tote bags: ${unidTote}`]:[]),
     ...(unidNino>0?[`  Remeras niñxs: ${unidNino}`]:[]),
-    ...((totPegARS>0||totPegUYU>0)?[`🎟️ *Pegotines: ${[totPegARS>0?fmtP(totPegARS):null,totPegUYU>0?fmtP(totPegUYU)+' UYU':null].filter(Boolean).join(' · ')}*`]:[]),
     '',
     `_Generado ${ahora}_`,
   ];
@@ -2939,9 +3091,12 @@ window.descargarAuditoriaPDF = function(id) {
 
   // Ajustes
   const ajustesRows = a.ajustes.map(aj => {
-    const d = aj.diff > 0 ? `+${aj.diff}` : String(aj.diff);
-    const c = aj.diff < 0 ? '#c0392b' : '#27ae60';
-    return `<tr><td>${aj.desc}</td><td>${aj.anterior}</td><td>${aj.nuevo}</td>
+    const anterior = mostrarCantidadGuardada(aj.anterior);
+    const nuevo    = mostrarCantidadGuardada(aj.nuevo);
+    const diff     = typeof aj.diff === 'number' && !isNaN(aj.diff) ? aj.diff : nuevo - anterior;
+    const d = diff > 0 ? `+${diff}` : String(diff);
+    const c = diff < 0 ? '#c0392b' : '#27ae60';
+    return `<tr><td>${aj.desc}</td><td>${anterior}</td><td>${nuevo}</td>
             <td style="color:${c};font-weight:700;text-align:center">${d}</td></tr>`;
   }).join('');
 
@@ -2964,11 +3119,16 @@ window.descargarAuditoriaPDF = function(id) {
       const sub = TALLES_ADULTO.reduce((s, t) => s + (ss.adultos[t]?.[v] ?? 0), 0);
       return `<tr><td>${LABEL_VARIANTE[v]}</td>${cells}<td><strong>${sub}</strong></td></tr>`;
     }).join('');
+    const ninoRows = VARIANTES_NINO.map(v => {
+      const cells = TALLES_NINO.map(t => `<td>${ss.ninos[t]?.[v] ?? 0}</td>`).join('');
+      const sub = TALLES_NINO.reduce((s, t) => s + (ss.ninos[t]?.[v] ?? 0), 0);
+      return `<tr><td>${LABEL_VARIANTE_NINO[v]}</td>${cells}<td><strong>${sub}</strong></td></tr>`;
+    }).join('');
     const totsPorTalle = TALLES_ADULTO.map(t =>
       VARIANTES.reduce((s, v) => s + (ss.adultos[t]?.[v] ?? 0), 0));
     const totAdulto = totsPorTalle.reduce((s, q) => s + q, 0);
     const totTotes  = (ss.totes.silla || 0) + (ss.totes.vereda || 0);
-    const totNinos  = TALLES_NINO.reduce((s, t) => s + (ss.ninos?.[t] ?? 0), 0);
+    const totNinos  = TALLES_NINO.reduce((s, t) => s + totalNinoTalle(ss.ninos, t), 0);
 
     snapshotSection = `
       <h3>Stock verificado en este control</h3>
@@ -2989,8 +3149,9 @@ window.descargarAuditoriaPDF = function(id) {
       </table>
       <h4>👶 Remeras Niñxs</h4>
       <table>
-        <thead><tr>${TALLES_NINO.map(t=>`<th>T${t}</th>`).join('')}<th>Total</th></tr></thead>
-        <tbody><tr>${TALLES_NINO.map(t=>`<td>${ss.ninos?.[t]??0}</td>`).join('')}<td><strong>${totNinos}</strong></td></tr></tbody>
+        <thead><tr><th>Diseño</th>${TALLES_NINO.map(t=>`<th>T${t}</th>`).join('')}<th>Sub</th></tr></thead>
+        <tbody>${ninoRows}</tbody>
+        <tfoot><tr><td><strong>Total</strong></td>${TALLES_NINO.map(t=>`<td><strong>${totalNinoTalle(ss.ninos, t)}</strong></td>`).join('')}<td><strong>${totNinos}</strong></td></tr></tfoot>
       </table>`;
   }
 
@@ -3014,12 +3175,12 @@ window.descargarAuditoriaPDF = function(id) {
     .footer{margin-top:24px;color:#aaa;font-size:9px}
     @media print{body{padding:0}}
   </style></head><body>
-  <h1>🐐 Cayo la Cabra — Control de Stock</h1>
+  <h1>🐐 Cayó la Cabra — Control de Stock</h1>
   <h2>📅 ${a.fecha}</h2>
   ${motivoSection}
   ${ajustesSection}
   ${snapshotSection}
-  <p class="footer">Generado desde la app de stock · Cayo la Cabra</p>
+  <p class="footer">Generado desde la app de stock · Cayó la Cabra</p>
   <script>window.onload=()=>window.print()<\/script>
   </body></html>`;
 
@@ -3123,7 +3284,7 @@ document.getElementById('btn-confirmar-ingreso').addEventListener('click', () =>
       estado.totes[it.modelo] = (estado.totes[it.modelo] || 0) + it.cantidad;
     } else if (it.tipo === 'nino') {
       const vn = it.variante || 'reposeraRoja';
-      if (!estado.ninos[it.talle] || typeof estado.ninos[it.talle] === 'number') estado.ninos[it.talle] = { reposeraRoja: 0, cabraBlanca: 0 };
+      if (!estado.ninos[it.talle] || typeof estado.ninos[it.talle] === 'number') estado.ninos[it.talle] = { reposeraRoja: 0, cabraNegra: 0 };
       estado.ninos[it.talle][vn] = (estado.ninos[it.talle][vn] || 0) + it.cantidad;
     }
   });
