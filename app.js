@@ -634,11 +634,8 @@ function claseStock(n) {
 // la venta descuenta igual y el stock queda en negativo.
 function confirmarVentaSinStock(disponible, cant) {
   return confirm(
-    `⚠️ SIN STOCK EN EL SISTEMA\n\n` +
-    `De este ítem figuran ${disponible} y estás por vender ${cant}.\n` +
-    `Puede ser un error de conteo o de carga de ventas.\n\n` +
-    `Si continuás, la venta se registra igual y el stock queda en ${disponible - cant}.\n\n` +
-    `¿Registrar la venta?`
+    `⚠️ Vas a registrar una venta de algo que no figura en stock (figuran ${disponible}).\n\n` +
+    `¿Deseás continuar?`
   );
 }
 
@@ -3614,7 +3611,7 @@ function renderVR() {
       <label class="vr-precio-lbl">$ <input type="number" id="vr-precio" class="vr-precio" value="${precio}" min="0" inputmode="numeric" /> c/u</label>
       <span class="vr-total">Total: <strong id="vr-total-monto">${formatPeso(precio * vrSel.cant)}</strong></span>
     </div>
-    ${sinStock ? `<p class="vr-sin-stock">⚠️ Sin stock en el sistema (figuran ${disp}) — podés vender igual, te va a pedir confirmación</p>` : ''}`;
+    ${sinStock ? `<p class="vr-sin-stock">⚠️ Sin stock en el sistema (figuran ${disp})</p>` : ''}`;
 
   const pagosHtml = `
     <div class="vr-pagos${puede ? '' : ' vr-pagos-off'}">
