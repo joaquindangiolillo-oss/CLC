@@ -681,7 +681,7 @@ function renderIngresos() {
   lista.innerHTML = sorted.map(ing => {
     const resumen = (ing.items || []).map(it => (it.cantidad > 1 ? `${it.cantidad}× ` : '') + _itemDesc(it)).join(' · ');
     const invertido = (ing.items || []).reduce((s, it) => s + (it.costoUnit != null ? it.costoUnit * (it.cantidad || 1) : 0), 0);
-    const monCosto = (ing.monedaCosto || 'ARS') === 'UYU' ? ' UYU' : '';
+    const monCosto = (ing.monedaCosto || 'UYU') === 'UYU' ? ' UYU' : '';
     return `<div class="ing-historial-item">
       <div class="ing-item-main">
         <span class="ing-item-desc">${resumen || '—'}</span>
@@ -3035,8 +3035,8 @@ document.getElementById('btn-registrar-ingreso').addEventListener('click', () =>
   document.getElementById('ing-cantidad').value  = 1;
   document.getElementById('ing-costo').value     = '';
   document.getElementById('ing-nota').value      = '';
-  const arsRadio = document.querySelector('input[name="ing-moneda-costo"][value="ARS"]');
-  if (arsRadio) arsRadio.checked = true;
+  const uyuCostoRadio = document.querySelector('input[name="ing-moneda-costo"][value="UYU"]');
+  if (uyuCostoRadio) uyuCostoRadio.checked = true;
   document.getElementById('ing-error').classList.add('hidden');
   ['ing-campos-adulto','ing-campos-nino','ing-campos-tote'].forEach(id =>
     document.getElementById(id).classList.add('hidden'));
@@ -3129,7 +3129,7 @@ document.getElementById('btn-confirmar-ingreso').addEventListener('click', () =>
   });
 
   const nota = document.getElementById('ing-nota').value.trim();
-  const monedaCosto = document.querySelector('input[name="ing-moneda-costo"]:checked')?.value || 'ARS';
+  const monedaCosto = document.querySelector('input[name="ing-moneda-costo"]:checked')?.value || 'UYU';
   const fecha = new Date().toLocaleDateString('es-UY', { day:'2-digit', month:'2-digit', year:'numeric' });
   ingresos.push({ id: Date.now(), fecha, items: allItems, nota, monedaCosto });
 
@@ -3160,7 +3160,7 @@ function _cobradoPorMetodo(moneda, metodo) {
 // Total invertido en mercadería (ingresos con costo cargado) en una moneda
 function _invertido(moneda) {
   return ingresos
-    .filter(ing => (ing.monedaCosto || 'ARS') === moneda)
+    .filter(ing => (ing.monedaCosto || 'UYU') === moneda)
     .reduce((s, ing) => s + (ing.items || [])
       .reduce((is, it) => is + (it.costoUnit != null ? it.costoUnit * (it.cantidad || 1) : 0), 0), 0);
 }
@@ -3169,7 +3169,7 @@ function _invertido(moneda) {
 function _costosPromedio() {
   const acc = {};
   ingresos.forEach(ing => {
-    const mon = ing.monedaCosto || 'ARS';
+    const mon = ing.monedaCosto || 'UYU';
     (ing.items || []).forEach(it => {
       if (it.costoUnit == null) return;
       if (!acc[it.tipo]) acc[it.tipo] = {};
@@ -3593,7 +3593,7 @@ function resumenTemporada(t) {
   const rec = mon => ventas.filter(h => (h.moneda || 'ARS') === mon).reduce((s, h) => s + (h.ingreso ?? 0), 0)
     + (t.pedidos || []).filter(p => (p.moneda || 'UYU') === mon)
         .reduce((s, p) => s + (p.pagos || []).reduce((ps, pg) => ps + pg.monto, 0), 0);
-  const inv = mon => (t.ingresos || []).filter(i => (i.monedaCosto || 'ARS') === mon)
+  const inv = mon => (t.ingresos || []).filter(i => (i.monedaCosto || 'UYU') === mon)
     .reduce((s, i) => s + (i.items || []).reduce((is, it) => is + (it.costoUnit != null ? it.costoUnit * (it.cantidad || 1) : 0), 0), 0);
   const regalos  = ventas.reduce((s, h) => h.pago === 'regalo'  ? s + h.cantidad : s, 0);
   const perdidas = ventas.reduce((s, h) => h.pago === 'perdida' ? s + h.cantidad : s, 0);
